@@ -1,3 +1,16 @@
+Metadata-Version: 2.1
+Name: ageUpscaling
+Version: 0.0.0
+Author: Simon Besnard
+Author-email: besnard.sim@gmail.com
+License: GNU GPLv3
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
 # Python routines for upscaling forest age maps at global scale
 <p align="center">
 <a href="https://github.com/southpolecarbon/methane_reduction">
