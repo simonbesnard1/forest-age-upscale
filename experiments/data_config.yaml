@@ -1,0 +1,31 @@
+# Features
+features:
+  - agb
+  - AnnualMeanTemperature
+  - AnnualPrecipitation
+  - Isothermality
+  - MaxTemperatureofWarmestMonth
+  - MeanDiurnalRange
+  - MeanTemperatureofColdestQuarter
+  - MeanTemperatureofDriestQuarter  
+  - MeanTemperatureofWarmestQuarter
+  - MeanTemperatureofWettestQuarter
+  - MinTemperatureofColdestMonth
+  - PrecipitationofColdestQuarter
+  - PrecipitationofDriestMonth
+  - PrecipitationofDriestQuarter
+  - PrecipitationofWarmestQuarter
+  - PrecipitationofWettestMonth
+  - PrecipitationofWettestQuarter
+  - PrecipitationSeasonality
+  - TemperatureAnnualRange
+  - TemperatureSeasonality
+  - srad
+  - vapr
+  - wind
+
+# Target
+target:
+  - age
+
+  

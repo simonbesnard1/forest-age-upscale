@@ -36,15 +36,16 @@ class MLPregression(MLMethod):
             save_dir=save_dir)
     
         self.model = MLPRegressor(
-            hidden_layer_sizes=(hyper_params['first_layer_neurons'], hyper_params['second_layer_neurons']),
-            learning_rate_init=hyper_params['learning_rate_init'],
-            activation=hyper_params['activation'],
-            batch_size=hyper_params['batch_size'],
-            random_state=1,
-            max_iter=100, 
-            early_stopping= True, 
-            validation_fraction = 0.3
-        )
+                                hidden_layer_sizes=(hyper_params['first_layer_neurons'], 
+                                                    hyper_params['second_layer_neurons']),
+                                learning_rate_init=hyper_params['learning_rate_init'],
+                                activation=hyper_params['activation'],
+                                batch_size=hyper_params['batch_size'],
+                                random_state=1,
+                                max_iter=100, 
+                                early_stopping= True, 
+                                validation_fraction = 0.3
+                                )
         
             
         
