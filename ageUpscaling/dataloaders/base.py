@@ -17,7 +17,7 @@ class MLData:
     Parameters:
         cube_path: str
             Path to the datacube.
-        data_config: DataConfig
+        data_config: dict
             The data configuration.
         subset: Dict[str, Any]:
             Subset selection.
@@ -33,7 +33,7 @@ class MLData:
         self.cube_path = cube_path
         self.subset = subset
         self.data_config = data_config
-        
+                
     def get_x(self,
               features:dict,
               standardize:bool):
@@ -48,13 +48,13 @@ class MLData:
         
         data = xr.open_dataset(self.cube_path).sel(spatial_cluster = self.subset)
 
-        X = data[features].to_array()
+        X = data[features]
         
         if standardize:
             for var_ in list(X.keys()):
                 X[var_] = self.standardize(X[var_])
         
-        return X.to_array().transpose('plot', 'sample', 'variable').to_numpy()
+        return X.to_array().transpose('plot', 'sample', 'variable').values
 
     def get_y(self,
               target)-> Tuple[ArrayLike, ArrayLike, int]:
@@ -68,7 +68,7 @@ class MLData:
         """
         Y = xr.open_dataset(self.cube_path).sel(spatial_cluster = self.subset)[target]
         
-        return Y.values
+        return Y.to_array().values
     
     def standardize(self, x):
         return (x - np.nanmean(x)) / np.nanstd(x)
@@ -76,11 +76,11 @@ class MLData:
     def get_xy(self, 
                standardize:bool=True):
         
-        self.y = self.get_y(target=self.data_config['target'])
+        self.y = self.get_y(target=self.data_config['target']).reshape(-1)
         self.x = self.get_x(features= self.data_config['features'],
-                            standardize= standardize)
+                            standardize= standardize).reshape(-1, len(self.data_config['features']))
         mask_nan = (np.all(np.isfinite(self.x), axis=1)) & (np.isfinite(self.y))
         self.x, self.y = self.x[mask_nan, :], self.y[mask_nan]
         
-        return self.x.astype('float32'), self.y.astype('float32')
+        return {'features' : self.x.astype('float32'), "target": self.y.astype('float32')}
     

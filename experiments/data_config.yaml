@@ -1,0 +1,50 @@
+# Features
+features:
+  - agb
+  - AnnualMeanTemperature
+  - AnnualPrecipitation
+  - Isothermality
+  - MaxTemperatureofWarmestMonth
+  - MeanDiurnalRange
+  - MeanTemperatureofColdestQuarter
+  - MeanTemperatureofDriestQuarter  
+  - MeanTemperatureofWarmestQuarter
+  - MeanTemperatureofWettestQuarter
+  - MinTemperatureofColdestMonth
+  - PrecipitationofColdestQuarter
+  - PrecipitationofDriestMonth
+  - PrecipitationofDriestQuarter
+  - PrecipitationofWarmestQuarter
+  - PrecipitationofWettestMonth
+  - PrecipitationofWettestQuarter
+  - PrecipitationSeasonality
+  - TemperatureAnnualRange
+  - TemperatureSeasonality
+  - AnnualSrad
+  - AnnualWind
+  - AnnualVapr
+
+# Target
+target:
+  - age
+  
+hyper_params:
+  learning_rate_init: 
+    min: 0.0001
+    max: 0.1
+    step: 0.005
+  first_layer_neurons:
+    min: 10
+    max: 100
+    step: 10
+  second_layer_neurons:
+    min: 10
+    max: 100
+    step: 10
+  activation: ['identity', 'tanh', 'relu']
+  batch_size:
+    min: 16
+    max: 64
+    step: 16
+  
+  
