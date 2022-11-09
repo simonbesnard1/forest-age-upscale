@@ -82,7 +82,7 @@ class MLPmethod:
             os.makedirs(self.save_dir + '/save_model/{method}/'.format(method = mlp_method))
         
         study = optuna.create_study(study_name = 'hpo_ForestAge', 
-                                    storage='sqlite:///' + self.save_dir + '/save_model/{method}//hp_trial.db'.format(method = mlp_method),
+                                    storage='sqlite:///' + self.save_dir + '/save_model/{method}/hp_trial.db'.format(method = mlp_method),
                                     pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
                                                                                    reduction_factor=4, 
                                                                                    min_early_stopping_rate=0),
@@ -90,7 +90,7 @@ class MLPmethod:
         study.optimize(lambda trial: self.hp_search(trial, mlp_method, self.data_config, mldata, self.save_dir), 
                        n_trials=300, n_jobs=4)
         
-        with open(self.save_dir + "/save_model/model_trial_{}.pickle".format(study.best_trial.number), "rb") as fin:
+        with open(self.save_dir + "/'/save_model/{method}/model_trial_{id_}.pickle".format(method = mlp_method, id_ = study.best_trial.number), "rb") as fin:
             self.best_model = pickle.load(fin)            
             
     def hp_search(self, 
@@ -132,7 +132,7 @@ class MLPmethod:
         
         model_.fit(mldata.train_dataloader().get_xy()['features'], mldata.train_dataloader().get_xy()['target'])
         
-        with open(save_dir + '/save_model/model_trial{}.pickle'.format(trial.number), "wb") as fout:
+        with open(save_dir + "/save_model/{method}/model_trial_{id_}.pickle".format(method = mlp_method, id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)
         
         if trial.should_prune():
