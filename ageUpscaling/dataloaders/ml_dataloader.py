@@ -24,7 +24,7 @@ class MLDataModule:
     def __init__(
             self,
             cube_path: str,
-            data_config_path: str = '',
+            data_config: dict[str, Any] = {},
             train_subset: dict[str, Any] = {},
             valid_subset: dict[str, Any] = {},
             test_subset: dict[str, Any] = {},
@@ -33,7 +33,7 @@ class MLDataModule:
 
         
         self.cube_path = cube_path
-        self.data_config_path = data_config_path
+        self.data_config = data_config
         self.train_subset = train_subset
         self.valid_subset = valid_subset
         self.test_subset = test_subset
@@ -43,21 +43,21 @@ class MLDataModule:
         """Returns the training dataloader."""
 
 
-        train_data = MLData(self.cube_path,self.train_subset, self.data_config_path)
+        train_data = MLData(self.cube_path,self.train_subset, self.data_config)
             
         return train_data
 
     def val_dataloader(self) -> np.array:
         """Returns the validation dataloader."""
 
-        valid_data = MLData(self.cube_path,self.valid_subset, self.data_config_path)
+        valid_data = MLData(self.cube_path,self.valid_subset, self.data_config)
             
         return valid_data  
 
     def test_dataloader(self) -> np.array:
         """Returns the test dataloader."""
 
-        test_data = MLData(self.cube_path,self.test_subset, self.data_config_path)
+        test_data = MLData(self.cube_path,self.test_subset, self.data_config)
             
         return test_data
 

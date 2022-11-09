@@ -10,7 +10,6 @@ from numpy.typing import ArrayLike
 import numpy as np
 from typing import Any
 import xarray as xr
-import yaml as yml
 
 class MLData:
     """A dataset defines how samples are generated.
@@ -18,7 +17,7 @@ class MLData:
     Parameters:
         cube_path: str
             Path to the datacube.
-        data_config: DataConfig
+        data_config: dict
             The data configuration.
         subset: Dict[str, Any]:
             Subset selection.
@@ -27,15 +26,14 @@ class MLData:
         self,
         cube_path:str, 
         subset: dict[str, Any] = {}, 
-        data_config_path: str = ''):
+        data_config: dict[str, Any] = {}):
     
         super().__init__()
         
         self.cube_path = cube_path
         self.subset = subset
-        with open(data_config_path, 'r') as f:
-            self.data_config =  yml.safe_load(f)
-        
+        self.data_config = data_config
+                
     def get_x(self,
               features:dict,
               standardize:bool):
@@ -84,5 +82,5 @@ class MLData:
         mask_nan = (np.all(np.isfinite(self.x), axis=1)) & (np.isfinite(self.y))
         self.x, self.y = self.x[mask_nan, :], self.y[mask_nan]
         
-        return self.x.astype('float32'), self.y.astype('float32')
+        return {'features' : self.x.astype('float32'), "target": self.y.astype('float32')}
     
