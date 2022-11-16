@@ -52,7 +52,8 @@ setuptools.setup(
         "Boruta==0.3",
         "numpy==1.23.4",
         "netCDF4==1.6.1",
-        "optuna==3.0.3"
-    ],
+        "optuna==3.0.3",
+        "rasterio==1.3.3",
+        "matplotlib==3.6.2"],
     include_package_data=True,
 )

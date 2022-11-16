@@ -57,7 +57,9 @@ class MLData:
         return X.to_array().transpose('plot', 'sample', 'variable').values
 
     def get_y(self,
-              target)-> Tuple[ArrayLike, ArrayLike, int]:
+              target,
+              method,
+              max_forest_age)-> Tuple[ArrayLike, ArrayLike, int]:
         
         """
         Method to get the target.
@@ -66,9 +68,19 @@ class MLData:
         ------
         y (np.array): the target 
         """
-        Y = xr.open_dataset(self.cube_path).sel(spatial_cluster = self.subset)[target]
+        Y = np.round(xr.open_dataset(self.cube_path).sel(spatial_cluster = self.subset)[target])
         
-        return Y.to_array().values
+        if method == 'MLPClassifier':
+            Y = Y.to_array().values
+            mask_old = Y== max_forest_age
+            mask_young = Y<max_forest_age
+            Y[mask_old] = 1
+            Y[mask_young] = 0    
+        
+        elif method == 'MLPRegressor':
+            Y = Y.where(Y<max_forest_age).to_array().values
+        
+        return Y
     
     def standardize(self, x):
         return (x - np.nanmean(x)) / np.nanstd(x)
@@ -76,11 +88,13 @@ class MLData:
     def get_xy(self, 
                standardize:bool=True):
         
-        self.y = self.get_y(target=self.data_config['target']).reshape(-1)
+        self.y = self.get_y(target=self.data_config['target'], 
+                            method = self.data_config['method'][0], 
+                            max_forest_age =self.data_config['max_forest_age'][0]).reshape(-1)
         self.x = self.get_x(features= self.data_config['features'],
                             standardize= standardize).reshape(-1, len(self.data_config['features']))
         mask_nan = (np.all(np.isfinite(self.x), axis=1)) & (np.isfinite(self.y))
         self.x, self.y = self.x[mask_nan, :], self.y[mask_nan]
-        
-        return {'features' : self.x.astype('float32'), "target": self.y.astype('float32')}
+         
+        return {'features' : self.x.astype('float32'), "target": self.y.astype('int')}
     
