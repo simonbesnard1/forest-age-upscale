@@ -69,7 +69,6 @@ class MLPmethod:
         
     def train(self, 
               cube_path:np.array = [], 
-              mlp_method:str = 'MLPRegressor', 
               train_subset:dict={},
               valid_subset:dict={}) -> None:
 
@@ -78,24 +77,23 @@ class MLPmethod:
                                      train_subset=train_subset,
                                      valid_subset=valid_subset)
 
-        if not os.path.exists(self.save_dir + '/save_model/{method}/'.format(method = mlp_method)):
-            os.makedirs(self.save_dir + '/save_model/{method}/'.format(method = mlp_method))
+        if not os.path.exists(self.save_dir + '/save_model/{method}/'.format(method = self.data_config['method'][0])):
+            os.makedirs(self.save_dir + '/save_model/{method}/'.format(method = self.data_config['method'][0]))
         
         study = optuna.create_study(study_name = 'hpo_ForestAge', 
-                                    storage='sqlite:///' + self.save_dir + '/save_model/{method}/hp_trial.db'.format(method = mlp_method),
+                                    storage='sqlite:///' + self.save_dir + '/save_model/{method}/hp_trial.db'.format(method = self.data_config['method'][0]),
                                     pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
                                                                                    reduction_factor=4, 
                                                                                    min_early_stopping_rate=0),
                                     direction='minimize')
-        study.optimize(lambda trial: self.hp_search(trial, mlp_method, self.data_config, mldata, self.save_dir), 
+        study.optimize(lambda trial: self.hp_search(trial, self.data_config, mldata, self.save_dir), 
                        n_trials=300, n_jobs=4)
         
-        with open(self.save_dir + "/'/save_model/{method}/model_trial_{id_}.pickle".format(method = mlp_method, id_ = study.best_trial.number), "rb") as fin:
+        with open(self.save_dir + "/'/save_model/{method}/model_trial_{id_}.pickle".format(method = self.data_config['method'][0], id_ = study.best_trial.number), "rb") as fin:
             self.best_model = pickle.load(fin)            
             
     def hp_search(self, 
                    trial: optuna.Trial,
-                   mlp_method:str,
                    data_config:dict,
                    mldata:dict,
                    save_dir:str) -> float:
@@ -104,13 +102,16 @@ class MLPmethod:
             'learning_rate_init': trial.suggest_float('learning_rate_init ', data_config['hyper_params']['learning_rate_init']['min'], data_config['hyper_params']['learning_rate_init']['max'], step=data_config['hyper_params']['learning_rate_init']['step']),
             'first_layer_neurons': trial.suggest_int('first_layer_neurons', data_config['hyper_params']['first_layer_neurons']['min'], data_config['hyper_params']['first_layer_neurons']['max'], step=data_config['hyper_params']['first_layer_neurons']['step']),
             'second_layer_neurons': trial.suggest_int('second_layer_neurons', data_config['hyper_params']['second_layer_neurons']['min'], data_config['hyper_params']['second_layer_neurons']['max'], step=data_config['hyper_params']['second_layer_neurons']['step']),
+            'third_layer_neurons': trial.suggest_int('third_layer_neurons', data_config['hyper_params']['third_layer_neurons']['min'], data_config['hyper_params']['third_layer_neurons']['max'], step=data_config['hyper_params']['third_layer_neurons']['step']),
             'activation': trial.suggest_categorical('activation', data_config['hyper_params']['activation']),
             'batch_size': trial.suggest_int('batch_size', data_config['hyper_params']['batch_size']['min'], data_config['hyper_params']['batch_size']['max'], step=data_config['hyper_params']['batch_size']['step'])}
         
-        if mlp_method == "MLPRegressor": 
+        if self.data_config['method'][0] == "MLPRegressor": 
             model_ = MLPRegressor(
                         hidden_layer_sizes=(hyper_params['first_layer_neurons'], 
-                                           hyper_params['second_layer_neurons']),
+                                            hyper_params['second_layer_neurons'],
+                                            hyper_params['third_layer_neurons'],
+                                            ),
                        learning_rate_init=hyper_params['learning_rate_init'],
                        activation=hyper_params['activation'],
                        batch_size=hyper_params['batch_size'],
@@ -118,7 +119,7 @@ class MLPmethod:
                        max_iter=100, 
                        early_stopping= True, 
                        validation_fraction = 0.3)
-        elif mlp_method == "MLPClassifier": 
+        elif self.data_config['method'][0] == "MLPClassifier": 
             model_ = MLPClassifier(
                         hidden_layer_sizes=(hyper_params['first_layer_neurons'], 
                                            hyper_params['second_layer_neurons']),
@@ -132,15 +133,15 @@ class MLPmethod:
         
         model_.fit(mldata.train_dataloader().get_xy()['features'], mldata.train_dataloader().get_xy()['target'])
         
-        with open(save_dir + "/save_model/{method}/model_trial_{id_}.pickle".format(method = mlp_method, id_ = trial.number), "wb") as fout:
+        with open(save_dir + "/save_model/{method}/model_trial_{id_}.pickle".format(method = self.data_config['method'][0], id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)
         
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
             
-        if mlp_method == "MLPRegressor":
+        if self.data_config['method'][0] == "MLPRegressor":
             loss_ = mean_squared_error(mldata.val_dataloader().get_xy()['target'], model_.predict(mldata.val_dataloader().get_xy()['features']), squared=False)
-        if mlp_method == "MLPClassifier":            
+        if self.data_config['method'][0] == "MLPClassifier":            
             loss_ =  log_loss(mldata.val_dataloader().get_xy()['target'], model_.predict(mldata.val_dataloader().get_xy()['features']))
         
         return loss_

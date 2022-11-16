@@ -17,5 +17,4 @@ data_config_path= "/home/simon/Documents/science/GFZ/projects/forest_age_upscale
 
 #%% Run training
 mlp_method = MLPmethod(save_dir="/home/simon/Documents/science/GFZ/projects/forest_age_upscale/output/test_train/", data_config_path= data_config_path)
-
 mlp_method.train(cube_path=cube_path, train_subset=train_subset,valid_subset=valid_subset)
