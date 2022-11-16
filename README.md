@@ -8,7 +8,7 @@
 ***
 
 ## :notebook_with_decorative_cover: &nbsp;What is it?
-This Github repo contains all model training and inference for upscaling forest age maps
+This Github repo contains all model training and inference for upscaling of forest age products
 
 ## :trident: &nbsp;Contributing
 If you find something which doesn't make sense, or something doesn't seem right, please make a pull request and please add valid and well-reasoned explanations about your changes or comments.
