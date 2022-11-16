@@ -1,0 +1,28 @@
+# automatic pep8 compliance
+
+name: flake8-test
+on:
+  push:
+
+# this job automatically installs dependencies and runs flake8 test
+jobs:
+  flake8-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    # install Python
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.9
+  
+    # install dependencies
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install flake8
+  
+    # perform linting
+    - name: Lint with flake8
+      run: flake8 --exclude=__pycache__,.ipynb_checkpoints .

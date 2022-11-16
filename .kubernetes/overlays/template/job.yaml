@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job
+spec:
+  template:
+    spec:
+      containers:
+      - name: spearth
+        command:
+        - /bin/bash
+        - -c
+        - |
+          source /venv/bin/activate
+          python emailer.py ARGS
+        resources:
+          requests:
+            memory: "300Mi"
+            cpu: "1m"
+          limits:
+            memory: "500Mi"
+            cpu: "5m"

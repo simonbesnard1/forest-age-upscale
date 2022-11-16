@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job
+spec:
+  ttlSecondsAfterFinished: 259200
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: spearth
+        image: IMAGE
+        envFrom:
+        - secretRef:
+            name: env
+        volumeMounts:
+        - mountPath: /secret/spearth_sa.json
+          name: sa-volume
+          readOnly: true
+          subPath: spearth_sa.json
+        - mountPath: /secret/storagewriter_sa.json
+          name: storage-sa-volume
+          readOnly: true
+          subPath: storagewriter_sa.json
+      volumes:
+      - name: sa-volume
+        secret:
+          secretName: sa
+      - name: storage-sa-volume
+        secret:
+          secretName: storage-sa

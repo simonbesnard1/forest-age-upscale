@@ -1,0 +1,14 @@
+name: "Docker login"
+description: 'Authenticates docker for pulling/pushing to registry, needs google-github-actions/auth'
+
+runs:
+  using: 'composite'
+
+  steps:
+    - name: Set up Google Cloud CLI
+      uses: google-github-actions/setup-gcloud@v0.6.0
+
+    - name: Configure Docker to authenticate with Google Cloud CLI
+      run: |-
+        gcloud --quiet auth configure-docker
+      shell: bash

@@ -27,7 +27,8 @@ target:
   - age
 
 method:
-  - MLPClassifier
+  - MLPRegressor
+  
 max_forest_age:
   - 300
 hyper_params:

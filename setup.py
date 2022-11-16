@@ -47,11 +47,10 @@ setuptools.setup(
     python_requires='>=3.10',
     install_requires=[
         "xarray==2022.3.0",
-        "dask==2022.6.1", 
+        "dask==2022.11.0", 
         "scikit-learn==1.1.3",
         "Boruta==0.3",
         "numpy==1.23.4",
-        "netCDF4==1.6.1",
         "optuna==3.0.3",
         "rasterio==1.3.3",
         "matplotlib==3.6.2"],

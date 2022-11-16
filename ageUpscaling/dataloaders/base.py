@@ -26,17 +26,18 @@ class MLData:
         self,
         cube_path:str, 
         subset: dict[str, Any] = {}, 
-        data_config: dict[str, Any] = {}):
+        data_config: dict[str, Any] = {},
+        norm_stats: dict[str, dict[str, float]] = {}):
     
         super().__init__()
         
         self.cube_path = cube_path
         self.subset = subset
         self.data_config = data_config
+        self.norm_stats = norm_stats
                 
     def get_x(self,
-              features:dict,
-              standardize:bool):
+              features:dict):
 
         """
         Method to concatenate the features 
@@ -50,9 +51,7 @@ class MLData:
 
         X = data[features]
         
-        if standardize:
-            for var_ in list(X.keys()):
-                X[var_] = self.standardize(X[var_])
+        X = self.norm(X, self.norm_stats)
         
         return X.to_array().transpose('plot', 'sample', 'variable').values
 
@@ -68,7 +67,7 @@ class MLData:
         ------
         y (np.array): the target 
         """
-        Y = np.round(xr.open_dataset(self.cube_path).sel(spatial_cluster = self.subset)[target])
+        Y = xr.open_dataset(self.cube_path).sel(spatial_cluster = self.subset)[target]
         
         if method == 'MLPClassifier':
             Y = Y.to_array().values
@@ -80,21 +79,29 @@ class MLData:
         elif method == 'MLPRegressor':
             Y = Y.where(Y<max_forest_age).to_array().values
         
-        return Y
-    
-    def standardize(self, x):
-        return (x - np.nanmean(x)) / np.nanstd(x)
-        
-    def get_xy(self, 
+        return Y.reshape(-1)
+            
+    def get_xy(self,  
                standardize:bool=True):
         
         self.y = self.get_y(target=self.data_config['target'], 
-                            method = self.data_config['method'][0], 
-                            max_forest_age =self.data_config['max_forest_age'][0]).reshape(-1)
-        self.x = self.get_x(features= self.data_config['features'],
-                            standardize= standardize).reshape(-1, len(self.data_config['features']))
+                                          method = self.data_config['method'][0], 
+                                          max_forest_age =self.data_config['max_forest_age'][0])
+        
+        self.x = self.get_x(features= self.data_config['features']).reshape(-1, len(self.data_config['features']))
+        
         mask_nan = (np.all(np.isfinite(self.x), axis=1)) & (np.isfinite(self.y))
+        
         self.x, self.y = self.x[mask_nan, :], self.y[mask_nan]
          
-        return {'features' : self.x.astype('float32'), "target": self.y.astype('int')}
+        return {'features' : self.x.astype('float32'), "target": self.y.astype('float32'), 'norm_stats': self.norm_stats}
+    
+    def norm(self, 
+             x: xr.Dataset, 
+             norm_stats: dict) -> xr.Dataset:
+        
+        for var in x.data_vars:
+            x[var] = (x[var] - norm_stats[var]['mean']) / norm_stats[var]['std']
+
+        return x
     
