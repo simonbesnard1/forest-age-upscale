@@ -130,8 +130,9 @@ class MLPmethod:
                        max_iter=100, 
                        early_stopping= True, 
                        validation_fraction = 0.3)
+        train_data = mldata.train_dataloader().get_xy()
         
-        model_.fit(mldata.train_dataloader().get_xy()['features'], mldata.train_dataloader().get_xy()['target'])
+        model_.fit(train_data['features'], train_data['target'])
         
         with open(save_dir + "/save_model/{method}/model_trial_{id_}.pickle".format(method = self.data_config['method'][0], id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)

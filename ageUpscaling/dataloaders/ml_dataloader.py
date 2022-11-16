@@ -1,7 +1,7 @@
 from typing import Any
 import numpy as np
+import xarray as xr
 from ageUpscaling.dataloaders.base import MLData
-
 
 class MLDataModule:
     """Define dataloaders.
@@ -28,6 +28,7 @@ class MLDataModule:
             train_subset: dict[str, Any] = {},
             valid_subset: dict[str, Any] = {},
             test_subset: dict[str, Any] = {},
+            norm_stats: dict[str, dict[str, float]] = {},
             **kwargs) -> None:
         super().__init__()
 
@@ -37,27 +38,36 @@ class MLDataModule:
         self.train_subset = train_subset
         self.valid_subset = valid_subset
         self.test_subset = test_subset
+        self.norm_stats = norm_stats
         self._kwargs = kwargs
+        
+        if len(self.norm_stats) == 0:
+
+            for var in self.data_config['features'] + self.data_config["target"]:
+                data = xr.open_dataset(self.cube_path).sel(spatial_cluster = train_subset)[var]
+                data_mean = data.mean().compute().item()
+                data_std = data.std().compute().item()
+                self.norm_stats[var] = {'mean': data_mean, 'std': data_std}
 
     def train_dataloader(self) -> np.array:
         """Returns the training dataloader."""
 
 
-        train_data = MLData(self.cube_path,self.train_subset, self.data_config)
+        train_data = MLData(self.cube_path,self.train_subset, self.data_config, self.norm_stats)        
             
         return train_data
 
     def val_dataloader(self) -> np.array:
         """Returns the validation dataloader."""
 
-        valid_data = MLData(self.cube_path,self.valid_subset, self.data_config)
+        valid_data = MLData(self.cube_path,self.valid_subset, self.data_config, self.norm_stats)
             
         return valid_data  
 
     def test_dataloader(self) -> np.array:
         """Returns the test dataloader."""
 
-        test_data = MLData(self.cube_path,self.test_subset, self.data_config)
+        test_data = MLData(self.cube_path,self.test_subset, self.data_config, self.norm_stats)
             
         return test_data
 
