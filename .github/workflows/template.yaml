@@ -1,0 +1,107 @@
+# This is an example workflow for building and running a job
+
+name: Workflow Template
+
+on:
+  workflow_dispatch:
+    inputs:
+      #-------------------------------------
+      # TEMPLATE: add your input fields here
+      recipientEmail:
+        description: 'Recipient Email'     
+        required: true
+      message:
+        description: 'Message'     
+        required: true
+      # TEMPLATE----------------------------
+      devOrProd:
+        description: 'run on development or production'     
+        required: true
+        default: 'development'
+
+env:
+  PROJECT_ID: marketk8
+  GKE_CLUSTER: memcalc
+  GKE_ZONE: europe-west3-c
+  IMAGE: template
+  NAMESPACE: methane-rice
+  ENVIRONMENT: "${{ github.event.inputs.devOrProd }}"
+  #-------------------------------------------------------------
+  # TEMPLATE: change the OVERLAY to your directory in "overlays"
+  OVERLAY: template
+  # TEMPATE-----------------------------------------------------
+
+jobs:
+  setup-build-publish-deploy:
+    name: Setup, Build, Publish, and Deploy
+    runs-on: ubuntu-latest
+    environment: "${{ github.event.inputs.devOrProd }}"
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    # Build the Docker image
+    - name: Build
+      run: |-
+        docker build \
+          -f docker/${OVERLAY}/Dockerfile \
+          --tag "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA" \
+          --build-arg GITHUB_SHA="$GITHUB_SHA" \
+          --build-arg GITHUB_REF="$GITHUB_REF" \
+          .
+
+    # Get the GKE credentials part 2
+    - uses: ./.github/actions/setup-k8s-google
+      with:
+        GKE_CLUSTER: ${{ env.GKE_CLUSTER }}
+        GKE_ZONE: ${{ env.GKE_ZONE }}
+        GKE_SA_KEY: ${{ secrets.GKE_SA_KEY }}
+
+    # Setup gcloud CLI
+    - uses: ./.github/actions/docker-login-google
+
+    # Push the Docker image to Google Container Registry
+    - name: Publish
+      run: |-
+        docker push "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
+
+    # Set up kustomize
+    - name: Set up Kustomize
+      run: |-
+        curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+        ./kustomize version
+
+    # Reveal secrets
+    - name: Reveal secrets
+      run: |-
+        sudo apt install ca-certificates git-secret
+        echo "${{ secrets.GPG_PRIVATE_KEY }}" > ./private_key.gpg
+        gpg --import ./private_key.gpg
+        git secret reveal
+
+    # Launch the kubernetes job on the cluster
+    # TEMPLATE: update parts of this section below:
+    - name: Launch Job
+      run: |-
+        #--------------------------------------------------
+        # TEMPLATE: provision your input fields from above:
+        EXAMPLE1="${{ github.event.inputs.message }}"
+        EXAMPLE2="${{ github.event.inputs.recipientEmail }}"
+        echo "This line writes the value of EXAMPLE1 to the action logs: $EXAMPLE1"
+        # TEMPLATE ----------------------------------------
+        DATE=`date +%Y%m%d-%H%M`
+        # set the docker image to the one that was just built
+        pushd .kubernetes/base && ../../kustomize edit set image IMAGE=gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA && popd
+        # append the current date to the job name:
+        pushd .kubernetes/overlays/${OVERLAY} && ../../../kustomize edit set namesuffix ${DATE} && popd
+        #--------------------------------------------------
+        # TEMPLATE: add your fields here:
+        # feed the action's arguments to the python script:
+        # (you can add more than two, e.g.: "s/ARGS/\"${EXAMPLE1}\" \"${EXAMPLE2}\" \"${EXAMPLE3}\"/g")
+        sed -i "s/ARGS/\"${EXAMPLE1}\" \"${EXAMPLE2}\"/g" .kubernetes/overlays/${OVERLAY}/job.yaml
+        # TEMPLATE-----------------------------------------
+        # set the database to dev or prod:
+        sed -i "s/env.development/env.${ENVIRONMENT}/g" .kubernetes/base/kustomization.yaml
+        # launch the job on kubernetes:
+        ./kustomize build .kubernetes/overlays/${OVERLAY} | kubectl apply -n $NAMESPACE -f -

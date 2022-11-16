@@ -1,0 +1,15 @@
+venv/
+docker-compose.yml
+Dockerfile
+.idea/
+.git
+.github
+.gitsecret
+docker
+.docker
+
+# all secrets in the repo
+**/*.secret
+
+kubernetes/
+.kubernetes
