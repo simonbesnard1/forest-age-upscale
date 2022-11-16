@@ -1,7 +1,7 @@
 # Python package for model training and upscaling forest age product
 <p align="center">
 <a href="https://git.gfz-potsdam.de/besnard/forest_age_upscale">
-    <img src="https://media.gfz-potsdam.de/gfz/wv/pic/Bildarchiv/gfz/GFZ-CD_LogoRGB_en.png" alt="Master">
+    <img src="https://media.gfz-potsdam.de/gfz/wv/pic/Bildarchiv/gfz/GFZ-CD_LogoRGB_en.png" alt="Master" height="158px" hspace="10px" vspace="0px" align="right">
   </a>
 </p>
 
