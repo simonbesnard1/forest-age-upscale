@@ -67,7 +67,7 @@ class MLData:
         ------
         y (np.array): the target 
         """
-        Y = np.round(xr.open_dataset(self.cube_path).sel(spatial_cluster = self.subset)[target])
+        Y = xr.open_dataset(self.cube_path).sel(spatial_cluster = self.subset)[target]
         
         if method == 'MLPClassifier':
             Y = Y.to_array().values
@@ -79,14 +79,14 @@ class MLData:
         elif method == 'MLPRegressor':
             Y = Y.where(Y<max_forest_age).to_array().values
         
-        return Y
+        return Y.reshape(-1)
             
     def get_xy(self,  
                standardize:bool=True):
         
         self.y = self.get_y(target=self.data_config['target'], 
-                            method = self.data_config['method'][0], 
-                            max_forest_age =self.data_config['max_forest_age'][0]).reshape(-1)
+                                          method = self.data_config['method'][0], 
+                                          max_forest_age =self.data_config['max_forest_age'][0])
         
         self.x = self.get_x(features= self.data_config['features']).reshape(-1, len(self.data_config['features']))
         
@@ -94,7 +94,7 @@ class MLData:
         
         self.x, self.y = self.x[mask_nan, :], self.y[mask_nan]
          
-        return {'features' : self.x.astype('float32'), "target": self.y.astype('int'), 'norm_stats': self.norm_stats}
+        return {'features' : self.x.astype('float32'), "target": self.y.astype('float32'), 'norm_stats': self.norm_stats}
     
     def norm(self, 
              x: xr.Dataset, 

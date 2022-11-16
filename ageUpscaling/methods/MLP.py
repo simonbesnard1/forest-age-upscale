@@ -70,13 +70,18 @@ class MLPmethod:
     def train(self, 
               cube_path:np.array = [], 
               train_subset:dict={},
-              valid_subset:dict={}) -> None:
+              valid_subset:dict={}, 
+              test_subset:dict={}) -> None:
 
-        mldata = self.get_datamodule(cube_path=cube_path,
-                                     data_config=self.data_config,
-                                     train_subset=train_subset,
-                                     valid_subset=valid_subset)
-
+        self.mldata = self.get_datamodule(cube_path=cube_path,
+                                         data_config=self.data_config,
+                                         train_subset=train_subset,
+                                         valid_subset=valid_subset,
+                                         test_subset=test_subset)
+        
+        train_data = self.mldata.train_dataloader().get_xy()
+        val_data = self.mldata.val_dataloader().get_xy()
+        
         if not os.path.exists(self.save_dir + '/save_model/{method}/'.format(method = self.data_config['method'][0])):
             os.makedirs(self.save_dir + '/save_model/{method}/'.format(method = self.data_config['method'][0]))
         
@@ -86,16 +91,17 @@ class MLPmethod:
                                                                                    reduction_factor=4, 
                                                                                    min_early_stopping_rate=0),
                                     direction='minimize')
-        study.optimize(lambda trial: self.hp_search(trial, self.data_config, mldata, self.save_dir), 
-                       n_trials=300, n_jobs=4)
+        study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.data_config, self.save_dir), 
+                       n_trials=2, n_jobs=4)
         
-        with open(self.save_dir + "/'/save_model/{method}/model_trial_{id_}.pickle".format(method = self.data_config['method'][0], id_ = study.best_trial.number), "rb") as fin:
+        with open(self.save_dir + "/save_model/{method}/model_trial_{id_}.pickle".format(method = self.data_config['method'][0], id_ = study.best_trial.number), "rb") as fin:
             self.best_model = pickle.load(fin)            
             
     def hp_search(self, 
                    trial: optuna.Trial,
+                   train_data:dict,
+                   val_data:dict,
                    data_config:dict,
-                   mldata:dict,
                    save_dir:str) -> float:
         
         hyper_params = {
@@ -130,8 +136,6 @@ class MLPmethod:
                        max_iter=100, 
                        early_stopping= True, 
                        validation_fraction = 0.3)
-        train_data = mldata.train_dataloader().get_xy()
-        
         model_.fit(train_data['features'], train_data['target'])
         
         with open(save_dir + "/save_model/{method}/model_trial_{id_}.pickle".format(method = self.data_config['method'][0], id_ = trial.number), "wb") as fout:
@@ -141,43 +145,22 @@ class MLPmethod:
             raise optuna.exceptions.TrialPruned()
             
         if self.data_config['method'][0] == "MLPRegressor":
-            loss_ = mean_squared_error(mldata.val_dataloader().get_xy()['target'], model_.predict(mldata.val_dataloader().get_xy()['features']), squared=False)
+            loss_ = mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False)
         if self.data_config['method'][0] == "MLPClassifier":            
-            loss_ =  log_loss(mldata.val_dataloader().get_xy()['target'], model_.predict(mldata.val_dataloader().get_xy()['features']))
+            loss_ =  log_loss(val_data['target'], model_.predict(val_data['features']))
         
         return loss_
     
-    def predict(self,
-                mldata:dict) -> np.array:
-            
-        pred_ = self.best_model.predict(mldata.test_dataloader().get_xy()['features'])
-                
-        return pred_
-    
     def predict_xr(
-            self,
-            x: xr.Dataset,
-            data_config: dict, 
-            device=None) -> xr.Dataset:
-
-        if 'sample' not in x.dim:
-            raise ValueError(
-                '`x` must have dimension \'sample\'.'
-            )
-
-        if 'time' not in x.dim:
-            raise ValueError(
-                '`x` must have dimension \'time\'.'
-            )
-
-        x, s = MLDataModule.x2mod(x=x, norm_stats=self.norm_stats)
-      
-        y_hat_norm = self.model(x)
-        y_hat = MLDataModule.denorm(y_hat_norm, norm_stats=self.norm_stats)
-
+            self, 
+            save_cube:str) -> xr.Dataset:
+        
+        test_data = self.mldata.val_dataloader().get_xy()
+        y_hat = self.best_model.predict(test_data["features"])
         preds = xr.Dataset()
-        for var in data_config.target:
-            preds[var.name] = xr.DataArray(y_hat, coords=[x.sample, x.time])
+        for var in self.data_config["target"]:
+            preds[var + "_predicted"] = xr.DataArray(y_hat)
+            preds[var] = xr.DataArray(test_data["target"])
 
         return preds
 
