@@ -1,7 +1,7 @@
-# Python routines for upscaling forest age maps at global scale
+# Python package for model training and upscaling forest age product
 <p align="center">
 <a href="https://git.gfz-potsdam.de/besnard/forest_age_upscale">
-    <img src="https://git.gfz-potsdam.de/besnard/forest_age_upscale/-/blob/main/img/gfz_logo.png" alt="Master">
+    <img src="https://media.gfz-potsdam.de/gfz/wv/pic/Bildarchiv/gfz/GFZ-CD_LogoRGB_en.png" alt="Master">
   </a>
 </p>
 
