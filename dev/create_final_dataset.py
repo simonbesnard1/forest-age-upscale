@@ -15,12 +15,13 @@ out_dir = '/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/tr
 
 # load dataset
 df_ = pd.read_csv("/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/training_data_ageMap_OG300.csv")
+df_ = df_.dropna()
 
 # Define long names
 long_names = {
         "age"  : "forest age at plot level",
         "agb"  : "above-ground biomass",
-        "tree_height" : "tree height",
+        #"tree_height" : "tree height",
         "AnnualMeanTemperature" : "Annual Mean Temperature - worldclim dataset",
         "MeanDiurnalRange" : " Mean Diurnal Range (Mean of monthly (max temp - min temp)) - worldclim dataset",
         "TemperatureSeasonality" : "Temperature Seasonality (standard deviation *100) - worldclim dataset",
@@ -47,7 +48,7 @@ long_names = {
 # Define units
 units = {"age"  : "years",
         "agb"  : "Mg ha-1",
-        "tree_height" : "meter",
+        #"tree_height" : "meter",
         "AnnualMeanTemperature" : "deg C",
         "MeanDiurnalRange" : "deg C",
         "TemperatureSeasonality" : "deg C",

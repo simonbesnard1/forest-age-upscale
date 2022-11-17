@@ -92,7 +92,7 @@ class MLPmethod:
                                                                                    min_early_stopping_rate=0),
                                     direction='minimize')
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.data_config, self.save_dir), 
-                       n_trials=200, n_jobs=4)
+                       n_trials=2, n_jobs=4)
         
         with open(self.save_dir + "/save_model/{method}/model_trial_{id_}.pickle".format(method = self.data_config['method'][0], id_ = study.best_trial.number), "rb") as fin:
             self.best_model = pickle.load(fin)            
@@ -155,13 +155,20 @@ class MLPmethod:
             self, 
             save_cube:str) -> xr.Dataset:
         
-        test_data = self.mldata.val_dataloader().get_xy()
-        y_hat = self.best_model.predict(test_data["features"])
-        preds = xr.Dataset()
-        for var in self.data_config["target"]:
-            preds[var + "_predicted"] = xr.DataArray(y_hat)
-            preds[var] = xr.DataArray(test_data["target"])
-
+        X = self.mldata.test_dataloader().get_x(features= self.data_config['features'])
+        Y = self.mldata.test_dataloader().get_y(target= self.data_config['target'], 
+                                                method= self.data_config['method'][0], 
+                                                max_forest_age= self.data_config['max_forest_age'])
+        
+        for cluster_ in np.arange(len(self.mldata.test_subset)):
+            X_cluster = X[cluster_, : , :].reshape(-1, len(self.data_config['features']))
+            Y_cluster = Y[:, cluster_, :].reshape(-1)
+            mask_nan = np.isfinite(Y_cluster)
+            y_hat = self.best_model.predict(X_cluster[mask_nan, :])
+            preds = xr.Dataset()
+            preds["forestAge_pred"] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+            preds["forestAge_obs"] = xr.DataArray([Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+       
         return preds
 
 
