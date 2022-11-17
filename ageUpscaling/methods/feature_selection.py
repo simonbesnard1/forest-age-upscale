@@ -71,7 +71,7 @@ class FeatureSelection(object):
             integer defining the number of jobs
             
         """
-        X = data[features].to_array().transpose('plot', 'sample', 'variable').values
+        X = data[features].to_array().transpose('cluster', 'sample', 'variable').values
         Y = data[target].values
         
         if self.model == "regression":
