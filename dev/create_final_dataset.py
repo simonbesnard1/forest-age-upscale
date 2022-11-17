@@ -14,7 +14,7 @@ CurrentScript = os.path.basename('/Net/Groups/BGI/work_2/FIDC_age_upscale/code/d
 out_dir = '/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/'
 
 # load dataset
-df_ = pd.read_csv("/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/training_data_ageMap_OG300_new.csv")
+df_ = pd.read_csv("/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/training_data_ageMap_OG300.csv")
 
 # Define long names
 long_names = {
@@ -72,23 +72,22 @@ units = {"age"  : "years",
         "AnnualVapr" : "hPa"}
 
 
-sites = df_.site.values
+sites = df_.cluster.values
 
 # build list of sub-arrays
 plot_ds = []
 for site in np.unique(sites):
     siteMask  = site==sites
-    coords = {'plot': [site], 'sample':np.arange(len(df_['agb'].values[siteMask]))}
+    coords = {'cluster': [site], 'sample':np.arange(len(df_['agb'].values[siteMask]))}
     ds = {}
     for _var in long_names.keys():
-        ds[_var] = (('plot', 'sample'), [df_[_var].values[siteMask]])
+        ds[_var] = (('cluster', 'sample'), [df_[_var].values[siteMask]])
     ds = xr.Dataset(data_vars=ds, coords=coords)  
     #ds = ds.expand_dims({'cluster':[site]})  
     ds = ds.assign_coords(latitude  =  np.unique(df_['latitude_origin'].values[siteMask]),
-                          longitude = np.unique(df_['longitude_origin'].values[siteMask]),
-                          spatial_cluster = np.unique(df_['cluster'].values[siteMask]) )
+                          longitude = np.unique(df_['longitude_origin'].values[siteMask]))
     plot_ds.append(ds)    
-plot_ds = xr.concat(plot_ds, dim= 'plot')
+plot_ds = xr.concat(plot_ds, dim= 'cluster')
 for _var in long_names.keys():
     plot_ds[_var] = plot_ds[_var].assign_attrs(long_name=long_names[_var],
                                                units=units[_var])
@@ -96,4 +95,4 @@ plot_ds = plot_ds.assign_attrs(title = "Training dataset for stand age upscaling
                      created_by='Simon Besnard',
                      contact = 'besnard@gfz-potsdam.de',
                      creation_date=datetime.now().strftime("%d-%m-%Y %H:%M"))
-plot_ds.to_netcdf(out_dir + '/training_data_ageMap_OG300_new.nc', mode='w')
+plot_ds.to_netcdf(out_dir + '/training_data_ageMap_OG300.nc', mode='w')

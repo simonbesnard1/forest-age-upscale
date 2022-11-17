@@ -8,13 +8,13 @@ Created on Wed Nov  9 16:10:01 2022
 
 #%% Load library
 from ageUpscaling.methods.MLP import MLPmethod
+import numpy as np
 
 #%% Load config files
-cube_path = "/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/training_data_ageMap_OG300.nc"
-train_subset= [1, 2, 3, 4]
-valid_subset= [5, 6, 7, 8]
-test_subset= [10, 11, 12, 14]
-
+cube_path = "/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/training_data_ageMap_OG300_fullFIA.nc"
+train_subset= np.arange(1, 47)
+valid_subset= np.arange(47, 100)
+test_subset= np.arange(101, 143)
 data_config_path= "/home/simon/Documents/science/GFZ/projects/forest_age_upscale/experiments/data_config.yaml"
 
 #%% Run training

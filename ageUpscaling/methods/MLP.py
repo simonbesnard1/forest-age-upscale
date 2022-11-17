@@ -92,7 +92,7 @@ class MLPmethod:
                                                                                    min_early_stopping_rate=0),
                                     direction='minimize')
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.data_config, self.save_dir), 
-                       n_trials=2, n_jobs=4)
+                       n_trials=200, n_jobs=4)
         
         with open(self.save_dir + "/save_model/{method}/model_trial_{id_}.pickle".format(method = self.data_config['method'][0], id_ = study.best_trial.number), "rb") as fin:
             self.best_model = pickle.load(fin)            
