@@ -47,13 +47,13 @@ class MLData:
         x (np.array): the concatenated features 
         """
         
-        data = xr.open_dataset(self.cube_path).sel(spatial_cluster = self.subset)
+        data = xr.open_dataset(self.cube_path).sel(cluster = self.subset)
 
         X = data[features]
         
         X = self.norm(X, self.norm_stats)
         
-        return X.to_array().transpose('plot', 'sample', 'variable').values
+        return X.to_array().transpose('cluster','sample', 'variable').values
 
     def get_y(self,
               target,
@@ -67,7 +67,7 @@ class MLData:
         ------
         y (np.array): the target 
         """
-        Y = xr.open_dataset(self.cube_path).sel(spatial_cluster = self.subset)[target]
+        Y = xr.open_dataset(self.cube_path).sel(cluster = self.subset)[target]
         
         if method == 'MLPClassifier':
             Y = Y.to_array().values

@@ -44,7 +44,7 @@ class MLDataModule:
         if len(self.norm_stats) == 0:
 
             for var in self.data_config['features'] + self.data_config["target"]:
-                data = xr.open_dataset(self.cube_path).sel(spatial_cluster = train_subset)[var]
+                data = xr.open_dataset(self.cube_path).sel(cluster = train_subset)[var]
                 data_mean = data.mean().compute().item()
                 data_std = data.std().compute().item()
                 self.norm_stats[var] = {'mean': data_mean, 'std': data_std}
