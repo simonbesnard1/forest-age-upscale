@@ -22,6 +22,43 @@ DEFAULT_COORDS = {'cluster': np.arange(1, 145),
 DEFAULT_CHUNKS = {'cluster': -1,
                   'sample': -1}
 
+def new_cube(cube_location, coords = None, chunks = None):
+    """new_cube(cube_location, sites = None, coords='default')
+    
+    Create a new zarr site cube.
+
+    Parameters
+    ----------
+    cube_location : str
+        location of cube
+    sites : str or list of str
+        a site code (e.g. DE-Hai) or list of site codes
+    coords : str or dict
+        a dictionary of coordinates to use
+
+    Notes
+    -----
+    Default coords are:
+    
+    DEFAULT_COORDS = {'cluster': np.arange(1, 145),
+                      'sample':np.arange(0, 65803)}
+    """    
+
+    _ds = []
+    encoding = {}
+    for dim in coords.keys():
+        _ds.append( xr.DataArray(coords={dim:coords[dim]}, dims=[dim]).chunk(chunks[dim]).rename(dim+'bnk') )
+
+    _ds = xr.merge(_ds)
+
+    for dim in coords.keys():
+        del(_ds[dim+'bnk'])
+
+    _ds.to_zarr(cube_location, encoding=encoding, consolidated=True)
+
+    return coords
+
+
 class Cube():
     """Cube(cube_location, coords='default', chunks='default', njobs=1)
 
@@ -55,7 +92,9 @@ class Cube():
         """
         Reloads the zarr file. If one does not yet exists, an empty one will be created.
         """
-        
+        if os.path.isdir(self.cube_location)==False:
+            coords = new_cube(self.cube_location, coords = self.coords, chunks = self.chunks)
+
         self.cube = xr.open_zarr(self.cube_location)
 
     def __init__(self, cube_location, coords='default', chunks='default', njobs=1):
@@ -153,6 +192,42 @@ class Cube():
                 out = list(map(self._init_zarr_variable, to_proc))
 
         self.cube = xr.open_zarr(self.cube_location)
+        
+    def _update_cube_DataArray(self, da):
+        """
+        Updates a single DataArray in the zarr cube. Data must be pre-sorted.
+        Inputs to the `update_cube` function ultimately are passed here.
+        """
+        
+        try:
+            _zarr = zarr.open_group(self.cube_location, synchronizer = synchronizer)[da.name]
+        except ValueError as e:
+            raise FileExistsError("cube_location already exists but is not a zarr group. Delete existing directory or choose a different cube_location: "+self.cube_location) from e
+        
+        idxs = tuple([np.where( np.isin(self.cube[dim].values, da[dim].values ) )[0] for dim in da.dims])
+
+        if len(_zarr.shape) != len(da.shape):
+            raise ValueError("Inconsistent dimensions. Array `{0}` to be saved has dimensions of {1}, but target dataset expected {2}.".format(da.name, da.dims, self.cube[da.name].dims))
+        try:
+            _zarr.set_orthogonal_selection(idxs, da.data)
+        except Exception as e:
+            raise RuntimeError("Failed to write variable to site_cube: "+str(da)) from e
+        
+    def _update(self, da, njobs=None):
+        """
+        Handles both Datasets and DataArrays.
+        """
+        if njobs is None:
+            njobs = self.njobs
+        update_function = self._update_cube_DataArray
+        if type(da) is xr.Dataset:
+            to_proc = [da[_var] for _var in (set(da.variables) - set(da.coords))]
+            out = async_run(update_function, to_proc, njobs)
+        elif type(da) is xr.DataArray:
+            update_function(da)
+        else:
+            raise RuntimeError("Input must be xr.Dataset or xr.DataArray objects")
+
 
     def update_cube(self, da, njobs=None, initialize=True, is_sorted=False):
         """update_cube(da, njobs=None, initialize=True, is_sorted=True)
@@ -178,34 +253,6 @@ class Cube():
         z : float
             describe what z is
 
-        See Also
-        --------
-        my_other_func : does something similar, but different
-
-        Notes            y_data = self.method.get_y(self.provider, self.data_config)
-            y_data = y_data.unstack().to_dataset('target')
-            _coords = y_data.drop([k for k in y_data.coords if k not in y_data.dims]).coords
-            y_attrs = {}
-            for _y_var in y_data:
-                y_attrs[_y_var] = self.provider.specify_variable(self.data_config.target._input[_y_var]).variant
-                y_data[_y_var]  = y_data[_y_var].assign_attrs(**y_attrs[_y_var])
-            _xval_cube = Cube(
-                "/scratch/dMRVCH4_tmp/Cube_check",
-                coords=_coords
-            )
-            _xval_cube.update_cube(
-                y_data,
-                njobs=self.n_jobs,
-                initialize=True,
-                is_sorted=False)
-        -----
-        This is an example of how to document a function. This also works for
-        other objects.
-
-        Examples
-        --------
-        >>> my_func(1, [1, 2], 'hello')  # noqa: F821
-        2.5
         """
         if njobs is None:
             njobs = self.njobs

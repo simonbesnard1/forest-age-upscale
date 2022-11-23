@@ -5,7 +5,6 @@ Created on Mon Nov 21 17:03:40 2022
 
 @author: simon
 """
-
 #%% Load library
 from ageUpscaling.cube.cube import Cube
 import xarray as xr
@@ -26,7 +25,3 @@ pred_cube = Cube('/home/simon/Documents/science/GFZ/projects/forest_age_upscale/
                  njobs=1,
                  coords={'cluster': cluster_,
                          'sample': sample_})
-
-# %% gapfill MCD43A data
-MCD43A_dat = []
-pred_cube.update_cube(MCD43A_dat, initialize=True, is_sorted=False, njobs=1)
