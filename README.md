@@ -13,7 +13,7 @@ This Github repo contains all model training and inference modules for upscaling
 ## :anger: &nbsp;Package installation
 You can install the python package as follows:
 ```
-pip install git+https://git.gfz-potsdam.de/{USER}/forest_age_upscale.git
+pip install git+https://git.gfz-potsdam.de/{USERNAME}/forest_age_upscale.git
 ```
 
 ## :notebook_with_decorative_cover: &nbsp;Getting started
