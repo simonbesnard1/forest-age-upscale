@@ -19,11 +19,7 @@ pip install git+https://git.gfz-potsdam.de/YOUR_UXER_NAME_HERE/forest_age_upscal
 ## :trident: &nbsp;Getting started
 #### Load package
 ```
-from splcClassifier.core.hpo_utils import hp_search_space
-from splcClassifier.core.data_config import DataConfig
-from splcClassifier.core.experiment import Experiment
-from splcClassifier.providers.base import BaseProvider
-from splcClassifier.eval.report import Report
+from ageUpscaling.core.experiment import Experiment
 ```
 #### Define experiments
 ```
