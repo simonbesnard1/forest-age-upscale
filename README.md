@@ -43,6 +43,6 @@ All **suggestions/PR** are welcome!
 ### Code Contributors
 This project exists thanks to all the people who contribute.
 
-## Contact person
+## :email: &nbsp;Contact person
 Simon Besnard (besnard@gfz-potsdam.de)
 
