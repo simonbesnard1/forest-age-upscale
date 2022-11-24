@@ -15,25 +15,21 @@ class MLData:
     """A dataset defines how samples are generated.
     
     Parameters:
-        cube_path: str
-            Path to the datacube.
-        data_config: dict
+        DataConfig: dict
             The data configuration.
         subset: Dict[str, Any]:
             Subset selection.
     """
     def __init__(
         self,
-        cube_path:str, 
+        DataConfig: dict[str, Any] = {},
         subset: dict[str, Any] = {}, 
-        data_config: dict[str, Any] = {},
         norm_stats: dict[str, dict[str, float]] = {}):
     
         super().__init__()
         
-        self.cube_path = cube_path
         self.subset = subset
-        self.data_config = data_config
+        self.DataConfig = DataConfig
         self.norm_stats = norm_stats
                 
     def get_x(self,
@@ -47,7 +43,7 @@ class MLData:
         x (np.array): the concatenated features 
         """
         
-        data = xr.open_dataset(self.cube_path).sel(cluster = self.subset)
+        data = xr.open_dataset(self.DataConfig['cube_path']).sel(cluster = self.subset)
 
         X = data[features]
         
@@ -67,7 +63,7 @@ class MLData:
         ------
         y (np.array): the target 
         """
-        Y = xr.open_dataset(self.cube_path).sel(cluster = self.subset)[target]
+        Y = xr.open_dataset(self.DataConfig['cube_path']).sel(cluster = self.subset)[target]
         
         if method == 'MLPClassifier':
             Y = Y.to_array().values
@@ -84,11 +80,11 @@ class MLData:
     def get_xy(self,  
                standardize:bool=True):
         
-        self.y = self.get_y(target=self.data_config['target'], 
-                            method = self.data_config['method'][0], 
-                            max_forest_age =self.data_config['max_forest_age'][0]).reshape(-1)
+        self.y = self.get_y(target=self.DataConfig['target'], 
+                            method = self.DataConfig['method'][0], 
+                            max_forest_age =self.DataConfig['max_forest_age'][0]).reshape(-1)
         
-        self.x = self.get_x(features= self.data_config['features']).reshape(-1, len(self.data_config['features']))
+        self.x = self.get_x(features= self.DataConfig['features']).reshape(-1, len(self.DataConfig['features']))
         
         mask_nan = np.isfinite(self.y)
         self.x, self.y = self.x[mask_nan, :], self.y[mask_nan]    

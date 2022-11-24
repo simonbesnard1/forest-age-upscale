@@ -5,10 +5,9 @@ __author_email__ = 'besnard.sim@gmail.com'
 __license__ = 'GNU GPLv3'
 __copyright__ = 'Copyright 2022 by GFZ-Potsdam'
 
-from . import methods, providers, utils
+from . import methods, utils
 
 __all__ = [
-    'providers',
     'methods',
     "utils"
 ]

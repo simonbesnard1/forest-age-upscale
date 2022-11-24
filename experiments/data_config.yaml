@@ -1,3 +1,4 @@
+cube_path: "/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/training_data_ageMap_OG300_fullFIA.nc"
 features:
   - agb
   - AnnualMeanTemperature
