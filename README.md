@@ -26,7 +26,7 @@ from ageUpscaling.core.experiment import Experiment
 DataConfig_path= "./experiments/data_config.yaml"
 exp_ = Experiment(DataConfig_path = DataConfig_path,
                   exp_name  = 'MLPregressor',
-                  base_dir= './output/')
+                  out_dir= './output/')
 ```
 #### Run experiments
 ```
