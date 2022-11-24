@@ -1,21 +1,16 @@
 from __future__ import annotations
 import os
-from numpy.core import numeric
 import xarray as xr
 import numpy as np
-from typing import Optional, Dict, Any, Union
 from sklearn.model_selection import KFold
 from sklearn.model_selection import train_test_split
-from splcClassifier.core.experiment_utils import ExperimentModule
-from splcClassifier.core.data_config import DataConfig
-from splcClassifier.providers.base import BaseProvider
-from splcClassifier.methods.base import BaseMethod
-from splcClassifier.core.experiment_utils import TimeKeeper
-from splcClassifier.methods.MLmethods import MLmodel
-from splcClassifier.methods.DLmethods import DLmodel
-from splcClassifier.core.hpo_utils import hp_search_space
+import yaml as yml
+import shutil
+from ageUpscaling.utils.utilities import TimeKeeper
+from ageUpscaling.methods.MLP import MLPmethod
+from ageUpscaling.cube.cube import DataCube
 
-class Experiment(ExperimentModule):
+class Experiment(object):
     """Experiment class used for HP tuning, cross validation, model training, prediction.
 
     Usage
@@ -26,12 +21,12 @@ class Experiment(ExperimentModule):
         A model implemented in the BaseMethod framework
     provider (subclass of `BaseProvider`)
         A data provider
-    data_config (instance of DataConfig)custom_exp_name
+    DataConfig (instance of DataConfig)custom_exp_name
         A data configuration
 
     Directory structure
     -------------------
-    * The experiment directory (exp_dir): <base_dir>/<exp_group>/<exp_name>/<version_XX>
+    * The experiment directory (exp_dir): <base_dir>/<exp_name>/<version_XX>
     * The version is created automatically, override `.create_experiment_dir(...)` for custom structure.
     * If an exp_dir is passed, the experiment is restored.
 
@@ -43,7 +38,7 @@ class Experiment(ExperimentModule):
         A provider subclassing BaseProvider.
     site_splitter : BaseSplitter
         A site splitter subclassing BaseSplitter.
-    data_config : DataConfig
+    DataConfig : DataConfig
         A data configuration.
     hp_params : hp_search_space
         A hyper-parameter space.
@@ -51,14 +46,8 @@ class Experiment(ExperimentModule):
     base_dir : str
         The experiment base directory. Default is '/Net/Groups/BGI/scratch/splcClassifier/experiments'.
         See `directory structure` for further details.
-    exp_group : Optional[str]
-        An experiment group. If not passed, the group will be the user name (e.g. `root`).
-        See `directory structure` for further details.
     exp_name : str = 'exp_name'
         The experiment name.
-        See `directory structure` for further details.
-    exp_desc : Optional[str]
-        An experiment description.
         See `directory structure` for further details.
     exp_dir : Optional[str] = None
         The restore directory. If passed, an existing experiment is loaded.
@@ -73,35 +62,21 @@ class Experiment(ExperimentModule):
     """
     def __init__(
             self,
-            model: str,
-            provider: BaseProvider,
-            data_config: DataConfig,
-            hp_params: hp_search_space,
+            DataConfig_path: str,
             base_dir: str,
-            exp_group: Optional[str] = None,
             exp_name: str = 'exp_name',
-            exp_desc: str = 'no description',
-            exp_dir: Optional[str] = None,
+            exp_dir: str = None,
             n_jobs: int = 1,
             n_trials:int = 2,
             **kwargs):
 
-        self.model = model
-        self.provider = provider
-        self.data_config = data_config
-        self._hparams = hp_params
+        with open(DataConfig_path, 'r') as f:
+            self.DataConfig =  yml.safe_load(f)
         self.base_dir = base_dir
-        self.exp_group = exp_group
         self.exp_name = exp_name
-        self.exp_desc = 'no description' if exp_desc is None else exp_desc
-        
-        if self.model == 'XGBoost':
-            self.method = MLmodel(provider = self.provider,  data_config = self.data_config, model = self.model)
-        elif self.model == 'UNET' or self.model == 'DeepLab':
-            self.method = DLmodel(provider = self.provider,  data_config = self.data_config, model = self.model)
         
         if exp_dir is None:
-            exp_dir = self.create_experiment_dir(self.base_dir, self.exp_group, self.exp_name)
+            exp_dir = self.create_experiment_dir(self.base_dir, self.exp_name)
             os.makedirs(exp_dir, exist_ok=False)
         else:
             if not os.path.exists(exp_dir):
@@ -111,25 +86,39 @@ class Experiment(ExperimentModule):
         self.n_jobs = n_jobs
         self.n_trials = n_trials
 
-    def create_experiment_dir(self, base_dir: str, exp_group: str, exp_name: str) -> str:
+    def create_experiment_dir(self, base_dir: str, exp_name: str) -> str:
         """Create experiment directory
 
         Parameter
         ---------
         base_dir : str
             The base directory.
-        exp_group : str
-            The experiment group.
         exp_name : str
             The experiment name.
 
         Returns
         -------
-        <base_dir>/<exp_group>/<exp_name>/<v_0000>
+        <base_dir>//<exp_name>/<v_0000>
         """
-        exp_dir = os.path.join(base_dir, exp_group, exp_name)
+        exp_dir = os.path.join(base_dir, exp_name)
         exp_dir = self.next_version_path(exp_dir, prefix='v_')
         return exp_dir
+    
+    @staticmethod
+    def create_and_get_path(*loc, exist_ok=True, is_file_path=False):
+        if len(loc) > 0:
+            path = os.path.join(*loc)
+        else:
+            path = ''
+
+        if is_file_path:
+            create_path = os.path.dirname(path)
+        else:
+            create_path = path
+
+        if not os.path.exists(create_path):
+            os.makedirs(create_path, exist_ok=exist_ok)
+        return path
 
     @staticmethod
     def next_version_path(
@@ -219,86 +208,14 @@ class Experiment(ExperimentModule):
         return self.create_and_get_path(self.exp_dir, 'tune')
     
     @property
-    def xval_dir(self):
-        return self.create_and_get_path(self.exp_dir, 'xval')
-    def predict(
-            self,
-            model: Optional[Union[BaseMethod, str]] = None,
-            # best_trial:int = None, 
-            subset_chuncks: np.array = {},
-            **kwargs) -> xr.Dataset:
-        """Make prediction on a trained mopdel.
-
-        Parameters
-        ----------
-        model : BaseMethod or str
-            The trained model. 
-        subset : dict
-            An optinal subset to be applied befor making the predictions, e.g., dict(time=slice('2001', '2004')).
-        **kwargs :
-            Are passed to `model.predict(...)`
-
-        Returns
-        -------
-        The predictions and labels, an xr.Dataset.
-        """
-        if model is None:
-            model = self.final_model
-        elif type(model) is str:
-            model = self.method.load(*os.path.split(model))
-        else:
-            pass
-        
-        _target, _pred = self.method.predict(model,
-                                             subset_chuncks=subset_chuncks)
-        return xr.merge([_target, _pred])
-
-    def model_tune(
-            self,
-            fold,
-            train_chuncks: np.array = {},
-            valid_chuncks: np.array = {},
-            hparam_sample:Dict[str, Any]= {},
-            exp_name:str = {},
-            exp_dir:str = {},
-            tune_dir:str = {},
-            n_jobs:int = 1,
-            n_trials:int=1) -> numeric:
-        """Model training.
-
-        Parameters
-        ----------
-        trial : optuna.Trial
-            Optuna trial.
-        train_subset : dict
-            data subset for the trining set.
-        valid_subset : dict
-            data subset for the validation set.
-        kwargs :
-            Additional hyper-parameters passed to `method`.
-
-        Returns
-        -------
-        loss: the validation loss after model training.
-        """
-        
-        # best_model, best_trial = self.method.train(fold = fold,
-        best_model = self.method.train(fold = fold,
-                                       train_chuncks = train_chuncks,
-                                       valid_chuncks = valid_chuncks,
-                                       hparam_sample=hparam_sample,
-                                       exp_name = exp_name,
-                                       exp_dir = exp_dir,
-                                       tune_dir = tune_dir,
-                                       n_jobs = n_jobs,
-                                       n_trials = n_trials)
-        return best_model #, best_trial
+    def pred_dir(self):
+        return self.create_and_get_path(self.exp_dir, 'save_pred')
     
     def xval(self, 
-             n_folds:int, 
-             valid_fraction:float, 
-             predict: bool, 
-             predict_train:bool) -> None:
+             n_folds:int=10, 
+             valid_fraction:float=0.3,
+             feature_selection:bool=False,
+             prediction:bool=True) -> None:
         """Perform cross-validation.
 
         Parameters
@@ -316,49 +233,30 @@ class Experiment(ExperimentModule):
             Are passe to `self.train(...)`
         """
         
-        #folds_ = np.array(list(set([f for f in os.listdir(self.provider.path_cube + '/chunck') if not f.startswith('.')]))).astype(int)
-        folds_ = xr.open_zarr(self.provider.path_cube).chunck.values
-        np.random.shuffle(folds_)
+        cluster_ = xr.open_dataset(self.DataConfig['cube_path']).cluster.values
+        sample_ = xr.open_dataset(self.DataConfig['cube_path']).sample.values
+        pred_cube = DataCube(os.path.join(self.pred_dir, "model_pred"),
+                             njobs=1,
+                             coords={'cluster': cluster_,
+                                     'sample': sample_})
+        np.random.shuffle(cluster_)
         kf = KFold(n_splits=n_folds)
-        iter_ = 1
         timekeeper = TimeKeeper(n_folds=n_folds)
-        for train_index, test_index in kf.split(folds_):
-            #print(f'\nRunning fold{iter_}')
-            training_chuncks, testing_chuncks = folds_[train_index], folds_[test_index]
-            training_chuncks, valid_chuncks = train_test_split(training_chuncks, test_size=valid_fraction, shuffle=True)
-            
-            if not os.path.exists(self.tune_dir + '/save_model/fold' + str(iter_)):
-                os.makedirs(self.tune_dir + '/save_model/fold' + str(iter_))
-            
-            self.final_model = self.model_tune(fold = iter_, # , best_trial
-                                                train_chuncks = training_chuncks,
-                                                valid_chuncks = valid_chuncks,
-                                                hparam_sample=self._hparams,
-                                                exp_name = self.exp_name,
-                                                exp_dir = self.exp_dir,
-                                                tune_dir=self.tune_dir,
-                                                n_jobs = self.n_jobs,
-                                                n_trials = self.n_trials)
-            # print(self.final_model)
-            # print(self.final_model['trainer'])
-            # print(self.final_model[1]['model'])
-            # print(self.final_model[0]['trainer'])
-            # print(self.final_model['model'])
-            # print(self.final_model[1])
-
-
-            if predict:
-                out_ontest = self.predict(model=self.final_model, subset_chuncks= testing_chuncks)
-                out_ontest.to_zarr(self.xval_dir + '/fold' + str(iter_) + '/test/')
-            
-            if predict_train:
-                out_ontrain = self.predict(model=self.final_model, subset_chuncks= training_chuncks)
-                out_ontrain.to_zarr(self.xval_dir + '/fold' + str(iter_) + '/train/')
-            
+        for train_index, test_index in kf.split(cluster_):
+            train_subset, test_subset = cluster_[train_index], cluster_[test_index]
+            train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
+            mlp_method = MLPmethod(tune_dir=self.tune_dir, DataConfig= self.DataConfig)
+            mlp_method.train(train_subset=train_subset,
+                              valid_subset=valid_subset, 
+                              test_subset=test_subset, 
+                              feature_selection= feature_selection)
+            if prediction:
+                mlp_method.predict_xr(save_cube = pred_cube)                       
             timekeeper.lap(message="Time to run fold: {lap_time}")
             timekeeper.time_left(message="Total time: {total_time}, est. remaining: {time_left}")
-            iter_ += 1
             print('=' * 20)
+            shutil.rmtree(self.tune_dir)
+            
     
     
     

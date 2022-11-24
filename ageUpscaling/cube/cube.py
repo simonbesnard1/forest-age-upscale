@@ -59,8 +59,8 @@ def new_cube(cube_location, coords = None, chunks = None):
     return coords
 
 
-class Cube():
-    """Cube(cube_location, coords='default', chunks='default', njobs=1)
+class DataCube():
+    """DataCube(cube_location, coords='default', chunks='default', njobs=1)
 
     Handles creation and updating of regularized site_cube zarr files.
 
@@ -227,7 +227,6 @@ class Cube():
             update_function(da)
         else:
             raise RuntimeError("Input must be xr.Dataset or xr.DataArray objects")
-
 
     def update_cube(self, da, njobs=None, initialize=True, is_sorted=False):
         """update_cube(da, njobs=None, initialize=True, is_sorted=True)
