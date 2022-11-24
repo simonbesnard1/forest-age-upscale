@@ -12,7 +12,6 @@
 """
 
 #%%Load library
-import xarray as xr
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from boruta import BorutaPy
 import numpy as np
@@ -21,8 +20,9 @@ from sklearn.feature_selection import RFE
 class FeatureSelection(object):
     
     def __init__(self, 
-                 model:str='regression',
-                 selection_method:str = "boruta"):
+                 method:str='regression',
+                 feature_selection_method:str = "boruta",
+                 features:dict = {}):
         """FeatureSelction(model:str='regression', selection_method:str = "boruta")
         
         Method for selecting most important features.
@@ -43,17 +43,15 @@ class FeatureSelection(object):
         
         """
         
-        self.model = model
-        self.selection_method = selection_method
+        self.method = method
+        self.feature_selection_method = feature_selection_method
+        self.features = features
         
     def get_features(self,
-                     data:xr.Dataset= [],
-                     features:dict= [],
-                     target:dict= [],
-                     max_age:int=300,
-                     n_features:int=10,
+                     data:dict= {},
+                     max_features:int=10,
                      max_depth:int=5,
-                     n_jobs:int=10):
+                     n_jobs:int=-1):
         
         """Parameters
         ----------
@@ -67,36 +65,26 @@ class FeatureSelection(object):
         max_depth : int, default is 5
             integer defining the maximum depth of the model
         
-        n_jobs : int, default is 10
+        n_jobs : int, default is -1
             integer defining the number of jobs
             
         """
-        X = data[features].to_array().transpose('cluster', 'sample', 'variable').values
-        Y = data[target].values
         
-        if self.model == "regression":
+        if self.method == "MLPRegressor":
             rf = RandomForestRegressor(n_jobs=n_jobs)
-        elif self.model == "classification":
+        elif self.method == "MLPClassifier":
             rf = RandomForestClassifier(n_jobs=n_jobs, class_weight='balanced', max_depth=max_depth)
-            Y[Y==max_age] = 1
-            Y[Y<max_age] = 0
-            
-        n_features = X.shape[2]
-        X, Y = X.reshape(-1, n_features), Y.reshape(-1)
-        mask_train = (np.all(np.isfinite(X), axis=1)) & (np.isfinite(Y))
-        X, Y = X[mask_train, :], Y[mask_train]
-        
-        if self.selection_method == "boruta":
+         
+        if self.feature_selection_method == "boruta":
             feat_selector = BorutaPy(rf, n_estimators='auto')
-            feat_selector.fit(X, Y)
-        elif self.selection_method == "recursive":
-            feat_selector = RFE(rf, n_features_to_select=10, step=1)
-            feat_selector.fit(X, Y)
+            feat_selector.fit(data['features'], data['target'])
+        elif self.feature_selection_method == "recursive":
+            feat_selector = RFE(rf, n_features_to_select=max_features, step=1)
+            feat_selector.fit(data['features'], data['target'])
             
-        var_selected = np.array(features)[feat_selector.support_]
-        X_filtered = feat_selector.transform(X)
+        var_selected = np.array(self.features)[feat_selector.support_]
             
-        return {"var_selected" : var_selected, "X_filtered": X_filtered}
+        return var_selected
         
 
 

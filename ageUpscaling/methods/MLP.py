@@ -52,12 +52,16 @@ class MLPmethod:
     def get_datamodule(
             self, 
             DataConfig: dict[str, Any] = {},
+            target: dict[str, Any] = {},
+            features: dict[str, Any] = {},
             train_subset: dict[str, Any] = {},
             valid_subset: dict[str, Any] = {},
             test_subset: dict[str, Any] = {},
             **kwargs) -> dict:
         
         mlData = MLDataModule(DataConfig,
+                              target,
+                              features,
                               train_subset, 
                               valid_subset, 
                               test_subset)
@@ -68,19 +72,33 @@ class MLPmethod:
               train_subset:dict={},
               valid_subset:dict={}, 
               test_subset:dict={},
-              feature_selection:bool= False) -> None:
+              feature_selection:bool= False,
+              feature_selection_method:str="recursive") -> None:
 
-        self.mldata = self.get_datamodule(DataConfig=self.DataConfig,
-                                         train_subset=train_subset,
-                                         valid_subset=valid_subset,
-                                         test_subset=test_subset)
+        if feature_selection:
+            self.mldata = self.get_datamodule(DataConfig=self.DataConfig, 
+                                              target=self.DataConfig['target'],
+                                              features =  self.DataConfig['features'],
+                                              train_subset=train_subset,
+                                              valid_subset=valid_subset,
+                                              test_subset=test_subset)            
+            train_data = self.mldata.train_dataloader().get_xy()
+            features_selected = FeatureSelection(method=self.DataConfig['method'][0], 
+                                                 feature_selection_method = feature_selection_method, 
+                                                 features = self.DataConfig['features']).get_features(data = train_data)
         
+        self.final_features = [features_selected if feature_selection else self.DataConfig['features']][0]
+        print(self.final_features)
+        self.mldata = self.get_datamodule(DataConfig=self.DataConfig, 
+                                          target=self.DataConfig['target'],
+                                          features = self.final_features,
+                                          train_subset=train_subset,
+                                          valid_subset=valid_subset,
+                                          test_subset=test_subset)
+          
         train_data = self.mldata.train_dataloader().get_xy()
         val_data = self.mldata.val_dataloader().get_xy()
-        if feature_selection:
-            feature_method = FeatureSelection(model='regression', selection_method = "boruta")
-            feature_selected = feature_method.get_features(data = train_data)
-            
+                    
         if not os.path.exists(self.tune_dir + '/save_model/'):
             os.makedirs(self.tune_dir + '/save_model/')
         
@@ -91,7 +109,7 @@ class MLPmethod:
                                                                                    min_early_stopping_rate=0),
                                     direction='minimize')
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
-                       n_trials=1, n_jobs=4)
+                       n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=self.DataConfig['hyper_params']['n_jobs'])
         
         with open(self.tune_dir + "/save_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
             self.best_model = pickle.load(fin)            
@@ -145,7 +163,7 @@ class MLPmethod:
             
         if self.DataConfig['method'][0] == "MLPRegressor":
             loss_ = mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False)
-        if self.DataConfig['method'][0] == "MLPClassifier":            
+        if self.DataConfig['method'][0] == "MLPClassifier":     
             loss_ =  log_loss(val_data['target'], model_.predict(val_data['features']))
         
         return loss_
@@ -154,13 +172,13 @@ class MLPmethod:
             self, 
             save_cube:str) -> xr.Dataset:
         
-        X = self.mldata.test_dataloader().get_x(features= self.DataConfig['features'])
+        X = self.mldata.test_dataloader().get_x(features= self.final_features)
         Y = self.mldata.test_dataloader().get_y(target= self.DataConfig['target'], 
-                                                method= self.DataConfig['method'][0], 
-                                                max_forest_age= self.DataConfig['max_forest_age'])
-        
+                                               method= self.DataConfig['method'][0], 
+                                               max_forest_age= self.DataConfig['max_forest_age'])
+
         for cluster_ in np.arange(len(self.mldata.test_subset)):
-            X_cluster = X[cluster_, : , :].reshape(-1, len(self.DataConfig['features']))
+            X_cluster = X[cluster_, : , :].reshape(-1, len(self.final_features))
             Y_cluster = Y[:, cluster_, :].reshape(-1)
             mask_nan = np.isfinite(Y_cluster)
             try:
