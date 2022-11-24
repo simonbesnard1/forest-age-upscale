@@ -33,7 +33,7 @@ exp_ = Experiment(DataConfig_path = DataConfig_path,
 exp_.xval(n_folds=10, valid_fraction=0.3, feature_selection=False, prediction=True)
 ```
 
-## :trident: &nbsp;Contributing
+## :busts_in_silhouette: &nbsp;Contributing
 If you find something which doesn't make sense, or something doesn't seem right, please make a pull request and please add valid and well-reasoned explanations about your changes or comments.
 
 Before adding a pull request, please see the **[contributing guidelines](.github/CONTRIBUTING.md)**. You should also remember about this:
