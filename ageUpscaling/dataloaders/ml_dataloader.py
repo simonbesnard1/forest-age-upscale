@@ -24,6 +24,8 @@ class MLDataModule:
     def __init__(
             self,
             DataConfig: dict[str, Any] = {},
+            target: dict[str, Any] = {},
+            features: dict[str, Any] = {},            
             train_subset: dict[str, Any] = {},
             valid_subset: dict[str, Any] = {},
             test_subset: dict[str, Any] = {},
@@ -31,8 +33,9 @@ class MLDataModule:
             **kwargs) -> None:
         super().__init__()
 
-        
         self.DataConfig = DataConfig
+        self.target = target
+        self.features = features        
         self.train_subset = train_subset
         self.valid_subset = valid_subset
         self.test_subset = test_subset
@@ -41,7 +44,7 @@ class MLDataModule:
         
         if len(self.norm_stats) == 0:
 
-            for var in self.DataConfig['features'] + self.DataConfig["target"]:
+            for var in  self.target + self.features:
                 data = xr.open_dataset(self.DataConfig['cube_path']).sel(cluster = train_subset)[var]
                 data_mean = data.mean().compute().item()
                 data_std = data.std().compute().item()
@@ -51,21 +54,21 @@ class MLDataModule:
         """Returns the training dataloader."""
 
 
-        train_data = MLData(self.DataConfig, self.train_subset, self.norm_stats)        
+        train_data = MLData(self.DataConfig, self.target, self.features, self.train_subset, self.norm_stats)        
             
         return train_data
 
     def val_dataloader(self) -> np.array:
         """Returns the validation dataloader."""
 
-        valid_data = MLData(self.DataConfig, self.valid_subset, self.norm_stats)
+        valid_data = MLData(self.DataConfig, self.target, self.features, self.valid_subset, self.norm_stats)
             
         return valid_data  
 
     def test_dataloader(self) -> np.array:
         """Returns the test dataloader."""
 
-        test_data = MLData(self.DataConfig, self.test_subset, self.norm_stats)
+        test_data = MLData(self.DataConfig, self.target, self.features, self.test_subset, self.norm_stats)
             
         return test_data
 

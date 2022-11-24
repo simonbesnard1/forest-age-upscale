@@ -1,4 +1,4 @@
-cube_path: "/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/training_data_ageMap_OG300_fullFIA.nc"
+cube_path: "/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/training_data_ageMap_OG300.nc"
 features:
   - agb
   - AnnualMeanTemperature
@@ -33,6 +33,8 @@ method:
 max_forest_age:
   - 300
 hyper_params:
+  number_trials: 1
+  n_jobs: 10
   learning_rate_init: 
     min: 0.0001
     max: 0.1

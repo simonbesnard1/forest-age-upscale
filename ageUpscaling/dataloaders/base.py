@@ -23,13 +23,17 @@ class MLData:
     def __init__(
         self,
         DataConfig: dict[str, Any] = {},
+        target: dict[str, Any] = {},
+        features: dict[str, Any] = {},     
         subset: dict[str, Any] = {}, 
         norm_stats: dict[str, dict[str, float]] = {}):
     
         super().__init__()
         
-        self.subset = subset
         self.DataConfig = DataConfig
+        self.subset = subset
+        self.target = target
+        self.features = features 
         self.norm_stats = norm_stats
                 
     def get_x(self,
@@ -75,17 +79,16 @@ class MLData:
         elif method == 'MLPRegressor':
             Y = Y.where(Y<max_forest_age).to_array().values
         
-        return Y#.reshape(-1)
+        return Y
             
     def get_xy(self,  
                standardize:bool=True):
         
-        self.y = self.get_y(target=self.DataConfig['target'], 
+        self.y = self.get_y(target=self.target, 
                             method = self.DataConfig['method'][0], 
                             max_forest_age =self.DataConfig['max_forest_age'][0]).reshape(-1)
         
-        self.x = self.get_x(features= self.DataConfig['features']).reshape(-1, len(self.DataConfig['features']))
-        
+        self.x = self.get_x(features= self.features).reshape(-1, len(self.features))        
         mask_nan = np.isfinite(self.y)
         self.x, self.y = self.x[mask_nan, :], self.y[mask_nan]    
         

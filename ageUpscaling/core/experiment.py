@@ -26,7 +26,7 @@ class Experiment(object):
 
     Directory structure
     -------------------
-    * The experiment directory (exp_dir): <base_dir>/<exp_name>/<version_XX>
+    * The experiment directory (exp_dir): <out_dir>/<exp_name>/<version_XX>
     * The version is created automatically, override `.create_experiment_dir(...)` for custom structure.
     * If an exp_dir is passed, the experiment is restored.
 
@@ -43,7 +43,7 @@ class Experiment(object):
     hp_params : hp_search_space
         A hyper-parameter space.
         
-    base_dir : str
+    out_dir : str
         The experiment base directory. Default is '/Net/Groups/BGI/scratch/splcClassifier/experiments'.
         See `directory structure` for further details.
     exp_name : str = 'exp_name'
@@ -63,7 +63,7 @@ class Experiment(object):
     def __init__(
             self,
             DataConfig_path: str,
-            base_dir: str,
+            out_dir: str,
             exp_name: str = 'exp_name',
             exp_dir: str = None,
             n_jobs: int = 1,
@@ -72,11 +72,11 @@ class Experiment(object):
 
         with open(DataConfig_path, 'r') as f:
             self.DataConfig =  yml.safe_load(f)
-        self.base_dir = base_dir
+        self.out_dir = out_dir
         self.exp_name = exp_name
         
         if exp_dir is None:
-            exp_dir = self.create_experiment_dir(self.base_dir, self.exp_name)
+            exp_dir = self.create_experiment_dir(self.out_dir, self.exp_name)
             os.makedirs(exp_dir, exist_ok=False)
         else:
             if not os.path.exists(exp_dir):
@@ -86,21 +86,21 @@ class Experiment(object):
         self.n_jobs = n_jobs
         self.n_trials = n_trials
 
-    def create_experiment_dir(self, base_dir: str, exp_name: str) -> str:
+    def create_experiment_dir(self, out_dir: str, exp_name: str) -> str:
         """Create experiment directory
 
         Parameter
         ---------
-        base_dir : str
+        out_dir : str
             The base directory.
         exp_name : str
             The experiment name.
 
         Returns
         -------
-        <base_dir>//<exp_name>/<v_0000>
+        <out_dir>//<exp_name>/<v_0000>
         """
-        exp_dir = os.path.join(base_dir, exp_name)
+        exp_dir = os.path.join(out_dir, exp_name)
         exp_dir = self.next_version_path(exp_dir, prefix='v_')
         return exp_dir
     
@@ -215,6 +215,7 @@ class Experiment(object):
              n_folds:int=10, 
              valid_fraction:float=0.3,
              feature_selection:bool=False,
+             feature_selection_method:str=None,
              prediction:bool=True) -> None:
         """Perform cross-validation.
 
@@ -249,7 +250,8 @@ class Experiment(object):
             mlp_method.train(train_subset=train_subset,
                               valid_subset=valid_subset, 
                               test_subset=test_subset, 
-                              feature_selection= feature_selection)
+                              feature_selection= feature_selection,
+                              feature_selection_method=feature_selection_method)
             if prediction:
                 mlp_method.predict_xr(save_cube = pred_cube)                       
             timekeeper.lap(message="Time to run fold: {lap_time}")
