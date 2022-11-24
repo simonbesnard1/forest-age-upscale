@@ -7,7 +7,7 @@
 
 ***
 
-## :information_source: &nbsp;What is it?
+## :memo: &nbsp;What is it?
 This Github repo contains all model training and inference modules for upscaling of forest age products
 
 ## :anger: &nbsp;Package installation
