@@ -20,20 +20,22 @@ pip install git+https://git.gfz-potsdam.de/{USERNAME}/forest_age_upscale.git
 
 #### 1. Perform a cross-validation study
 
-### Load package
 ```
+#%% Load package
 from ageUpscaling.core.study import Study
 ```
-### Define experiments
+
 ```
+#%% Define study
 DataConfig_path= "./experiments/data_config.yaml"
 study_ = Study(DataConfig_path = DataConfig_path,
                   exp_name  = 'MLPregressor',
                   out_dir= './output/',
                   n_jobs = 10)
 ```
-### Run experiments
+ 
 ```
+#%% Run cross-validation study
 study_.cross_validation(n_folds=10, 
 			valid_fraction=0.3, 
 			feature_selection=False,
