@@ -100,11 +100,11 @@ class MLPmethod:
         train_data = self.mldata.train_dataloader().get_xy()
         val_data = self.mldata.val_dataloader().get_xy()
                     
-        if not os.path.exists(self.tune_dir + '/save_model/'):
-            os.makedirs(self.tune_dir + '/save_model/')
+        if not os.path.exists(self.tune_dir + '/trial_model/'):
+            os.makedirs(self.tune_dir + '/trial_model/')
         
         study = optuna.create_study(study_name = 'hpo_ForestAge', 
-                                    storage='sqlite:///' + self.tune_dir + '/save_model/hp_trial.db',
+                                    storage='sqlite:///' + self.tune_dir + '/trial_model/hp_trial.db',
                                     pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
                                                                                    reduction_factor=4, 
                                                                                    min_early_stopping_rate=8),
@@ -112,7 +112,7 @@ class MLPmethod:
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
-        with open(self.tune_dir + "/save_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
+        with open(self.tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
             self.best_model = pickle.load(fin)            
             
     def hp_search(self, 
@@ -156,7 +156,7 @@ class MLPmethod:
                        random_state=1)
         model_.fit(train_data['features'], train_data['target'])
         
-        with open(tune_dir + "/save_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
+        with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)
         
         if trial.should_prune():
