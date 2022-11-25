@@ -21,7 +21,7 @@ pip install git+https://git.gfz-potsdam.de/{USERNAME}/forest_age_upscale.git
 #### 1. Perform a cross-validation study
 
 ```
-#%% Load package
+#%% Load modules
 from ageUpscaling.core.study import Study
 ```
 
@@ -37,9 +37,9 @@ study_ = Study(DataConfig_path = DataConfig_path,
 ```
 #%% Run cross-validation study
 study_.cross_validation(n_folds=10, 
-			valid_fraction=0.3, 
-			feature_selection=False,
-                       feature_selection_method= 'recursive')
+			 valid_fraction=0.3, 
+			 feature_selection=False,
+                        feature_selection_method= 'recursive')
 ```
 
 ## :busts_in_silhouette: &nbsp;Contributing
