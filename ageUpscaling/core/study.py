@@ -10,54 +10,24 @@ from ageUpscaling.utils.utilities import TimeKeeper
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.cube.cube import DataCube
 
-class Experiment(object):
-    """Experiment class used for HP tuning, cross validation, model training, prediction.
-
-    Usage
-    -----
-    An experiment has four main components, each subclasses `ExperimentModule`:
-
-    method (subclass of `BaseMethod`)
-        A model implemented in the BaseMethod framework
-    provider (subclass of `BaseProvider`)
-        A data provider
-    DataConfig (instance of DataConfig)custom_exp_name
-        A data configuration
-
-    Directory structure
-    -------------------
-    * The experiment directory (exp_dir): <out_dir>/<exp_name>/<version_XX>
-    * The version is created automatically, override `.create_experiment_dir(...)` for custom structure.
-    * If an exp_dir is passed, the experiment is restored.
+class Study(object):
+    """Study class used for cross validation, model training, prediction.
 
     Parameters
     ----------
-    method : BaseMethod
-        A method subclassing BaseMethod.
-    provider : BaseProvider
-        A provider subclassing BaseProvider.
-    site_splitter : BaseSplitter
-        A site splitter subclassing BaseSplitter.
-    DataConfig : DataConfig
-        A data configuration.
-    hp_params : hp_search_space
-        A hyper-parameter space.
-        
+    DataConfig_path : DataConfig_path
+        A data configuration path.     
     out_dir : str
-        The experiment base directory. Default is '/Net/Groups/BGI/scratch/splcClassifier/experiments'.
+        The study base directory.
         See `directory structure` for further details.
     exp_name : str = 'exp_name'
-        The experiment name.
+        The study name.
         See `directory structure` for further details.
     exp_dir : Optional[str] = None
-        The restore directory. If passed, an existing experiment is loaded.
+        The restore directory. If passed, an existing study is loaded.
         See `directory structure` for further details.
     n_jobs : int = 1
-        Number of workers, is used in various places. TODO: specify.
-    training_mask : Optional[str]
-        An optional training mask. TODO: more details.
-    **kwargs:
-        Additional keyword arguments are passed to `method`. TODO: more details.
+        Number of workers.
 
     """
     def __init__(
@@ -67,7 +37,6 @@ class Experiment(object):
             exp_name: str = 'exp_name',
             exp_dir: str = None,
             n_jobs: int = 1,
-            n_trials:int = 2,
             **kwargs):
 
         with open(DataConfig_path, 'r') as f:
@@ -76,7 +45,7 @@ class Experiment(object):
         self.exp_name = exp_name
         
         if exp_dir is None:
-            exp_dir = self.create_experiment_dir(self.out_dir, self.exp_name)
+            exp_dir = self.create_study_dir(self.out_dir, self.exp_name)
             os.makedirs(exp_dir, exist_ok=False)
         else:
             if not os.path.exists(exp_dir):
@@ -84,17 +53,16 @@ class Experiment(object):
 
         self.exp_dir = exp_dir
         self.n_jobs = n_jobs
-        self.n_trials = n_trials
 
-    def create_experiment_dir(self, out_dir: str, exp_name: str) -> str:
-        """Create experiment directory
+    def create_study_dir(self, out_dir: str, exp_name: str) -> str:
+        """Create study directory
 
         Parameter
         ---------
         out_dir : str
             The base directory.
         exp_name : str
-            The experiment name.
+            The studyt name.
 
         Returns
         -------
@@ -105,41 +73,24 @@ class Experiment(object):
         return exp_dir
     
     @staticmethod
-    def create_and_get_path(*loc, exist_ok=True, is_file_path=False):
-        if len(loc) > 0:
-            path = os.path.join(*loc)
-        else:
-            path = ''
-
-        if is_file_path:
-            create_path = os.path.dirname(path)
-        else:
-            create_path = path
-
-        if not os.path.exists(create_path):
-            os.makedirs(create_path, exist_ok=exist_ok)
-        return path
-
-    @staticmethod
     def next_version_path(
             dir_path: str,
             prefix: str = 'v',
-            postfix: str = '',
             num_digits: int = 4,
             create: bool = True) -> str:
         """
         Finds the next incremental path from a pattern.
 
-        Create pattern `my/dir/[prefix][DD][postfix]`, `DD` being an incremental version number:
+        Create pattern `my/dir/[prefix][DD]`, `DD` being an incremental version number:
 
 
         Example:
 
-        Exp.next_version_path('my/dir', prefix='version-', postfix='.json', num_digits=2)
+        Exp.next_version_path('my/dir', prefix='version-', num_digits=2)
 
-        my/dir/version-00.json <- exists
-        my/dir/version-05.json <- exists
-        my/dir/version-06.json <- doesn't exist, is returned
+        my/dir/version-00 <- exists
+        my/dir/version-05 <- exists
+        my/dir/version-06 <- doesn't exist, is returned
 
         Note that the largest matching version number is used even if gaps exist, i.e., if
         version `00` and `05` exist, the returned version is `06`.
@@ -150,8 +101,6 @@ class Experiment(object):
             the base directory. Must exist if `create=False`.
         prefix:
             the version string prefix, default is `v`.
-        postfix:
-            the version string postfix, e.g., `.json`.
         num_digits:
             The number of digits to use in incremental version numbering.
         create:
@@ -178,9 +127,9 @@ class Experiment(object):
         max_v = -1
 
         for f in os.listdir(dir_path):
-            if f.startswith(prefix) and f.endswith(postfix):
+            if f.startswith(prefix):
                 f_len = len(f)
-                version_string = f[len(prefix):f_len - len(postfix)]
+                version_string = f[len(prefix):f_len]
                 if len(version_string) == num_digits:
                     try:
                         version_int = int(version_string)
@@ -201,22 +150,13 @@ class Experiment(object):
         pattern = f'%0{num_digits}d'
         version_digits = pattern % version_nr
 
-        return f'{os.path.join(os.path.join(dir_path, prefix))}{version_digits}{postfix}'
-
-    @property
-    def tune_dir(self):
-        return self.create_and_get_path(self.exp_dir, 'tune')
+        return f'{os.path.join(os.path.join(dir_path, prefix))}{version_digits}'
     
-    @property
-    def pred_dir(self):
-        return self.create_and_get_path(self.exp_dir, 'save_pred')
-    
-    def xval(self, 
+    def cross_validation(self, 
              n_folds:int=10, 
              valid_fraction:float=0.3,
              feature_selection:bool=False,
-             feature_selection_method:str=None,
-             prediction:bool=True) -> None:
+             feature_selection_method:str=None) -> None:
         """Perform cross-validation.
 
         Parameters
@@ -225,39 +165,38 @@ class Experiment(object):
             Number of cross-validation folds.
         valid_fraction : float
             Fraction of the validation fraction. Range between 0-1    
-        predict : bool
-            Whether to predict test set. Default is `True`.
-        predict_train : bool
-            Whether to predict training set. Default is `True`.
-            
-        kwargs :
-            Are passe to `self.train(...)`
+        feature_selection : bool
+            Whether to do feature selection.
+        feature_selection_method : str
+            The method to use for the feature selections
         """
         
         cluster_ = xr.open_dataset(self.DataConfig['cube_path']).cluster.values
         sample_ = xr.open_dataset(self.DataConfig['cube_path']).sample.values
-        pred_cube = DataCube(os.path.join(self.pred_dir, "model_pred"),
-                             njobs=1,
+        pred_cube = DataCube(os.path.join(self.exp_dir, "model_output"),
+                             njobs=self.n_jobs,
                              coords={'cluster': cluster_,
-                                     'sample': sample_})
+                                     'sample': sample_},
+                             chunks={'cluster': -1,
+                                     'sample': -1})
         np.random.shuffle(cluster_)
         kf = KFold(n_splits=n_folds)
         timekeeper = TimeKeeper(n_folds=n_folds)
         for train_index, test_index in kf.split(cluster_):
             train_subset, test_subset = cluster_[train_index], cluster_[test_index]
             train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
-            mlp_method = MLPmethod(tune_dir=self.tune_dir, DataConfig= self.DataConfig)
+            mlp_method = MLPmethod(tune_dir=os.path.join(self.exp_dir, "tune"), DataConfig= self.DataConfig)
             mlp_method.train(train_subset=train_subset,
                               valid_subset=valid_subset, 
                               test_subset=test_subset, 
                               feature_selection= feature_selection,
-                              feature_selection_method=feature_selection_method)
-            if prediction:
-                mlp_method.predict_xr(save_cube = pred_cube)                       
+                              feature_selection_method=feature_selection_method,
+                              n_jobs = self.n_jobs)
+            mlp_method.predict(save_cube = pred_cube)                       
             timekeeper.lap(message="Time to run fold: {lap_time}")
             timekeeper.time_left(message="Total time: {total_time}, est. remaining: {time_left}")
             print('=' * 20)
-            shutil.rmtree(self.tune_dir)
+            shutil.rmtree(os.path.join(self.exp_dir, "tune"))
             
     
     
