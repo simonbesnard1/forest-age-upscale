@@ -10,7 +10,7 @@ from ageUpscaling.core.study import Study
 #%% Initiate experiment
 DataConfig_path= "/home/simon/Documents/science/GFZ/projects/forest_age_upscale/experiments/data_config.yaml"
 study_ = Study(DataConfig_path = DataConfig_path,
-               exp_name  = 'upscaling_MLPregressor',
+               study_name  = 'upscaling_MLPregressor',
                out_dir= '/home/simon/Documents/science/GFZ/projects/forest_age_upscale/output/',
                n_jobs = 10)
 study_.model_training(n_model=10,

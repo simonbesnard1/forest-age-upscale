@@ -29,7 +29,7 @@ from ageUpscaling.core.study import Study
 #%% Define study
 DataConfig_path= "./experiments/data_config.yaml"
 study_ = Study(DataConfig_path = DataConfig_path,
-                  exp_name  = 'MLPregressor',
+                  study_name  = 'Xval_MLPregressor',
                   out_dir= './output/',
                   n_jobs = 10)
 ```
@@ -53,7 +53,7 @@ from ageUpscaling.core.study import Study
 #%% Define study
 DataConfig_path= "./experiments/data_config.yaml"
 study_ = Study(DataConfig_path = DataConfig_path,
-                  exp_name  = 'upscaling_MLPregressor',
+                  study_name  = 'training_MLPregressor',
                   out_dir= './output/',
                   n_jobs = 10)
 ```

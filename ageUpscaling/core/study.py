@@ -21,10 +21,10 @@ class Study(object):
     out_dir : str
         The study base directory.
         See `directory structure` for further details.
-    exp_name : str = 'exp_name'
+    study_name : str = 'study_name'
         The study name.
         See `directory structure` for further details.
-    exp_dir : Optional[str] = None
+    study_dir : Optional[str] = None
         The restore directory. If passed, an existing study is loaded.
         See `directory structure` for further details.
     n_jobs : int = 1
@@ -35,43 +35,43 @@ class Study(object):
             self,
             DataConfig_path: str,
             out_dir: str,
-            exp_name: str = 'exp_name',
-            exp_dir: str = None,
+            study_name: str = 'study_name',
+            study_dir: str = None,
             n_jobs: int = 1,
             **kwargs):
 
         with open(DataConfig_path, 'r') as f:
             self.DataConfig =  yml.safe_load(f)
         self.out_dir = out_dir
-        self.exp_name = exp_name
+        self.study_name = study_name
         
-        if exp_dir is None:
-            exp_dir = self.create_study_dir(self.out_dir, self.exp_name)
-            os.makedirs(exp_dir, exist_ok=False)
+        if study_dir is None:
+            study_dir = self.create_study_dir(self.out_dir, self.study_name)
+            os.makedirs(study_dir, exist_ok=False)
         else:
-            if not os.path.exists(exp_dir):
-                raise ValueError(f'restore path does not exist:\n{exp_dir}')
+            if not os.path.exists(study_dir):
+                raise ValueError(f'restore path does not exist:\n{study_dir}')
 
-        self.exp_dir = exp_dir
+        self.study_dir = study_dir
         self.n_jobs = n_jobs
 
-    def create_study_dir(self, out_dir: str, exp_name: str) -> str:
+    def create_study_dir(self, out_dir: str, study_name: str) -> str:
         """Create study directory
 
         Parameter
         ---------
         out_dir : str
             The base directory.
-        exp_name : str
+        study_name : str
             The studyt name.
 
         Returns
         -------
-        <out_dir>//<exp_name>/<v_0000>
+        <out_dir>//<study_name>/<v_0000>
         """
-        exp_dir = os.path.join(out_dir, exp_name)
-        exp_dir = self.next_version_path(exp_dir, prefix='v_')
-        return exp_dir
+        study_dir = os.path.join(out_dir, study_name)
+        study_dir = self.next_version_path(study_dir, prefix='v_')
+        return study_dir
     
     @staticmethod
     def next_version_path(
@@ -174,7 +174,7 @@ class Study(object):
         
         cluster_ = xr.open_dataset(self.DataConfig['cube_path']).cluster.values
         sample_ = xr.open_dataset(self.DataConfig['cube_path']).sample.values
-        pred_cube = DataCube(os.path.join(self.exp_dir, "model_output"),
+        pred_cube = DataCube(os.path.join(self.study_dir, "model_output"),
                              njobs=self.n_jobs,
                              coords={'cluster': cluster_,
                                      'sample': sample_},
@@ -186,7 +186,7 @@ class Study(object):
         for train_index, test_index in kf.split(cluster_):
             train_subset, test_subset = cluster_[train_index], cluster_[test_index]
             train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
-            mlp_method = MLPmethod(tune_dir=os.path.join(self.exp_dir, "tune"), DataConfig= self.DataConfig)
+            mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), DataConfig= self.DataConfig)
             mlp_method.train(train_subset=train_subset,
                               valid_subset=valid_subset, 
                               test_subset=test_subset, 
@@ -197,7 +197,7 @@ class Study(object):
             timekeeper.lap(message="Time to run fold: {lap_time}")
             timekeeper.time_left(message="Total time: {total_time}, est. remaining: {time_left}")
             print('=' * 20)
-            shutil.rmtree(os.path.join(self.exp_dir, "tune"))
+            shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
     def model_training(self, 
              n_model:int=10, 
@@ -223,22 +223,22 @@ class Study(object):
         timekeeper = TimeKeeper(n_folds=n_model)
         for run_ in np.arange(n_model):
             train_subset, valid_subset = train_test_split(cluster_, test_size=valid_fraction, shuffle=True)
-            mlp_method = MLPmethod(tune_dir=os.path.join(self.exp_dir, "tune"), DataConfig= self.DataConfig)
+            mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), DataConfig= self.DataConfig)
             mlp_method.train(train_subset=train_subset,
                               valid_subset=valid_subset,
                               feature_selection= feature_selection,
                               feature_selection_method=feature_selection_method,
                               n_jobs = self.n_jobs)
-            if not os.path.exists(self.exp_dir + '/save_model/'):
-                os.makedirs(self.exp_dir + '/save_model/')
+            if not os.path.exists(self.study_dir + '/save_model/'):
+                os.makedirs(self.study_dir + '/save_model/')
                 
-            with open(self.exp_dir + "/save_model/model_run_{id_}.pickle".format(id_ = run_), "wb") as fout:
+            with open(self.study_dir + "/save_model/model_run_{id_}.pickle".format(id_ = run_), "wb") as fout:
                 pickle.dump(mlp_method.best_model, fout)
                 
             timekeeper.lap(message="Time to run model run: {lap_time}")
             timekeeper.time_left(message="Total time: {total_time}, est. remaining: {time_left}")
             print('=' * 20)
-            shutil.rmtree(os.path.join(self.exp_dir, "tune"))
+            shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
     
     
