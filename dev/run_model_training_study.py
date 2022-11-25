@@ -10,10 +10,10 @@ from ageUpscaling.core.study import Study
 #%% Initiate experiment
 DataConfig_path= "/home/simon/Documents/science/GFZ/projects/forest_age_upscale/experiments/data_config.yaml"
 study_ = Study(DataConfig_path = DataConfig_path,
-               exp_name  = 'Xval_MLPregressor',
+               exp_name  = 'upscaling_MLPregressor',
                out_dir= '/home/simon/Documents/science/GFZ/projects/forest_age_upscale/output/',
                n_jobs = 10)
-study_.cross_validation(n_folds=10, 
-                        valid_fraction=0.5, 
-                        feature_selection=True, 
-                        feature_selection_method= 'recursive')
+study_.model_training(n_model=10,
+                       valid_fraction=0.5, 
+                       feature_selection=True, 
+                       feature_selection_method= 'recursive')

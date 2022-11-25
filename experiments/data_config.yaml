@@ -33,7 +33,7 @@ method:
 max_forest_age:
   - 300
 hyper_params:
-  number_trials: 10
+  number_trials: 2
   learning_rate_init: 
     min: 0.0001
     max: 0.1

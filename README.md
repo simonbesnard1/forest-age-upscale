@@ -17,20 +17,53 @@ pip install git+https://git.gfz-potsdam.de/{USERNAME}/forest_age_upscale.git
 ```
 
 ## :notebook_with_decorative_cover: &nbsp;Getting started
-#### Load package
+
+#### 1. Perform a cross-validation study
+
 ```
-from ageUpscaling.core.experiment import Experiment
+#%% Load modules
+from ageUpscaling.core.study import Study
 ```
-#### Define experiments
+
 ```
+#%% Define study
 DataConfig_path= "./experiments/data_config.yaml"
-exp_ = Experiment(DataConfig_path = DataConfig_path,
+study_ = Study(DataConfig_path = DataConfig_path,
                   exp_name  = 'MLPregressor',
-                  out_dir= './output/')
+                  out_dir= './output/',
+                  n_jobs = 10)
 ```
-#### Run experiments
+ 
 ```
-exp_.xval(n_folds=10, valid_fraction=0.3, feature_selection=False, prediction=True)
+#%% Run cross-validation study
+study_.cross_validation(n_folds=10, 
+			valid_fraction=0.3, 
+			feature_selection=False,
+                       feature_selection_method= 'recursive')
+```
+
+#### 2. Model training study
+
+```
+#%% Load modules
+from ageUpscaling.core.study import Study
+```
+
+```
+#%% Define study
+DataConfig_path= "./experiments/data_config.yaml"
+study_ = Study(DataConfig_path = DataConfig_path,
+                  exp_name  = 'upscaling_MLPregressor',
+                  out_dir= './output/',
+                  n_jobs = 10)
+```
+ 
+```
+#%% Run model training study
+study_.model_training(n_model=10,
+                       valid_fraction=0.5, 
+                       feature_selection=True, 
+                       feature_selection_method= 'recursive')
 ```
 
 ## :busts_in_silhouette: &nbsp;Contributing
