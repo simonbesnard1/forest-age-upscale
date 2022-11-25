@@ -4,8 +4,8 @@ import numpy as np
 import os
 import zarr
 import shutil
-from ageUpscaling.utils.utilities import async_run
 import dask
+from ageUpscaling.utils.utilities import async_run
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
 def cleanup():
