@@ -69,6 +69,8 @@ class MLData:
         """
         Y = xr.open_dataset(self.DataConfig['cube_path']).sel(cluster = self.subset)[target]
         
+        #Y = self.norm(Y, self.norm_stats)
+        
         if method == 'MLPClassifier':
             Y = Y.to_array().values
             mask_old = Y== max_forest_age

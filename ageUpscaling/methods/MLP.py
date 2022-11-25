@@ -73,7 +73,8 @@ class MLPmethod:
               valid_subset:dict={}, 
               test_subset:dict={},
               feature_selection:bool= False,
-              feature_selection_method:str="recursive") -> None:
+              feature_selection_method:str="recursive", 
+              n_jobs:int=10) -> None:
 
         if feature_selection:
             self.mldata = self.get_datamodule(DataConfig=self.DataConfig, 
@@ -88,7 +89,7 @@ class MLPmethod:
                                                  features = self.DataConfig['features']).get_features(data = train_data)
         
         self.final_features = [features_selected if feature_selection else self.DataConfig['features']][0]
-        print(self.final_features)
+        
         self.mldata = self.get_datamodule(DataConfig=self.DataConfig, 
                                           target=self.DataConfig['target'],
                                           features = self.final_features,
@@ -106,10 +107,10 @@ class MLPmethod:
                                     storage='sqlite:///' + self.tune_dir + '/save_model/hp_trial.db',
                                     pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
                                                                                    reduction_factor=4, 
-                                                                                   min_early_stopping_rate=0),
+                                                                                   min_early_stopping_rate=8),
                                     direction='minimize')
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
-                       n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=self.DataConfig['hyper_params']['n_jobs'])
+                       n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
         with open(self.tune_dir + "/save_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
             self.best_model = pickle.load(fin)            
@@ -123,10 +124,12 @@ class MLPmethod:
         
         hyper_params = {
             'learning_rate_init': trial.suggest_float('learning_rate_init ', DataConfig['hyper_params']['learning_rate_init']['min'], DataConfig['hyper_params']['learning_rate_init']['max'], step=DataConfig['hyper_params']['learning_rate_init']['step']),
+            'learning_rate': trial.suggest_categorical('learning_rate', DataConfig['hyper_params']['learning_rate']),
             'first_layer_neurons': trial.suggest_int('first_layer_neurons', DataConfig['hyper_params']['first_layer_neurons']['min'], DataConfig['hyper_params']['first_layer_neurons']['max'], step=DataConfig['hyper_params']['first_layer_neurons']['step']),
             'second_layer_neurons': trial.suggest_int('second_layer_neurons', DataConfig['hyper_params']['second_layer_neurons']['min'], DataConfig['hyper_params']['second_layer_neurons']['max'], step=DataConfig['hyper_params']['second_layer_neurons']['step']),
             'third_layer_neurons': trial.suggest_int('third_layer_neurons', DataConfig['hyper_params']['third_layer_neurons']['min'], DataConfig['hyper_params']['third_layer_neurons']['max'], step=DataConfig['hyper_params']['third_layer_neurons']['step']),
             'activation': trial.suggest_categorical('activation', DataConfig['hyper_params']['activation']),
+            'solver': trial.suggest_categorical('solver', DataConfig['hyper_params']['solver']),            
             'batch_size': trial.suggest_int('batch_size', DataConfig['hyper_params']['batch_size']['min'], DataConfig['hyper_params']['batch_size']['max'], step=DataConfig['hyper_params']['batch_size']['step'])}
         
         if self.DataConfig['method'][0] == "MLPRegressor": 
@@ -136,23 +139,21 @@ class MLPmethod:
                                             hyper_params['third_layer_neurons'],
                                             ),
                        learning_rate_init=hyper_params['learning_rate_init'],
+                       learning_rate = hyper_params['learning_rate'],
                        activation=hyper_params['activation'],
+                       solver = hyper_params['solver'],
                        batch_size=hyper_params['batch_size'],
-                       random_state=1,
-                       max_iter=100, 
-                       early_stopping= True, 
-                       validation_fraction = 0.3)
+                       random_state=1)
         elif self.DataConfig['method'][0] == "MLPClassifier": 
             model_ = MLPClassifier(
                         hidden_layer_sizes=(hyper_params['first_layer_neurons'], 
                                            hyper_params['second_layer_neurons']),
                        learning_rate_init=hyper_params['learning_rate_init'],
+                       learning_rate = hyper_params['learning_rate'],
                        activation=hyper_params['activation'],
+                       solver = hyper_params['solver'],
                        batch_size=hyper_params['batch_size'],
-                       random_state=1,
-                       max_iter=100, 
-                       early_stopping= True, 
-                       validation_fraction = 0.3)
+                       random_state=1)
         model_.fit(train_data['features'], train_data['target'])
         
         with open(tune_dir + "/save_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
@@ -168,7 +169,7 @@ class MLPmethod:
         
         return loss_
     
-    def predict_xr(
+    def predict(
             self, 
             save_cube:str) -> xr.Dataset:
         

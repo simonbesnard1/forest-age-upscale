@@ -14,16 +14,8 @@ def cleanup():
 
 atexit.register(cleanup)
 
-DEFAULT_DIMS = ('cluster', 'sample')
-
-DEFAULT_COORDS = {'cluster': np.arange(1, 145),
-                  'sample':np.arange(0, 65803)}
-
-DEFAULT_CHUNKS = {'cluster': -1,
-                  'sample': -1}
-
 def new_cube(cube_location, coords = None, chunks = None):
-    """new_cube(cube_location, sites = None, coords='default')
+    """new_cube(cube_location, coords=None, chunks = None)
     
     Create a new zarr site cube.
 
@@ -31,19 +23,11 @@ def new_cube(cube_location, coords = None, chunks = None):
     ----------
     cube_location : str
         location of cube
-    sites : str or list of str
-        a site code (e.g. DE-Hai) or list of site codes
     coords : str or dict
         a dictionary of coordinates to use
-
-    Notes
-    -----
-    Default coords are:
-    
-    DEFAULT_COORDS = {'cluster': np.arange(1, 145),
-                      'sample':np.arange(0, 65803)}
+    chunks : str or dict
+        a dictionary of chuncks to use
     """    
-
     _ds = []
     encoding = {}
     for dim in coords.keys():
@@ -56,18 +40,13 @@ def new_cube(cube_location, coords = None, chunks = None):
 
     _ds.to_zarr(cube_location, encoding=encoding, consolidated=True)
 
-    return coords
-
 
 class DataCube():
-    """DataCube(cube_location, coords='default', chunks='default', njobs=1)
+    """DataCube(cube_location, coords=None, chunks = None, njobs=1)
 
-    Handles creation and updating of regularized site_cube zarr files.
+    Handles creation and updating of regularized cube zarr files.
 
-    Cubes are build with default coordinates unless otherwise stated. Default coords are:
-
-    DEFAULT_COORDS = {'cluster': np.arange(1, 145),
-                      'sample':np.arange(0, 65803)}
+    Cubes are build with provided coordinates
 
     Parameters
     ----------
@@ -75,13 +54,10 @@ class DataCube():
         Path to site_cube .zarr array, which will be created if it does not exist.
 
     coords : dictionary of coordinates
-        `coords` will be passed to xarray.Dataset(), and any not defined DEFAULT_COORDS will be added.
+        `coords` will be passed to xarray.Dataset().
 
     chunks : dictionary defining chunks
-        `chunks` will be passed to xarray.Dataset(), and any not defined DEFAULT_CHUNKS will be added:
-
-            DEFAULT_CHUNKS = {'cluster': -1,
-                              'sample': -1}
+        `chunks` will be passed to xarray.Dataset()
 
     njobs : int
         Number of cores to use in parallel when writing data.
@@ -93,34 +69,15 @@ class DataCube():
         Reloads the zarr file. If one does not yet exists, an empty one will be created.
         """
         if os.path.isdir(self.cube_location)==False:
-            coords = new_cube(self.cube_location, coords = self.coords, chunks = self.chunks)
+            new_cube(self.cube_location, coords = self.coords, chunks = self.chunks)
 
         self.cube = xr.open_zarr(self.cube_location)
 
-    def __init__(self, cube_location, coords='default', chunks='default', njobs=1):
+    def __init__(self, cube_location, coords=None, chunks=None, njobs=1):
         self.cube_location = cube_location
 
-        if coords == 'default':
-            self.coords = {}
-        else:
-            self.coords = {k: v for k, v in coords.items() if len(v.shape) > 0}
-
-        for k, v in DEFAULT_COORDS.items():
-            if k in self.coords.keys():
-                continue
-            else:
-                self.coords[k] = np.sort(np.asanyarray(v))
-
-        if chunks == 'default':
-            self.chunks = {}
-        else:
-            self.chunks = chunks
-        for k, v in DEFAULT_CHUNKS.items():
-            if k in self.chunks.keys():
-                continue
-            else:
-                self.chunks[k] = v
-
+        self.coords = {k: v for k, v in coords.items() if len(v.shape) > 0}
+        self.chunks = chunks
         self.cube = None
         self.njobs = njobs
         self._init_cube()
@@ -130,7 +87,6 @@ class DataCube():
         Initializes a new zarr variable in the data cube.
         """
         name, dims, attrs, dtype = IN
-        dims = [dim for dim in DEFAULT_DIMS if dim in dims]
         if name not in self.cube.variables:
             xr.DataArray(
                 dask.array.full(shape=[self.cube.coords[dim].size for dim in dims],
@@ -141,7 +97,7 @@ class DataCube():
                 attrs=attrs
             ).chunk({dim: self.chunks[dim] for dim in dims}).to_dataset().to_zarr(self.cube_location, mode='a')
 
-    def init_variable(self, dataset, njobs=None, parallel=False):
+    def init_variable(self, dataset, njobs=None, parallel=True):
         """init_variable(dataset)
 
         Initializes all dataset variables in the Cube.
@@ -185,12 +141,7 @@ class DataCube():
                                 var_name:{dims:dims, attrs:attrs}, or var_name:dim")
             else:
                 raise RuntimeError("dataset must be xr.Dataset, xr.DataArray, dictionary, or tuple")
-            if parallel:
-                # issue with cascading multiprocessing, maybe fix in the future.
-                out = async_run(self._init_zarr_variable, to_proc, njobs)
-            else:
-                out = list(map(self._init_zarr_variable, to_proc))
-
+            _ = async_run(self._init_zarr_variable, to_proc, njobs)
         self.cube = xr.open_zarr(self.cube_location)
         
     def _update_cube_DataArray(self, da):
@@ -222,7 +173,7 @@ class DataCube():
         update_function = self._update_cube_DataArray
         if type(da) is xr.Dataset:
             to_proc = [da[_var] for _var in (set(da.variables) - set(da.coords))]
-            out = async_run(update_function, to_proc, njobs)
+            _ = async_run(update_function, to_proc, njobs)
         elif type(da) is xr.DataArray:
             update_function(da)
         else:
@@ -258,7 +209,6 @@ class DataCube():
         if is_sorted == False:  # noqa: E712
             for dim in da.dims:
                 da = da.sortby(dim)
-        da = da.transpose(*[dim for dim in DEFAULT_DIMS if dim in da.dims])
         if initialize:
             self.init_variable(da, njobs=njobs)
         self._update(da, njobs=njobs)
