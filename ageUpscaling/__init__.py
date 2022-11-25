@@ -5,9 +5,13 @@ __author_email__ = 'besnard.sim@gmail.com'
 __license__ = 'GNU GPLv3'
 __copyright__ = 'Copyright 2022 by GFZ-Potsdam'
 
-from . import methods, utils
+from . import methods, utils, core, cube, dataloaders
 
 __all__ = [
     'methods',
-    "utils"
+    "utils",
+    "core",
+    "cube",
+    "dataloaders"   
+    
 ]
