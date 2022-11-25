@@ -42,6 +42,30 @@ study_.cross_validation(n_folds=10,
                        feature_selection_method= 'recursive')
 ```
 
+#### 2. Model training study
+
+```
+#%% Load modules
+from ageUpscaling.core.study import Study
+```
+
+```
+#%% Define study
+DataConfig_path= "./experiments/data_config.yaml"
+study_ = Study(DataConfig_path = DataConfig_path,
+                  exp_name  = 'upscaling_MLPregressor',
+                  out_dir= './output/',
+                  n_jobs = 10)
+```
+ 
+```
+#%% Run model training study
+study_.model_training(n_model=10,
+                       valid_fraction=0.5, 
+                       feature_selection=True, 
+                       feature_selection_method= 'recursive')
+```
+
 ## :busts_in_silhouette: &nbsp;Contributing
 If you find something which doesn't make sense, or something doesn't seem right, please make a pull request and please add valid and well-reasoned explanations about your changes or comments.
 
