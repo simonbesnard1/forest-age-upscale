@@ -10,9 +10,10 @@ import pickle
 from ageUpscaling.utils.utilities import TimeKeeper
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.cube.cube import DataCube
+from abc import ABC
 
-class Study(object):
-    """Study class used for cross validation, model training, prediction.
+class Study(ABC):
+    """Study abstract class used for cross validation, model training, prediction.
 
     Parameters
     ----------
