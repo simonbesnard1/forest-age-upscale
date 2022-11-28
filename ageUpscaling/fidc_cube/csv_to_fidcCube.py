@@ -9,19 +9,12 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 from datetime import datetime
-import os
-CurrentScript = os.path.basename('/Net/Groups/BGI/work_2/FIDC_age_upscale/code/data/create_final_dataset.py')
-out_dir = '/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/'
+from abc import ABC
+from typing import Any
 
-# load dataset
-df_ = pd.read_csv("/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/training_data_ageMap_OG300.csv")
-df_ = df_.dropna()
-
-# Define long names
-long_names = {
+DEFAULT_LONG_NAMES = {
         "age"  : "forest age at plot level",
         "agb"  : "above-ground biomass",
-        #"tree_height" : "tree height",
         "AnnualMeanTemperature" : "Annual Mean Temperature - worldclim dataset",
         "MeanDiurnalRange" : " Mean Diurnal Range (Mean of monthly (max temp - min temp)) - worldclim dataset",
         "TemperatureSeasonality" : "Temperature Seasonality (standard deviation *100) - worldclim dataset",
@@ -45,10 +38,8 @@ long_names = {
         "AnnualWind" : "Annual Mean wind speed - worldclim dataset",
         "AnnualVapr" : "Annual Mean water vapor pressure - worldclim dataset"}
 
-# Define units
-units = {"age"  : "years",
+DEFAULT_UNITS = {"age"  : "years",
         "agb"  : "Mg ha-1",
-        #"tree_height" : "meter",
         "AnnualMeanTemperature" : "deg C",
         "MeanDiurnalRange" : "deg C",
         "TemperatureSeasonality" : "deg C",
@@ -72,28 +63,52 @@ units = {"age"  : "years",
         "AnnualWind" : "m s-1",        
         "AnnualVapr" : "hPa"}
 
+class ImportAndSave(ABC):
+    """ImportAndSave
+    
+    Imports FIDC formatted csv file.
+    
+    """
+    def __init__(
+        self,
+        input_csv: str = '',
+        out_file: str = None,
+        variables: dict[str, Any] = DEFAULT_LONG_NAMES,
+        units: dict[str, Any] = DEFAULT_UNITS):
+    
+        super().__init__()
+        
+        self.input_csv = input_csv
+        self.out_file = out_file
+        self.variables = variables
+        self.units = units
 
-sites = df_.cluster.values
-
-# build list of sub-arrays
-plot_ds = []
-for site in np.unique(sites):
-    siteMask  = site==sites
-    coords = {'cluster': [site], 'sample':np.arange(len(df_['agb'].values[siteMask]))}
-    ds = {}
-    for _var in long_names.keys():
-        ds[_var] = (('cluster', 'sample'), [df_[_var].values[siteMask]])
-    ds = xr.Dataset(data_vars=ds, coords=coords)  
-    #ds = ds.expand_dims({'cluster':[site]})  
-    ds = ds.assign_coords(latitude  =  np.unique(df_['latitude_origin'].values[siteMask]),
-                          longitude = np.unique(df_['longitude_origin'].values[siteMask]))
-    plot_ds.append(ds)    
-plot_ds = xr.concat(plot_ds, dim= 'cluster')
-for _var in long_names.keys():
-    plot_ds[_var] = plot_ds[_var].assign_attrs(long_name=long_names[_var],
-                                               units=units[_var])
-plot_ds = plot_ds.assign_attrs(title = "Training dataset for stand age upscaling",
-                     created_by='Simon Besnard',
-                     contact = 'besnard@gfz-potsdam.de',
-                     creation_date=datetime.now().strftime("%d-%m-%Y %H:%M"))
-plot_ds.to_netcdf(out_dir + '/training_data_ageMap_OG300.nc', mode='w')
+    def run(self):
+        
+        df_ = pd.read_csv(self.input_csv)
+        df_ = df_.dropna()
+        sites = df_.cluster.values
+        
+        plot_ds = []
+        for site in np.unique(sites):
+            siteMask  = site==sites
+            coords = {'cluster': [site], 'sample':np.arange(len(df_['agb'].values[siteMask]))}
+            ds = {}
+            for _var in DEFAULT_LONG_NAMES.keys():
+                ds[_var] = (('cluster', 'sample'), [df_[_var].values[siteMask]])
+            ds = xr.Dataset(data_vars=ds, coords=coords)  
+            ds = ds.assign_coords(latitude  =  np.unique(df_['latitude_origin'].values[siteMask]),
+                                  longitude = np.unique(df_['longitude_origin'].values[siteMask]))
+            plot_ds.append(ds)    
+        plot_ds = xr.concat(plot_ds, dim= 'cluster')
+        
+        for _var in DEFAULT_LONG_NAMES.keys():
+            plot_ds[_var] = plot_ds[_var].assign_attrs(long_name=DEFAULT_LONG_NAMES[_var],
+                                                       units=DEFAULT_UNITS[_var])
+        plot_ds = plot_ds.assign_attrs(title = "Training dataset for stand age upscaling",
+                             created_by='Simon Besnard',
+                             contact = 'besnard@gfz-potsdam.de',
+                             creation_date=datetime.now().strftime("%d-%m-%Y %H:%M"))
+        plot_ds.to_netcdf(self.out_file, mode='w')
+        
+        return plot_ds

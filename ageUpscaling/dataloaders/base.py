@@ -10,8 +10,9 @@ from numpy.typing import ArrayLike
 import numpy as np
 from typing import Any
 import xarray as xr
+from abc import ABC
 
-class MLData:
+class MLData(ABC):
     """A dataset defines how samples are generated.
     
     Parameters:

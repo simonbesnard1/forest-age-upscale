@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Nov 28 11:56:09 2022
+
+@author: simon
+"""
+from ageUpscaling.fidc_cube.csv_to_fidcCube import ImportAndSave
+
+#%% Run data cubing
+fidc_cube = ImportAndSave(input_csv= '/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/training_data_ageMap_OG300.csv' ,
+                          out_file='/home/simon/Documents/science/GFZ/projects/forest_age_upscale/data/training_data/training_data_ageMap_OG300.nc').run()
