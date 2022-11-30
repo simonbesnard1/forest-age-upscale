@@ -35,7 +35,7 @@ setuptools.setup(
     version=version,
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://git.gfz-potsdam.de/besnard/forest_age_upscale",
+    url="https://git.gfz-potsdam.de/global-land-monitoring/forest-age-upscale",
     packages=setuptools.find_packages(include=['ageUpscaling',
                                                'ageUpscaling.*']),
     classifiers=[
