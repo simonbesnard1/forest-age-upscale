@@ -13,7 +13,7 @@ This Github repo contains all model training and inference modules for upscaling
 ## :anger: &nbsp;Package installation
 You can install the python package as follows:
 
-*A personal token has to be entered as password for the package installation*
+***Important: a personal token has to be entered as password for the package installation***
 ```
 pip install git+https://git.gfz-potsdam.de/global-land-monitoring/forest-age-upscale.git
 ```
