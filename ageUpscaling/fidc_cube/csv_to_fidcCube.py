@@ -12,6 +12,32 @@ from datetime import datetime
 from abc import ABC
 from typing import Any
 
+
+DEFAULT_VARS = {"age",
+                "agb",
+                "AnnualMeanTemperature" ,
+                "MeanDiurnalRange",
+                "TemperatureSeasonality",
+                "MaxTemperatureofWarmestMonth",
+                "MinTemperatureofColdestMonth",
+                "TemperatureAnnualRange",
+                "MeanTemperatureofWettestQuarter",
+                "MeanTemperatureofDriestQuarter" ,
+                "MeanTemperatureofWarmestQuarter",
+                "MeanTemperatureofColdestQuarter",        
+                "Isothermality",
+                "AnnualPrecipitation",
+                "PrecipitationofWettestMonth",
+                "PrecipitationofDriestMonth",
+                "PrecipitationSeasonality",
+                "PrecipitationofWettestQuarter",
+                "PrecipitationofDriestQuarter",
+                "PrecipitationofWarmestQuarter", 
+                "PrecipitationofColdestQuarter",
+                "AnnualSrad",
+                "AnnualWind",
+                "AnnualVapr"}
+
 DEFAULT_LONG_NAMES = {
         "age"  : "forest age at plot level",
         "agb"  : "above-ground biomass",
@@ -83,18 +109,20 @@ class ImportAndSave(ABC):
         self.variables = variables
         self.units = units
 
-    def run(self):
+    def compute_cube(self, 
+                     variables:dict= 'default'):
+        if variables == 'default':
+            vars_ = DEFAULT_VARS
         
         df_ = pd.read_csv(self.input_csv)
         df_ = df_.dropna()
         sites = df_.cluster.values
-        
         plot_ds = []
         for site in np.unique(sites):
             siteMask  = site==sites
             coords = {'cluster': [site], 'sample':np.arange(len(df_['agb'].values[siteMask]))}
             ds = {}
-            for _var in DEFAULT_LONG_NAMES.keys():
+            for _var in vars_.keys():
                 ds[_var] = (('cluster', 'sample'), [df_[_var].values[siteMask]])
             ds = xr.Dataset(data_vars=ds, coords=coords)  
             ds = ds.assign_coords(latitude  =  np.unique(df_['latitude_origin'].values[siteMask]),
@@ -106,9 +134,9 @@ class ImportAndSave(ABC):
             plot_ds[_var] = plot_ds[_var].assign_attrs(long_name=DEFAULT_LONG_NAMES[_var],
                                                        units=DEFAULT_UNITS[_var])
         plot_ds = plot_ds.assign_attrs(title = "Training dataset for stand age upscaling",
-                             created_by='Simon Besnard',
-                             contact = 'besnard@gfz-potsdam.de',
-                             creation_date=datetime.now().strftime("%d-%m-%Y %H:%M"))
+                                        created_by='Simon Besnard',
+                                        contact = 'besnard@gfz-potsdam.de',
+                                        creation_date=datetime.now().strftime("%d-%m-%Y %H:%M"))
         plot_ds.to_netcdf(self.out_file, mode='w')
         
         return plot_ds
