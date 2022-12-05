@@ -109,6 +109,7 @@ class MLPmethod:
                                                                                    reduction_factor=4, 
                                                                                    min_early_stopping_rate=8),
                                     direction='minimize')
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         

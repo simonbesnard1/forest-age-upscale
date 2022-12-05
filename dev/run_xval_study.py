@@ -12,7 +12,7 @@ DataConfig_path= "/home/simon/Documents/science/GFZ/projects/forest_age_upscale/
 study_ = Study(DataConfig_path = DataConfig_path,
                study_name  = 'Xval_MLPregressor',
                out_dir= '/home/simon/Documents/science/GFZ/projects/forest_age_upscale/output/',
-               n_jobs = 10)
+               n_jobs = 100)
 study_.cross_validation(n_folds=10, 
                         valid_fraction=0.5, 
                         feature_selection=True, 

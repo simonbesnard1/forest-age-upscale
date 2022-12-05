@@ -10,6 +10,7 @@ from abc import ABC
 import os
 import warnings
 import atexit
+import yaml as yml
 
 import numpy as np
 import xarray as xr
@@ -59,19 +60,21 @@ class DataCube(ABC):
         """
         Reloads the zarr file. If one does not yet exists, an empty one will be created.
         """
-        if os.path.isdir(self.cube_location)==False:
-            new_cube(self.cube_location)
+        if os.path.isdir(os.path.join(self.cube_location + self.cube_name))==False:
+            new_cube(self.cube_name, self.cube_location, self.CubeConfig)
 
-        self.cube = xr.open_zarr(self.cube_location, synchronizer= synchronizer)
+        self.cube = xr.open_zarr(self.cube_location + self.cube_name , synchronizer= synchronizer)
     
     def __init__(self, 
-                 cube_location:str, 
-                 coords=None, 
-                 chunks=None):
+                 cube_name:str = 'test_cube',
+                 cube_location:str= '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/output/', 
+                 cube_config_path:str='/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/config_global_cube.yaml'):
         self.cube_location = cube_location
+        self.cube_name = cube_name
+        
+        with open(cube_config_path, 'r') as f:
+            self.CubeConfig =  yml.safe_load(f)
 
-        self.coords = {k: v for k, v in coords.items() if len(v.shape) > 0}
-        self.chunks = chunks
         self.cube = None
         self.load_cube()
     
