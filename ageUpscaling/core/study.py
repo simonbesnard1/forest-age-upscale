@@ -9,7 +9,7 @@ import shutil
 import pickle
 from ageUpscaling.utils.utilities import TimeKeeper
 from ageUpscaling.methods.MLP import MLPmethod
-from ageUpscaling.cube.cube import DataCube
+from ageUpscaling.core.cube import DataCube
 from abc import ABC
 
 class Study(ABC):

@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+@author  :   jnelson
+@File    :   cube.py
+@Time    :   Mon Sep 26 10:47:17 2022
+@Author  :   Jake Nelson
+@Version :   1.0
+@Contact :   besnard.sim@gmail.com
+@License :   (C)Copyright 2022-2023
+@Desc    :   An abstract class for creating datacube. The code has been adapted from Jake Nelson's code
+"""
 import atexit
 import xarray as xr
 import numpy as np
@@ -5,6 +17,7 @@ import os
 import zarr
 import shutil
 import dask
+from abc import ABC
 from ageUpscaling.utils.utilities import async_run
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
@@ -17,7 +30,7 @@ atexit.register(cleanup)
 def new_cube(cube_location, coords = None, chunks = None):
     """new_cube(cube_location, coords=None, chunks = None)
     
-    Create a new zarr site cube.
+    Create a new zarr data cube.
 
     Parameters
     ----------
@@ -41,7 +54,7 @@ def new_cube(cube_location, coords = None, chunks = None):
     _ds.to_zarr(cube_location, encoding=encoding, consolidated=True)
 
 
-class DataCube():
+class DataCube(ABC):
     """DataCube(cube_location, coords=None, chunks = None, njobs=1)
 
     Handles creation and updating of regularized cube zarr files.
@@ -51,7 +64,7 @@ class DataCube():
     Parameters
     ----------
     cube_location : str
-        Path to site_cube .zarr array, which will be created if it does not exist.
+        Path to cube .zarr array, which will be created if it does not exist.
 
     coords : dictionary of coordinates
         `coords` will be passed to xarray.Dataset().
@@ -73,7 +86,10 @@ class DataCube():
 
         self.cube = xr.open_zarr(self.cube_location)
 
-    def __init__(self, cube_location, coords=None, chunks=None, njobs=1):
+    def __init__(self, 
+                 cube_location, 
+                 coords=None, 
+                 chunks=None, njobs=1):
         self.cube_location = cube_location
 
         self.coords = {k: v for k, v in coords.items() if len(v.shape) > 0}
@@ -162,7 +178,7 @@ class DataCube():
         try:
             _zarr.set_orthogonal_selection(idxs, da.data)
         except Exception as e:
-            raise RuntimeError("Failed to write variable to site_cube: "+str(da)) from e
+            raise RuntimeError("Failed to write variable to cube: "+str(da)) from e
         
     def _update(self, da, njobs=None):
         """
@@ -182,7 +198,7 @@ class DataCube():
     def update_cube(self, da, njobs=None, initialize=True, is_sorted=False):
         """update_cube(da, njobs=None, initialize=True, is_sorted=True)
 
-        update the site cube with the provided Dataset or DataArray.
+        update the cube with the provided Dataset or DataArray.
 
         Parameters
         ----------
