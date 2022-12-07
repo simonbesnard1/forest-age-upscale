@@ -46,7 +46,6 @@ class ComputeCube(ABC):
         self.spatial_resolution = cube_config['spatial_resolution']
         self.output_metadata = cube_config['output_metadata']
         
-        
     def init_variable(self, 
                       dataset, 
                       cube,
@@ -100,6 +99,11 @@ class ComputeCube(ABC):
             elif dim == 'time':    
                 dim_ = np.arange(np.datetime64(self.dims_[dim][0]), np.datetime64(self.dims_[dim][1]),
                                  np.timedelta64(1, self.temporal_resolution))
+            elif dim == 'cluster':
+                dim_ = np.arange(self.dims_[dim]) + 1
+            elif dim == 'sample':
+                dim_ = np.arange(self.dims_[dim])
+                
             coords.update({dim: dim_})
         
         ds_ = xr.Dataset(data_vars={}, coords=coords, attrs= self.output_metadata)

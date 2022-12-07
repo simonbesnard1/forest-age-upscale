@@ -54,6 +54,7 @@ class Study(ABC):
                 raise ValueError(f'restore path does not exist:\n{study_dir}')
 
         self.study_dir = study_dir
+        self.DataConfig['cube_location'] = os.path.join(study_dir, 'model_output')
         self.n_jobs = n_jobs
 
     def create_study_dir(self, out_dir: str, study_name: str) -> str:
@@ -173,14 +174,8 @@ class Study(ABC):
             The method to use for the feature selections
         """
         
-        cluster_ = xr.open_dataset(self.DataConfig['cube_path']).cluster.values
-        sample_ = xr.open_dataset(self.DataConfig['cube_path']).sample.values
-        pred_cube = DataCube(os.path.join(self.study_dir, "model_output"),
-                             njobs=self.n_jobs,
-                             coords={'cluster': cluster_,
-                                     'sample': sample_},
-                             chunks={'cluster': -1,
-                                     'sample': -1})
+        pred_cube = DataCube(cube_config = self.DataConfig)
+        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         np.random.shuffle(cluster_)
         kf = KFold(n_splits=n_folds)
         timekeeper = TimeKeeper(n_folds=n_folds)
@@ -219,7 +214,7 @@ class Study(ABC):
             The method to use for the feature selections
         """
         
-        cluster_ = xr.open_dataset(self.DataConfig['cube_path']).cluster.values
+        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         np.random.shuffle(cluster_)
         timekeeper = TimeKeeper(n_folds=n_model)
         for run_ in np.arange(n_model):

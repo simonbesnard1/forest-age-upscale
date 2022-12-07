@@ -183,14 +183,11 @@ class MLPmethod:
             X_cluster = X[cluster_, : , :].reshape(-1, len(self.final_features))
             Y_cluster = Y[:, cluster_, :].reshape(-1)
             mask_nan = np.isfinite(Y_cluster)
-            try:
-                y_hat = self.best_model.predict(X_cluster[mask_nan, :])
-                preds = xr.Dataset()
-                preds["forestAge_pred"] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-                preds["forestAge_obs"] = xr.DataArray([Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-                save_cube.update_cube(preds, initialize=True, is_sorted=False, njobs=1)
-            except:
-                print('cluster_{id_} has only NaN values'.format(id_ = str(self.mldata.test_subset[cluster_])))
-
+            y_hat = self.best_model.predict(X_cluster[mask_nan, :])
+            preds = xr.Dataset()
+            preds["forestAge_pred"] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+            preds["forestAge_obs"] = xr.DataArray([Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+            save_cube.compute_cube(preds, initialize=True, njobs=1)
+            
 
     

@@ -48,7 +48,7 @@ class MLData(ABC):
         x (np.array): the concatenated features 
         """
         
-        data = xr.open_dataset(self.DataConfig['cube_path']).sel(cluster = self.subset)
+        data = xr.open_dataset(self.DataConfig['training_dataset']).sel(cluster = self.subset)
 
         X = data[features]
         
@@ -68,7 +68,7 @@ class MLData(ABC):
         ------
         y (np.array): the target 
         """
-        Y = xr.open_dataset(self.DataConfig['cube_path']).sel(cluster = self.subset)[target]
+        Y = xr.open_dataset(self.DataConfig['training_dataset']).sel(cluster = self.subset)[target]
         
         #Y = self.norm(Y, self.norm_stats)
         

@@ -45,9 +45,10 @@ class DataCube(ComputeCube):
     
     def __init__(self, 
                  cube_config:dict= {}):
-                    
+        
         super().__init__(cube_config)
         
+        self.cube_config = cube_config
         self._init_cube()
         
     def compute_cube(self, 
