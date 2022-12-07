@@ -112,17 +112,16 @@ class ImportAndSave(ABC):
     def compute_cube(self, 
                      variables:dict= 'default'):
         if variables == 'default':
-            vars_ = DEFAULT_VARS
+            var_names = DEFAULT_VARS
         
         df_ = pd.read_csv(self.input_csv)
-        df_ = df_.dropna()
         sites = df_.cluster.values
         plot_ds = []
         for site in np.unique(sites):
             siteMask  = site==sites
             coords = {'cluster': [site], 'sample':np.arange(len(df_['agb'].values[siteMask]))}
             ds = {}
-            for _var in vars_.keys():
+            for _var in var_names:
                 ds[_var] = (('cluster', 'sample'), [df_[_var].values[siteMask]])
             ds = xr.Dataset(data_vars=ds, coords=coords)  
             ds = ds.assign_coords(latitude  =  np.unique(df_['latitude_origin'].values[siteMask]),
