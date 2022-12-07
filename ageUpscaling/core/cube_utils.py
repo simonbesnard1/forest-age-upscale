@@ -27,7 +27,7 @@ atexit.register(cleanup)
 
 class ComputeCube(ABC):
     """
-    A schema that can be used to create new xcube datasets.
+    A schema that can be used to create new cube datasets.
     The given *shape*, *dims*, and *chunks*, *coords* apply to all data variables.
 
     :param shape: A tuple of dimension sizes.
@@ -39,14 +39,17 @@ class ComputeCube(ABC):
     def __init__(self,
                  cube_config:dict= None):
         
-        self.dims_= cube_config['output_writer_params']['dims']
-        self.variables = cube_config['output_variables']
         self.cube_location = cube_config['cube_location']
+        self.dims_= cube_config['output_writer_params']['dims']
         self.chunksizes = cube_config['output_writer_params']['chunksizes']
         self.temporal_resolution = cube_config['temporal_resolution']
         self.spatial_resolution = cube_config['spatial_resolution']
         
-    def init_variable(self, dataset, njobs=None, parallel=True):
+    def init_variable(self, 
+                      dataset, 
+                      cube,
+                      njobs=None, 
+                      parallel=True) -> xr.Dataset:
         """init_variable(dataset)
 
         Initializes all dataset variables in the Cube.
@@ -64,35 +67,19 @@ class ComputeCube(ABC):
             result in the default njobs as defined in during initialization.
 
         """
-        #TODO
+        var_name = set(dataset.variables) - set(dataset.coords) 
         
-        if njobs is None:
-            njobs = self.njobs
-        self._init_cube()
-        if type(dataset) is xr.DataArray:
-            self._init_zarr_variable((dataset.name, dataset.dims, dataset.attrs, dataset.dtype))
-        elif type(dataset) is tuple:
-            self._init_zarr_variable(dataset)
-        else:
-            to_proc = []
-            if type(dataset) is xr.Dataset:
-                for _var in set(dataset.variables) - set(dataset.coords):
-                    to_proc.append((_var, dataset[_var].dims, dataset[_var].attrs, dataset[_var].dtype))
-            elif type(dataset) is dict:
-                for k, v in dataset.items():
-                    if type(v) is str:
-                        to_proc.append((k, v, None, np.float64))
-                    elif type(v) is dict:
-                        to_proc.append((k, v['dims'], v['attrs'], np.float64))
-                    elif len(v) == 2:
-                        to_proc.append((k, v[0], v[1], np.float64))
-                    else:
-                        raise ValueError(
-                            "key:value pair must be constructed as one of: var_name:(dims, attrs),\
-                                var_name:{dims:dims, attrs:attrs}, or var_name:dim")
-            else:
-                raise RuntimeError("dataset must be xr.Dataset, xr.DataArray, dictionary, or tuple")
-            _ = async_run(self._init_zarr_variable, to_proc, njobs)
+        for var_name in set(dataset.variables) - set(dataset.coords):    
+            if var_name not in self.cube.variables:
+                
+                xr.DataArray(dask.array.full(shape=[v.size for v in cube.coords.values() if len(v.shape) > 0],
+                                             chunks=self.chunksizes, 
+                                             fill_value=np.nan),
+                            coords=cube.coords,
+                            dims=cube.coords.keys(),
+                            name=var_name
+                        ).chunk(self.chunksizes).to_dataset().to_zarr(self.cube_location, mode='a')
+
         self.cube = xr.open_zarr(self.cube_location)
     
     def new_cube(self) -> xr.Dataset:
@@ -111,28 +98,10 @@ class ComputeCube(ABC):
                 dim_ = np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution)
             elif dim == 'time':    
                 dim_ = np.arange(np.datetime64(self.dims_[dim][0]), np.datetime64(self.dims_[dim][1]),
-                                  np.timedelta64(1, self.temporal_resolution))
+                                 np.timedelta64(1, self.temporal_resolution))
             coords.update({dim: dim_})
         
-        dims = coords.keys()
-        shape = [v.size for v in coords.values() if len(v.shape) > 0]
-        data_vars = {}   
-        
-        if self.variables:
-            for var_name in self.variables:
-                
-                data_vars[var_name] = xr.DataArray(dask.array.full(shape=shape,
-                                                                    chunks=self.chunksizes, 
-                                                                    fill_value=np.nan),
-                                                    coords=coords,
-                                                    dims=dims,
-                                                    name=var_name
-                                                ).chunk(self.chunksizes)
-                
-            ds_ = xr.Dataset(data_vars=data_vars, coords=coords)
-        
-        else :
-            ds_ = xr.Dataset(data_vars={}, coords=coords)        
+        ds_ = xr.Dataset(data_vars={}, coords=coords)        
             
         ds_.to_zarr(self.cube_location, consolidated=True)
         
@@ -149,7 +118,6 @@ class ComputeCube(ABC):
             raise FileExistsError("cube_location already exists but is not a zarr group. Delete existing directory or choose a different cube_location: "+self.cube_location) from e
         
         idxs = tuple([np.where( np.isin(self.cube[dim].values, da[dim].values ) )[0] for dim in da.dims])
-
         if len(_zarr.shape) != len(da.shape):
             raise ValueError("Inconsistent dimensions. Array `{0}` to be saved has dimensions of {1}, but target dataset expected {2}.".format(da.name, da.dims, self.cube[da.name].dims))
         try:
