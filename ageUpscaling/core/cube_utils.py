@@ -44,6 +44,8 @@ class ComputeCube(ABC):
         self.chunksizes = cube_config['output_writer_params']['chunksizes']
         self.temporal_resolution = cube_config['temporal_resolution']
         self.spatial_resolution = cube_config['spatial_resolution']
+        self.output_metadata = cube_config['output_metadata']
+        
         
     def init_variable(self, 
                       dataset, 
@@ -100,7 +102,7 @@ class ComputeCube(ABC):
                                  np.timedelta64(1, self.temporal_resolution))
             coords.update({dim: dim_})
         
-        ds_ = xr.Dataset(data_vars={}, coords=coords)        
+        ds_ = xr.Dataset(data_vars={}, coords=coords, attrs= self.output_metadata)
             
         ds_.to_zarr(self.cube_location, consolidated=True)
         

@@ -7,7 +7,6 @@ Created on Thu Dec  1 12:10:34 2022
 """
 from typing import Union
 import os
-import yaml as yml
 
 import xarray as xr
 
@@ -45,12 +44,9 @@ class DataCube(ComputeCube):
         self.cube = xr.open_zarr(self.cube_config['cube_location'])
     
     def __init__(self, 
-                 cube_config_path:str='/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/config_global_cube.yaml'):
-        
-        with open(cube_config_path, 'r') as f:
-            self.cube_config =  yml.safe_load(f)
-            
-        super().__init__(self.cube_config)
+                 cube_config:dict= {}):
+                    
+        super().__init__(cube_config)
         
         self._init_cube()
         
@@ -79,4 +75,3 @@ class DataCube(ComputeCube):
             
         self._update(da, njobs=njobs)
     
-
