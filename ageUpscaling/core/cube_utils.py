@@ -88,7 +88,6 @@ class ComputeCube(ABC):
         predefined coordinate variables and metadata.
         :return: A cube instance
         """
-            
         ds_ = []
         coords = {}
         for dim in self.dims_.keys():
