@@ -70,8 +70,6 @@ class MLData(ABC):
         """
         Y = xr.open_dataset(self.DataConfig['training_dataset']).sel(cluster = self.subset)[target]
         
-        #Y = self.norm(Y, self.norm_stats)
-        
         if method == 'MLPClassifier':
             Y = Y.to_array().values
             mask_old = Y== max_forest_age
@@ -80,8 +78,8 @@ class MLData(ABC):
             Y[mask_young] = 0    
         
         elif method == 'MLPRegressor':
-            Y = Y.where(Y<max_forest_age).to_array().values
-        
+            Y = Y.where(Y<max_forest_age)
+            Y = self.norm(Y, self.norm_stats).to_array().values
         return Y
             
     def get_xy(self,  
@@ -98,6 +96,15 @@ class MLData(ABC):
         return {'features' : self.x.astype('float32'), "target": self.y.astype('float32'), 'norm_stats': self.norm_stats}
     
     def norm(self, 
+             x: xr.Dataset, 
+             norm_stats: dict) -> xr.Dataset:
+        
+        for var in x.data_vars:
+            x[var] = (x[var] - norm_stats[var]['mean']) / norm_stats[var]['std']
+
+        return x
+    
+    def denorm(self, 
              x: xr.Dataset, 
              norm_stats: dict) -> xr.Dataset:
         

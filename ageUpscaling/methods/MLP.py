@@ -109,7 +109,6 @@ class MLPmethod:
                                                                                    reduction_factor=4, 
                                                                                    min_early_stopping_rate=8),
                                     direction='minimize')
-        optuna.logging.set_verbosity(optuna.logging.WARNING)
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
@@ -183,11 +182,12 @@ class MLPmethod:
             X_cluster = X[cluster_, : , :].reshape(-1, len(self.final_features))
             Y_cluster = Y[:, cluster_, :].reshape(-1)
             mask_nan = np.isfinite(Y_cluster)
-            y_hat = self.best_model.predict(X_cluster[mask_nan, :])
-            preds = xr.Dataset()
-            preds["forestAge_pred"] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-            preds["forestAge_obs"] = xr.DataArray([Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-            save_cube.compute_cube(preds, initialize=True, njobs=1)
-            
+            if X_cluster[mask_nan, :].shape[0]>0:
+                y_hat = self.best_model.predict(X_cluster[mask_nan, :])
+                preds = xr.Dataset()
+                preds["forestAge_pred"] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+                preds["forestAge_obs"] = xr.DataArray([Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+                save_cube.compute_cube(preds, initialize=True, njobs=1)
+                
 
     
