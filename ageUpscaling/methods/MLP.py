@@ -169,7 +169,7 @@ class MLPmethod:
         
         return loss_
     
-    def predict(
+    def predict_clusters(
             self, 
             save_cube:str) -> xr.Dataset:
         
