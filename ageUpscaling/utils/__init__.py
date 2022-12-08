@@ -1,5 +1,7 @@
-from ageUpscaling.utils.utilities import TimeKeeper
+from ageUpscaling.utils import utilities, metrics
 
 __all__ = [
-    'TimeKeeper'
+    'utilities',
+    'metrics'
 ]
+
