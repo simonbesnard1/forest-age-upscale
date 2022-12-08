@@ -6,7 +6,6 @@ from sklearn.model_selection import KFold
 from sklearn.model_selection import train_test_split
 import yaml as yml
 import shutil
-import pickle
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.core.cube import DataCube
 from abc import ABC
@@ -192,43 +191,7 @@ class Study(ABC):
             mlp_method.predict(save_cube = pred_cube)                       
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
-    def model_training(self, 
-                       n_model:int=10, 
-                       valid_fraction:float=0.3,
-                       feature_selection:bool=False,
-                       feature_selection_method:str=None) -> None:
-        """Perform cross-validation.
-
-        Parameters
-        ----------
-        n_model : int
-            Number of model runs.
-        valid_fraction : float
-            Fraction of the validation fraction. Range between 0-1    
-        feature_selection : bool
-            Whether to do feature selection.
-        feature_selection_method : str
-            The method to use for the feature selections
-        """
-        
-        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
-        np.random.shuffle(cluster_)
-        
-        for run_ in tqdm(np.arange(n_model), desc='Training model members'):
-            train_subset, valid_subset = train_test_split(cluster_, test_size=valid_fraction, shuffle=True)
-            mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), DataConfig= self.DataConfig)
-            mlp_method.train(train_subset=train_subset,
-                              valid_subset=valid_subset,
-                              feature_selection= feature_selection,
-                              feature_selection_method=feature_selection_method,
-                              n_jobs = self.n_jobs)
-            if not os.path.exists(self.study_dir + '/save_model/'):
-                os.makedirs(self.study_dir + '/save_model/')
-                
-            with open(self.study_dir + "/save_model/model_run_{id_}.pickle".format(id_ = run_), "wb") as fout:
-                pickle.dump(mlp_method.best_model, fout)
-                
-            shutil.rmtree(os.path.join(self.study_dir, "tune"))
+    
             
     
     
