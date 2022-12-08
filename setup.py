@@ -54,6 +54,7 @@ setuptools.setup(
         "numpy==1.23.4",
         "optuna==3.0.3",
         "PyYAML==6.0",
-        "matplotlib==3.6.2"],
+        "matplotlib==3.6.2",
+        "bottleneck"],
     include_package_data=True,
 )
