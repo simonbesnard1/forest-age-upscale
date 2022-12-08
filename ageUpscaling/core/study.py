@@ -7,7 +7,6 @@ from sklearn.model_selection import train_test_split
 import yaml as yml
 import shutil
 import pickle
-from ageUpscaling.utils.utilities import TimeKeeper
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.core.cube import DataCube
 from abc import ABC
@@ -157,10 +156,10 @@ class Study(ABC):
         return f'{os.path.join(os.path.join(dir_path, prefix))}{version_digits}'
     
     def cross_validation(self, 
-             n_folds:int=10, 
-             valid_fraction:float=0.3,
-             feature_selection:bool=False,
-             feature_selection_method:str=None) -> None:
+                         n_folds:int=10, 
+                         valid_fraction:float=0.3,
+                         feature_selection:bool=False,
+                         feature_selection_method:str=None) -> None:
         """Perform cross-validation.
 
         Parameters
@@ -179,7 +178,6 @@ class Study(ABC):
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         np.random.shuffle(cluster_)
         kf = KFold(n_splits=n_folds)
-        #timekeeper = TimeKeeper(n_folds=n_folds)
         
         for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
             train_subset, test_subset = cluster_[train_index], cluster_[test_index]
@@ -192,16 +190,13 @@ class Study(ABC):
                               feature_selection_method=feature_selection_method,
                               n_jobs = self.n_jobs)
             mlp_method.predict(save_cube = pred_cube)                       
-            #timekeeper.lap(message="Time to run fold: {lap_time}")
-            #timekeeper.time_left(message="Total time: {total_time}, est. remaining: {time_left}")
-            print('=' * 20)
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
     def model_training(self, 
-             n_model:int=10, 
-             valid_fraction:float=0.3,
-             feature_selection:bool=False,
-             feature_selection_method:str=None) -> None:
+                       n_model:int=10, 
+                       valid_fraction:float=0.3,
+                       feature_selection:bool=False,
+                       feature_selection_method:str=None) -> None:
         """Perform cross-validation.
 
         Parameters
@@ -218,8 +213,8 @@ class Study(ABC):
         
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         np.random.shuffle(cluster_)
-        timekeeper = TimeKeeper(n_folds=n_model)
-        for run_ in np.arange(n_model):
+        
+        for run_ in tqdm(np.arange(n_model), desc='Training model members'):
             train_subset, valid_subset = train_test_split(cluster_, test_size=valid_fraction, shuffle=True)
             mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), DataConfig= self.DataConfig)
             mlp_method.train(train_subset=train_subset,
@@ -233,9 +228,6 @@ class Study(ABC):
             with open(self.study_dir + "/save_model/model_run_{id_}.pickle".format(id_ = run_), "wb") as fout:
                 pickle.dump(mlp_method.best_model, fout)
                 
-            timekeeper.lap(message="Time to run model run: {lap_time}")
-            timekeeper.time_left(message="Total time: {total_time}, est. remaining: {time_left}")
-            print('=' * 20)
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
     

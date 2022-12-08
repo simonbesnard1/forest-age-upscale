@@ -3,8 +3,6 @@ import multiprocessing as mp
 import dask
 from collections.abc import Iterable
 from threadpoolctl import threadpool_limits
-import time
-import numpy as np
 
 def _iter_pack(func, itterable, *args, **kwargs):
     out = []
@@ -80,45 +78,3 @@ def async_run(func, iterable, njobs, *args, **kwargs):
     to_proc = _iter_pack(func, iterable, *args, **kwargs)
     return _async_run(to_proc, njobs=njobs)
 
-class TimeKeeper:
-    
-    def __init__(self, n_folds=1):
-        self.start_time = time.time()
-        self.lap_time   = time.time()
-        self.n_folds    = n_folds
-        self.counter    = 0
-        self.lap_history = []
-        
-    def lap(self, message="{lap_time}", print_flag=True, skip_history=False):
-        time_to_run = time.time() - self.lap_time
-        lap_time    = "{0:.2f} {1}".format( time_to_run/60 if time_to_run>60 else time_to_run,
-                                                        'min' if time_to_run>60 else 'sec')
-        if print_flag:
-            print(message.format(lap_time=lap_time))
-            
-        if not skip_history:
-            self.lap_history.append(time_to_run)
-        
-        self.lap_time   = time.time()
-        self.counter += 1
-        return lap_time
-    
-    def total_time(self, message="{total_time}", print_flag=True):
-        time_to_run = time.time() - self.start_time
-        total_time  = "{0:.2f} {1}".format( time_to_run/60 if time_to_run>60 else time_to_run,
-                                                        'min' if time_to_run>60 else 'sec')
-        if print_flag:
-            print(message.format(total_time=total_time))
-
-        return total_time        
-    
-    def time_left(self, message="{total_time}, est. remaining: {time_left}", print_flag=True):
-        total_time = self.total_time(print_flag=False)
-        mean_time  = np.mean(self.lap_history)
-        time_to_run = (mean_time*self.n_folds) - (mean_time*self.counter)
-        time_left = "{0:.2f} {1}".format( time_to_run/60 if time_to_run>60 else time_to_run,
-                                                        'min' if time_to_run>60 else 'sec')
-        if print_flag:
-            print(message.format(total_time=total_time, time_left=time_left))
-
-        return time_left
