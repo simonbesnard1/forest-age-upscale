@@ -185,9 +185,15 @@ class MLPmethod:
             if X_cluster[mask_nan, :].shape[0]>0:
                 y_hat = self.best_model.predict(X_cluster[mask_nan, :])
                 preds = xr.Dataset()
-                preds["forestAge_pred"] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-                preds["forestAge_obs"] = xr.DataArray([Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+                preds["forestAge_pred"] = xr.DataArray([self.denorm_target(y_hat)], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+                preds["forestAge_obs"] = xr.DataArray([self.denorm_target(Y_cluster[mask_nan])], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
                 save_cube.compute_cube(preds, initialize=True, njobs=1)
+                
+    def denorm_target(self, 
+             x: np.array) -> np.array:
+        """Returns de-normalize target, last dimension of `x` must match len of `self.target_norm_stats`."""
+        
+        return x * self.mldata.norm_stats[self.DataConfig['target'][0]]['std'] + self.mldata.norm_stats[self.DataConfig['target'][0]]['mean']
                 
 
     
