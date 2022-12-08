@@ -25,6 +25,7 @@ class UpscaleAge(ABC):
     def __init__(
             self,
             DataConfig_path: str,
+            cube_config_path: str,            
             out_dir: str,
             study_name: str = 'study_name',
             study_dir: str = None,
@@ -37,6 +38,8 @@ class UpscaleAge(ABC):
         
         with open(DataConfig_path, 'r') as f:
             self.DataConfig =  yml.safe_load(f)
+        with open(cube_config_path, 'r') as f:
+            self.cube_config =  yml.safe_load(f)            
         self.out_dir = out_dir
         self.study_name = study_name
         
@@ -48,19 +51,14 @@ class UpscaleAge(ABC):
                 raise ValueError(f'restore path does not exist:\n{study_dir}')
 
         self.study_dir = study_dir
-        self.DataConfig['cube_location'] = os.path.join(study_dir, 'model_output')
         self.n_jobs = n_jobs
         self.n_model= n_model
         self.valid_fraction= valid_fraction
         self.feature_selection= feature_selection
         self.feature_selection_method= feature_selection_method
-        self.feature_selection_method= feature_selection_method
         
     def model_tuning(self,
-                     method:str='MLPRegressor',
-                     valid_fraction:float=0.5,
-                     feature_selection:bool=False,
-                     feature_selection_method:str=None) -> None:
+                     method:str='MLPRegressor') -> None:
         """Perform cross-validation.
 
         Parameters
@@ -78,14 +76,14 @@ class UpscaleAge(ABC):
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         np.random.shuffle(cluster_)
         
-        train_subset, valid_subset = train_test_split(cluster_, test_size=valid_fraction, shuffle=True)
+        train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
         self.DataConfig['method'] = method
         mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
                                DataConfig= self.DataConfig)
         mlp_method.train(train_subset=train_subset,
                           valid_subset=valid_subset,
-                          feature_selection= feature_selection,
-                          feature_selection_method=feature_selection_method,
+                          feature_selection= self.DataConfig['feature_selection'],
+                          feature_selection_method=self.DataConfig['feature_selection_method'],
                           n_jobs = self.n_jobs)
         if not os.path.exists(self.study_dir + '/save_model/'):
             os.makedirs(self.study_dir + '/save_model/')
@@ -93,7 +91,7 @@ class UpscaleAge(ABC):
         shutil.rmtree(os.path.join(self.study_dir, "tune"))        
         return mlp_method.best_model
 
-    def Forward(self,
+    def ForwardRun(self,
                 n_model:int,
                 retrain:bool= True,
                 MLRegressor_path:str=None,
