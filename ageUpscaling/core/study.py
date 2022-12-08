@@ -34,6 +34,7 @@ class Study(ABC):
     def __init__(
             self,
             DataConfig_path: str,
+            cube_config_path: str,            
             out_dir: str,
             study_name: str = 'study_name',
             study_dir: str = None,
@@ -42,6 +43,10 @@ class Study(ABC):
 
         with open(DataConfig_path, 'r') as f:
             self.DataConfig =  yml.safe_load(f)
+        
+        with open(cube_config_path, 'r') as f:
+            self.cube_config =  yml.safe_load(f)
+        
         self.out_dir = out_dir
         self.study_name = study_name
         
@@ -53,7 +58,7 @@ class Study(ABC):
                 raise ValueError(f'restore path does not exist:\n{study_dir}')
 
         self.study_dir = study_dir
-        self.DataConfig['cube_location'] = os.path.join(study_dir, 'model_output')
+        self.cube_config['cube_location'] = os.path.join(study_dir, 'model_output')
         self.n_jobs = n_jobs
 
     def create_study_dir(self, out_dir: str, study_name: str) -> str:
@@ -173,7 +178,7 @@ class Study(ABC):
             The method to use for the feature selections
         """
         
-        pred_cube = DataCube(cube_config = self.DataConfig)
+        pred_cube = DataCube(cube_config = self.cube_config)
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         np.random.shuffle(cluster_)
         kf = KFold(n_splits=n_folds)

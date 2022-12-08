@@ -56,8 +56,9 @@ class UpscaleAge(ABC):
         self.feature_selection_method= feature_selection_method
         self.feature_selection_method= feature_selection_method
         
-    def model_tuning(self, 
-                     valid_fraction:float=0.3,
+    def model_tuning(self,
+                     method:str='MLPRegressor',
+                     valid_fraction:float=0.5,
                      feature_selection:bool=False,
                      feature_selection_method:str=None) -> None:
         """Perform cross-validation.
@@ -78,7 +79,9 @@ class UpscaleAge(ABC):
         np.random.shuffle(cluster_)
         
         train_subset, valid_subset = train_test_split(cluster_, test_size=valid_fraction, shuffle=True)
-        mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), DataConfig= self.DataConfig)
+        self.DataConfig['method'] = method
+        mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
+                               DataConfig= self.DataConfig)
         mlp_method.train(train_subset=train_subset,
                           valid_subset=valid_subset,
                           feature_selection= feature_selection,
@@ -98,10 +101,10 @@ class UpscaleAge(ABC):
         
         for run_ in tqdm(np.arange(n_model), desc='Forward run model members'):
             
-            cube = DataCube()
+            cube = DataCube(cube_config = self.cube_config)
             if retrain:
-                best_regressor  = self.model_tuning(method = 'MLPregressor')
-                best_classifier = self.model_tuning(method = 'MLPclassifier')
+                best_regressor  = self.model_tuning(method = 'MLPRegressor')
+                best_classifier = self.model_tuning(method = 'MLPClassifier')
             elif not retrain:
                 best_regressor  = pickle.load(MLRegressor_path)
                 best_classifier = pickle.load(MLPClassifier_path)

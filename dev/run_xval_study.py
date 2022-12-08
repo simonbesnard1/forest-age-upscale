@@ -8,8 +8,10 @@ Created on Thu Nov 24 11:36:57 2022
 from ageUpscaling.core.study import Study
 
 #%% Initiate experiment
-DataConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/data_config.yaml"
+DataConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/cross_validation/data_config.yaml"
+CubeConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/cross_validation/config_prediction_cube.yaml"
 study_ = Study(DataConfig_path = DataConfig_path,
+               cube_config_path= CubeConfig_path,
                study_name  = 'Xval_MLPregressor',
                out_dir= '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/output/',
                n_jobs = 10)
