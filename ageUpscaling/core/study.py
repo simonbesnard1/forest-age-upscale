@@ -11,6 +11,7 @@ from ageUpscaling.utils.utilities import TimeKeeper
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.core.cube import DataCube
 from abc import ABC
+from tqdm import tqdm
 
 class Study(ABC):
     """Study abstract class used for cross validation, model training, prediction.
@@ -178,8 +179,9 @@ class Study(ABC):
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         np.random.shuffle(cluster_)
         kf = KFold(n_splits=n_folds)
-        timekeeper = TimeKeeper(n_folds=n_folds)
-        for train_index, test_index in kf.split(cluster_):
+        #timekeeper = TimeKeeper(n_folds=n_folds)
+        
+        for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
             train_subset, test_subset = cluster_[train_index], cluster_[test_index]
             train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
             mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), DataConfig= self.DataConfig)
@@ -190,8 +192,8 @@ class Study(ABC):
                               feature_selection_method=feature_selection_method,
                               n_jobs = self.n_jobs)
             mlp_method.predict(save_cube = pred_cube)                       
-            timekeeper.lap(message="Time to run fold: {lap_time}")
-            timekeeper.time_left(message="Total time: {total_time}, est. remaining: {time_left}")
+            #timekeeper.lap(message="Time to run fold: {lap_time}")
+            #timekeeper.time_left(message="Total time: {total_time}, est. remaining: {time_left}")
             print('=' * 20)
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
             

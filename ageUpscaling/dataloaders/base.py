@@ -104,12 +104,4 @@ class MLData(ABC):
 
         return x
     
-    def denorm(self, 
-             x: xr.Dataset, 
-             norm_stats: dict) -> xr.Dataset:
-        
-        for var in x.data_vars:
-            x[var] = (x[var] - norm_stats[var]['mean']) / norm_stats[var]['std']
-
-        return x
     
