@@ -33,23 +33,23 @@ class DataCube(ComputeCube):
     njobs : int
         Number of cores to use in parallel when writing data.
 
-    """
-    def _init_cube(self):
-        """
-        Reloads the zarr file. If one does not yet exists, an empty one will be created.
-        """
-        if not os.path.isdir(self.cube_config['cube_location']):
-            self.new_cube()
-        
-        self.cube = xr.open_zarr(self.cube_config['cube_location'])
+    """ 
     
     def __init__(self, 
                  cube_config:dict= {}):
         
-        super().__init__(cube_config)
+        super().__init__(cube_config['cube_location'],
+                         cube_config['output_writer_params']['dims'],
+                         cube_config['output_writer_params']['chunksizes'],
+                         cube_config['temporal_resolution'],
+                         cube_config['spatial_resolution'],
+                         cube_config['output_metadata'])
         
         self.cube_config = cube_config
-        self._init_cube()
+        
+        if not os.path.isdir(self.cube_config['cube_location']):
+            self.new_cube()
+        self.cube = xr.open_zarr(self.cube_config['cube_location'])
         
     def compute_cube(self, 
                      da: Union[xr.DataArray, xr.Dataset],
@@ -70,9 +70,8 @@ class DataCube(ComputeCube):
             set false to skip variable initialization,
             faster if variables are pre-initialized
         """
-        
         if initialize:
-            self.init_variable(da, self.cube, njobs=njobs)
+            self.init_variable(da, self.cube)
             
         self._update(da, njobs=njobs)
     

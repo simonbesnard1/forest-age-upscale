@@ -8,8 +8,8 @@ output_writer_params:
     latitude: [-89.99583333, 89.99583333]
     longitude: [-179.99583333, 179.99583333]
   chunksizes: 
-    latitude: 250
-    longitude: 250
+    latitude: 1000
+    longitude: 1000
     
 output_variables:
   - agb_001deg_cc_min_000

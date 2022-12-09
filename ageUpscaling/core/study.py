@@ -134,7 +134,7 @@ class Study(ABC):
         max_v = -1
 
         for f in os.listdir(dir_path):
-            if f.startswith(prefix):
+            if f.find(prefix) == 0:
                 f_len = len(f)
                 version_string = f[len(prefix):f_len]
                 if len(version_string) == num_digits:
@@ -157,7 +157,7 @@ class Study(ABC):
         pattern = f'%0{num_digits}d'
         version_digits = pattern % version_nr
 
-        return f'{os.path.join(os.path.join(dir_path, prefix))}{version_digits}'
+        return f'{os.path.join(dir_path, prefix)}{version_digits}'
     
     def cross_validation(self, 
                          method:str='MLPRegressor',

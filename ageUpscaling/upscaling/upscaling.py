@@ -66,8 +66,8 @@ class UpscaleAge(ABC):
         self.feature_selection= feature_selection
         self.feature_selection_method= feature_selection_method
      
-    def _predict_func(self,
-                      model, 
+    @staticmethod
+    def _predict_func(model, 
                       input_xr,
                       chunk_size,
                       persist, 
