@@ -79,7 +79,8 @@ class UpscaleAge(ABC):
         train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
         self.DataConfig['method'] = method
         mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
-                               DataConfig= self.DataConfig)
+                               DataConfig= self.DataConfig, 
+                               method = method)
         mlp_method.train(train_subset=train_subset,
                           valid_subset=valid_subset,
                           feature_selection= self.DataConfig['feature_selection'],

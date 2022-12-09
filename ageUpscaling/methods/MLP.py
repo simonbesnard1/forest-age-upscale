@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 import pickle
 import optuna
-from sklearn.metrics import mean_squared_error, log_loss
+from sklearn.metrics import mean_squared_error, balanced_accuracy_score
 import xarray as xr
 from sklearn.neural_network import MLPRegressor, MLPClassifier
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
@@ -40,17 +40,20 @@ class MLPmethod:
     def __init__(
             self,
             tune_dir: str=None,
-            DataConfig:dict=None) -> None:
+            DataConfig:dict=None,
+            method:str = 'MLPRegressor') -> None:
 
         self.tune_dir = tune_dir
         
         if not os.path.exists(tune_dir):
             os.makedirs(tune_dir)
             
-        self.DataConfig = DataConfig    
+        self.DataConfig = DataConfig
+        self.method = method
         
     def get_datamodule(
             self, 
+            method:str = 'MLPRegressor',
             DataConfig: dict[str, Any] = {},
             target: dict[str, Any] = {},
             features: dict[str, Any] = {},
@@ -59,7 +62,8 @@ class MLPmethod:
             test_subset: dict[str, Any] = {},
             **kwargs) -> dict:
         
-        mlData = MLDataModule(DataConfig,
+        mlData = MLDataModule(method,
+                              DataConfig,
                               target,
                               features,
                               train_subset, 
@@ -77,20 +81,22 @@ class MLPmethod:
               n_jobs:int=10) -> None:
 
         if feature_selection:
-            self.mldata = self.get_datamodule(DataConfig=self.DataConfig, 
+            self.mldata = self.get_datamodule(method= self.method,
+                                              DataConfig=self.DataConfig, 
                                               target=self.DataConfig['target'],
                                               features =  self.DataConfig['features'],
                                               train_subset=train_subset,
                                               valid_subset=valid_subset,
                                               test_subset=test_subset)            
             train_data = self.mldata.train_dataloader().get_xy()
-            features_selected = FeatureSelection(method=self.DataConfig['method'][0], 
+            features_selected = FeatureSelection(method=self.method, 
                                                  feature_selection_method = feature_selection_method, 
                                                  features = self.DataConfig['features']).get_features(data = train_data)
         
         self.final_features = [features_selected if feature_selection else self.DataConfig['features']][0]
         
-        self.mldata = self.get_datamodule(DataConfig=self.DataConfig, 
+        self.mldata = self.get_datamodule(method= self.method,
+                                          DataConfig=self.DataConfig, 
                                           target=self.DataConfig['target'],
                                           features = self.final_features,
                                           train_subset=train_subset,
@@ -108,7 +114,7 @@ class MLPmethod:
                                     pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
                                                                                    reduction_factor=4, 
                                                                                    min_early_stopping_rate=8),
-                                    direction='minimize')
+                                    direction=['minimize' if self.method == 'MLPRegressor' else 'maximize'][0])
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
@@ -132,7 +138,7 @@ class MLPmethod:
             'solver': trial.suggest_categorical('solver', DataConfig['hyper_params']['solver']),            
             'batch_size': trial.suggest_int('batch_size', DataConfig['hyper_params']['batch_size']['min'], DataConfig['hyper_params']['batch_size']['max'], step=DataConfig['hyper_params']['batch_size']['step'])}
         
-        if self.DataConfig['method'][0] == "MLPRegressor": 
+        if self.method == "MLPRegressor": 
             model_ = MLPRegressor(
                         hidden_layer_sizes=(hyper_params['first_layer_neurons'], 
                                             hyper_params['second_layer_neurons'],
@@ -143,17 +149,23 @@ class MLPmethod:
                        activation=hyper_params['activation'],
                        solver = hyper_params['solver'],
                        batch_size=hyper_params['batch_size'],
+                       early_stopping= True, 
+                       validation_fraction=0.3,
                        random_state=1)
-        elif self.DataConfig['method'][0] == "MLPClassifier": 
+            
+        elif self.method == "MLPClassifier": 
             model_ = MLPClassifier(
-                        hidden_layer_sizes=(hyper_params['first_layer_neurons'], 
-                                           hyper_params['second_layer_neurons']),
-                       learning_rate_init=hyper_params['learning_rate_init'],
-                       learning_rate = hyper_params['learning_rate'],
-                       activation=hyper_params['activation'],
-                       solver = hyper_params['solver'],
-                       batch_size=hyper_params['batch_size'],
-                       random_state=1)
+                                   hidden_layer_sizes=(hyper_params['first_layer_neurons'], 
+                                                       hyper_params['second_layer_neurons']),
+                                   learning_rate_init=hyper_params['learning_rate_init'],
+                                   learning_rate = hyper_params['learning_rate'],
+                                   activation=hyper_params['activation'],
+                                   solver = hyper_params['solver'],
+                                   batch_size=hyper_params['batch_size'],
+                                   early_stopping= True, 
+                                   validation_fraction=0.3,
+                                   random_state=1)
+        
         model_.fit(train_data['features'], train_data['target'])
         
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
@@ -162,33 +174,33 @@ class MLPmethod:
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
             
-        if self.DataConfig['method'][0] == "MLPRegressor":
-            loss_ = mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False)
-        if self.DataConfig['method'][0] == "MLPClassifier":     
-            loss_ =  log_loss(val_data['target'], model_.predict(val_data['features']))
-        
-        return loss_
-    
+        # if self.method == "MLPRegressor":
+        #     loss_ = mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False)
+        # if self.method == "MLPClassifier":
+        #     loss_ =  balanced_accuracy_score(val_data['target'], model_.predict(val_data['features']))
+        # return loss_
+        return model_.score(val_data['features'], val_data['target'])
+         
     def predict_clusters(
             self, 
             save_cube:str) -> xr.Dataset:
         
         X = self.mldata.test_dataloader().get_x(features= self.final_features)
         Y = self.mldata.test_dataloader().get_y(target= self.DataConfig['target'], 
-                                               method= self.DataConfig['method'][0], 
+                                               method= self.method, 
                                                max_forest_age= self.DataConfig['max_forest_age'])
 
         for cluster_ in np.arange(len(self.mldata.test_subset)):
             X_cluster = X[cluster_, : , :].reshape(-1, len(self.final_features))
             Y_cluster = Y[:, cluster_, :].reshape(-1)
-            mask_nan = np.isfinite(Y_cluster)
+            mask_nan = (np.all(np.isfinite(X_cluster), axis=1)) & (np.isfinite(Y_cluster))
             if X_cluster[mask_nan, :].shape[0]>0:
                 y_hat = self.best_model.predict(X_cluster[mask_nan, :])
                 preds = xr.Dataset()
-                preds["forestAge_pred"] = xr.DataArray([self.denorm_target(y_hat)], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-                preds["forestAge_obs"] = xr.DataArray([self.denorm_target(Y_cluster[mask_nan])], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+                preds["forestAge_pred"] = xr.DataArray([self.denorm_target(y_hat) if self.method=='MLPRegressor' else y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+                preds["forestAge_obs"] = xr.DataArray([self.denorm_target(Y_cluster[mask_nan]) if self.method=='MLPRegressor' else Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
                 save_cube.compute_cube(preds, initialize=True, njobs=1)
-                
+   
     def denorm_target(self, 
              x: np.array) -> np.array:
         """Returns de-normalize target, last dimension of `x` must match len of `self.target_norm_stats`."""

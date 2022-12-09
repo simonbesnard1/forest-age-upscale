@@ -23,6 +23,7 @@ class MLData(ABC):
     """
     def __init__(
         self,
+        method:str='MLPRegressor',
         DataConfig: dict[str, Any] = {},
         target: dict[str, Any] = {},
         features: dict[str, Any] = {},     
@@ -36,6 +37,7 @@ class MLData(ABC):
         self.target = target
         self.features = features 
         self.norm_stats = norm_stats
+        self.method = method
                 
     def get_x(self,
               features:dict):
@@ -72,7 +74,7 @@ class MLData(ABC):
         
         if method == 'MLPClassifier':
             Y = Y.to_array().values
-            mask_old = Y== max_forest_age
+            mask_old = Y==max_forest_age
             mask_young = Y<max_forest_age
             Y[mask_old] = 1
             Y[mask_young] = 0    
@@ -86,12 +88,17 @@ class MLData(ABC):
                standardize:bool=True):
         
         self.y = self.get_y(target=self.target, 
-                            method = self.DataConfig['method'][0], 
+                            method = self.method, 
                             max_forest_age =self.DataConfig['max_forest_age'][0]).reshape(-1)
         
         self.x = self.get_x(features= self.features).reshape(-1, len(self.features))        
-        mask_nan = np.isfinite(self.y)
+        mask_nan = (np.all(np.isfinite(self.x), axis=1)) & (np.isfinite(self.y))
+        
         self.x, self.y = self.x[mask_nan, :], self.y[mask_nan]    
+        if self.method == 'MLPRegressor': 
+            self.y=self.y.astype('float32')
+        elif self.method == 'MLPClassifier': 
+            self.y=self.y.astype('int8')
         
         return {'features' : self.x.astype('float32'), "target": self.y.astype('float32'), 'norm_stats': self.norm_stats}
     

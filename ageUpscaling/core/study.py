@@ -160,6 +160,7 @@ class Study(ABC):
         return f'{os.path.join(os.path.join(dir_path, prefix))}{version_digits}'
     
     def cross_validation(self, 
+                         method:str='MLPRegressor',
                          n_folds:int=10, 
                          valid_fraction:float=0.3,
                          feature_selection:bool=False,
@@ -186,7 +187,9 @@ class Study(ABC):
         for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
             train_subset, test_subset = cluster_[train_index], cluster_[test_index]
             train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
-            mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), DataConfig= self.DataConfig)
+            mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
+                                   DataConfig= self.DataConfig,
+                                   method=method)
             mlp_method.train(train_subset=train_subset,
                               valid_subset=valid_subset, 
                               test_subset=test_subset, 
