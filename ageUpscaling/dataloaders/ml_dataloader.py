@@ -23,6 +23,7 @@ class MLDataModule:
     """
     def __init__(
             self,
+            method:str='MLPRegressor',
             DataConfig: dict[str, Any] = {},
             target: dict[str, Any] = {},
             features: dict[str, Any] = {},            
@@ -31,8 +32,10 @@ class MLDataModule:
             test_subset: dict[str, Any] = {},
             norm_stats: dict[str, dict[str, float]] = {},
             **kwargs) -> None:
+        
         super().__init__()
 
+        self.method = method
         self.DataConfig = DataConfig
         self.target = target
         self.features = features        
@@ -54,21 +57,36 @@ class MLDataModule:
         """Returns the training dataloader."""
 
 
-        train_data = MLData(self.DataConfig, self.target, self.features, self.train_subset, self.norm_stats)        
+        train_data = MLData(self.method, 
+                            self.DataConfig, 
+                            self.target, 
+                            self.features, 
+                            self.train_subset, 
+                            self.norm_stats)        
             
         return train_data
 
     def val_dataloader(self) -> np.array:
         """Returns the validation dataloader."""
 
-        valid_data = MLData(self.DataConfig, self.target, self.features, self.valid_subset, self.norm_stats)
+        valid_data = MLData(self.method, 
+                            self.DataConfig, 
+                            self.target, 
+                            self.features, 
+                            self.valid_subset, 
+                            self.norm_stats)
             
         return valid_data  
 
     def test_dataloader(self) -> np.array:
         """Returns the test dataloader."""
 
-        test_data = MLData(self.DataConfig, self.target, self.features, self.test_subset, self.norm_stats)
+        test_data = MLData(self.method, 
+                           self.DataConfig,
+                           self.target, 
+                           self.features, 
+                           self.test_subset, 
+                           self.norm_stats)
             
         return test_data
 

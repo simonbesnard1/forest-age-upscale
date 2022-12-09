@@ -1,0 +1,61 @@
+training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300.nc"
+features:
+  - agb
+  - AnnualMeanTemperature
+  - AnnualPrecipitation
+  - Isothermality
+  - MaxTemperatureofWarmestMonth
+  - MeanDiurnalRange
+  - MeanTemperatureofColdestQuarter
+  - MeanTemperatureofDriestQuarter  
+  - MeanTemperatureofWarmestQuarter
+  - MeanTemperatureofWettestQuarter
+  - MinTemperatureofColdestMonth
+  - PrecipitationofColdestQuarter
+  - PrecipitationofDriestMonth
+  - PrecipitationofDriestQuarter
+  - PrecipitationofWarmestQuarter
+  - PrecipitationofWettestMonth
+  - PrecipitationofWettestQuarter
+  - PrecipitationSeasonality
+  - TemperatureAnnualRange
+  - TemperatureSeasonality
+  - AnnualSrad
+  - AnnualWind
+  - AnnualVapr
+
+target:
+  - age
+
+method:
+  - MLPRegressor
+  
+max_forest_age:
+  - 300
+hyper_params:
+  number_trials: 2
+  learning_rate_init: 
+    min: 0.0001
+    max: 0.1
+    step: 0.005
+  learning_rate: ['constant', 'invscaling', 'adaptive']
+  first_layer_neurons:
+    min: 10
+    max: 100
+    step: 10
+  second_layer_neurons:
+    min: 10
+    max: 100
+    step: 10
+  third_layer_neurons:
+    min: 10
+    max: 100
+    step: 10 
+  activation: ['identity', 'logistic', 'tanh', 'relu']
+  solver: ['lbfgs', 'sgd', 'adam']
+  batch_size:
+    min: 16
+    max: 64
+    step: 16
+  
+
