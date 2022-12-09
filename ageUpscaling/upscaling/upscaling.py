@@ -13,12 +13,21 @@ import os
 import yaml as yml
 import abc as ABC
 import tqdm
-import pickle
 from sklearn.model_selection import train_test_split
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.core.cube import DataCube
 import shutil
 import zarr
+import dask.array as da
+from dask_ml.wrappers import ParallelPostFit
+import joblib
+import atexit
+synchronizer = zarr.ProcessSynchronizer('.zarrsync')
+
+def cleanup():
+    if os.path.isdir('.zarrsync') and (len(os.listdir('.zarrsync')) == 0):
+        shutil.rmtree('.zarrsync')
+atexit.register(cleanup)
 
 class UpscaleAge(ABC):
     
@@ -56,7 +65,43 @@ class UpscaleAge(ABC):
         self.valid_fraction= valid_fraction
         self.feature_selection= feature_selection
         self.feature_selection_method= feature_selection_method
+     
+    def _predict_func(self,
+                      model, 
+                      input_xr,
+                      chunk_size,
+                      persist, 
+                      proba, 
+                      clean):
+        x, y, = input_xr.x, input_xr.y
+    
+        input_data = []
+    
+        for var_name in input_xr.data_vars:
+            input_data.append(input_xr[var_name])
+    
+        input_data_flattened = []
+    
+        for arr in input_data:
+            data = arr.data.flatten().rechunk(chunk_size)
+            input_data_flattened.append(data)
+    
+        # reshape for prediction
+        input_data_flattened = da.array(input_data_flattened).transpose()
         
+        # apply the classification
+        out_class = model.predict(input_data_flattened)
+    
+        # Reshape when writing out
+        out_class = out_class.reshape(len(y), len(x))
+    
+        # stack back into xarray
+        output_xr = xr.DataArray(out_class, coords={"x": x, "y": y}, dims=["y", "x"])
+    
+        output_xr = output_xr.to_dataset(name="Predictions")
+    
+        return output_xr
+     
     def model_tuning(self,
                      method:str='MLPRegressor') -> None:
         """Perform cross-validation.
@@ -91,25 +136,70 @@ class UpscaleAge(ABC):
             
         shutil.rmtree(os.path.join(self.study_dir, "tune"))        
         return mlp_method.best_model
+    
+        def predict_xr(self,
+                       model,
+                       input_xr,
+                       chunk_size=None,
+                       persist=False,
+                       proba=False,
+                       clean=True,
+                       return_input=False):
+            """
+            Using dask-ml ParallelPostfit(), runs  the parallel
+            predict and predict_proba methods of sklearn
+            estimators. Useful for running predictions
+            on a larger-than-RAM datasets.
+            Last modified: September 2020
+            Parameters
+            ----------
+            model : scikit-learn model or compatible object
+                Must have a .predict() method that takes numpy arrays.
+            input_xr : xarray.DataArray or xarray.Dataset.
+                Must have dimensions 'x' and 'y'
+            chunk_size : int
+                The dask chunk size to use on the flattened array. If this
+                is left as None, then the chunks size is inferred from the
+                .chunks method on the `input_xr`
+            persist : bool
+                If True, and proba=True, then 'input_xr' data will be
+                loaded into distributed memory. This will ensure data
+                is not loaded twice for the prediction of probabilities,
+                but this will only work if the data is not larger than
+                distributed RAM.
+            proba : bool
+                If True, predict probabilities
+            clean : bool
+                If True, remove Infs and NaNs from input and output arrays
+            Returns
+            ----------
+            output_xr : xarray.Dataset
+                An xarray.Dataset containing the prediction output from model.
+                if proba=True then dataset will also contain probabilites, and
+                Has the same spatiotemporal structure as input_xr.
+            """
+            model = ParallelPostFit(model)
+            with joblib.parallel_backend("dask", wait_for_workers_timeout=20):
+                output_xr = self._predict_func(
+                                                model, input_xr, persist
+                                                )       
+    
+            return output_xr
 
     def ForwardRun(self,
                 n_model:int,
-                retrain:bool= True,
                 MLRegressor_path:str=None,
                 MLPClassifier_path:str=None):
         
         for run_ in tqdm(np.arange(n_model), desc='Forward run model members'):
             
             cube = DataCube(cube_config = self.cube_config)
-            if retrain:
-                best_regressor  = self.model_tuning(method = 'MLPRegressor')
-                best_classifier = self.model_tuning(method = 'MLPClassifier')
-            elif not retrain:
-                best_regressor  = pickle.load(MLRegressor_path)
-                best_classifier = pickle.load(MLPClassifier_path)
             
-            X_upscale_class = zarr.open()
-            X_upscale_reg = zarr.open()
+            best_regressor  = self.model_tuning(method = 'MLPRegressor')
+            best_classifier = self.model_tuning(method = 'MLPClassifier')
+            
+            X_upscale_class = zarr.open(self.DataConfig, synchronizer=synchronizer)[self.DataConfig['features']]
+            X_upscale_reg = zarr.open(self.DataConfig, synchronizer=synchronizer)[self.DataConfig['features']]
             OrigShape = X_upscale_class.shape            
             RF_pred = np.zeros(X_upscale_class.shape[0]) * np.nan
             mask = (np.all(np.isfinite(X_upscale_class), axis=1)) & (np.all(np.isfinite(X_upscale_reg), axis=1))

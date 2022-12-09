@@ -19,4 +19,4 @@ study_.cross_validation(method ='MLPRegressor',
                         n_folds=10, 
                         valid_fraction=0.5, 
                         feature_selection=True, 
-                        feature_selection_method= 'recursive')
+                        feature_selection_method= 'boruta')
