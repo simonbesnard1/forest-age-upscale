@@ -81,17 +81,16 @@ class MLPmethod:
               n_jobs:int=10) -> None:
 
         if feature_selection:
-            self.mldata = self.get_datamodule(method= self.method,
+            mldata_feature_sel = self.get_datamodule(method= self.method,
                                               DataConfig=self.DataConfig, 
                                               target=self.DataConfig['target'],
                                               features =  self.DataConfig['features'],
                                               train_subset=train_subset,
                                               valid_subset=valid_subset,
                                               test_subset=test_subset)            
-            train_data = self.mldata.train_dataloader().get_xy()
             features_selected = FeatureSelection(method=self.method, 
                                                  feature_selection_method = feature_selection_method, 
-                                                 features = self.DataConfig['features']).get_features(data = train_data)
+                                                 features = self.DataConfig['features']).get_features(data = mldata_feature_sel.train_dataloader().get_xy())
         
         self.final_features = [features_selected if feature_selection else self.DataConfig['features']][0]
         
@@ -110,7 +109,7 @@ class MLPmethod:
             os.makedirs(self.tune_dir + '/trial_model/')
         
         study = optuna.create_study(study_name = 'hpo_ForestAge', 
-                                    storage='sqlite:///' + self.tune_dir + '/trial_model/hp_trial.db',
+                                    #storage='sqlite:///' + self.tune_dir + '/trial_model/hp_trial.db',
                                     pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
                                                                                    reduction_factor=4, 
                                                                                    min_early_stopping_rate=8),
@@ -174,13 +173,13 @@ class MLPmethod:
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
             
-        # if self.method == "MLPRegressor":
-        #     loss_ = mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False)
-        # if self.method == "MLPClassifier":
-        #     loss_ =  balanced_accuracy_score(val_data['target'], model_.predict(val_data['features']))
-        # return loss_
-        return model_.score(val_data['features'], val_data['target'])
-         
+        if self.method == "MLPRegressor":
+            loss_ = mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False)
+        elif self.method == "MLPClassifier":
+            loss_ = model_.score(val_data['features'], val_data['target'])  
+            #loss_ =  balanced_accuracy_score(val_data['target'], model_.predict(val_data['features']))
+        return loss_ 
+    
     def predict_clusters(
             self, 
             save_cube:str) -> xr.Dataset:

@@ -100,7 +100,7 @@ class MLData(ABC):
         elif self.method == 'MLPClassifier': 
             self.y=self.y.astype('int8')
         
-        return {'features' : self.x.astype('float32'), "target": self.y.astype('float32'), 'norm_stats': self.norm_stats}
+        return {'features' : self.x.astype('float32'), "target": self.y, 'norm_stats': self.norm_stats}
     
     def norm(self, 
              x: xr.Dataset, 
