@@ -1,28 +1,29 @@
 training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300.nc"
+global_cube: "/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/AgeUpscale"
 features:
   - agb
-  - AnnualMeanTemperature
-  - AnnualPrecipitation
-  - Isothermality
-  - MaxTemperatureofWarmestMonth
-  - MeanDiurnalRange
-  - MeanTemperatureofColdestQuarter
-  - MeanTemperatureofDriestQuarter  
-  - MeanTemperatureofWarmestQuarter
-  - MeanTemperatureofWettestQuarter
-  - MinTemperatureofColdestMonth
-  - PrecipitationofColdestQuarter
-  - PrecipitationofDriestMonth
-  - PrecipitationofDriestQuarter
-  - PrecipitationofWarmestQuarter
-  - PrecipitationofWettestMonth
-  - PrecipitationofWettestQuarter
-  - PrecipitationSeasonality
-  - TemperatureAnnualRange
-  - TemperatureSeasonality
-  - AnnualSrad
-  - AnnualWind
-  - AnnualVapr
+  - AnnualMeanTemperature_WorlClim
+  - AnnualPrecipitation_WorlClim
+  - Isothermality_WorlClim
+  - MaxTemperatureofWarmestMonth_WorlClim
+  - MeanDiurnalRange_WorlClim
+  - MeanTemperatureofColdestQuarter_WorlClim
+  - MeanTemperatureofDriestQuarter_WorlClim
+  - MeanTemperatureofWarmestQuarter_WorlClim
+  - MeanTemperatureofWettestQuarter_WorlClim
+  - MinTemperatureofColdestMonth_WorlClim
+  - PrecipitationofColdestQuarter_WorlClim
+  - PrecipitationofDriestMonth_WorlClim
+  - PrecipitationofDriestQuarter_WorlClim
+  - PrecipitationofWarmestQuarter_WorlClim
+  - PrecipitationofWettestMonth_WorlClim
+  - PrecipitationofWettestQuarter_WorlClim
+  - PrecipitationSeasonality_WorlClim
+  - TemperatureAnnualRange_WorlClim
+  - TemperatureSeasonality_WorlClim
+  - AnnualSrad_WorlClim
+  - AnnualWind_WorlClim
+  - AnnualVapr_WorlClim
 
 target:
   - age
@@ -31,7 +32,7 @@ max_forest_age:
   - 300
   
 feature_selection: yes
-feature_selection_method: 'boruta'
+feature_selection_method: 'recursive'
 
 valid_fraction: 0.5
 
