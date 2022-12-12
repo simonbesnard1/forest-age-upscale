@@ -176,8 +176,7 @@ class MLPmethod:
         if self.method == "MLPRegressor":
             loss_ = mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False)
         elif self.method == "MLPClassifier":
-            loss_ = model_.score(val_data['features'], val_data['target'])  
-            #loss_ =  balanced_accuracy_score(val_data['target'], model_.predict(val_data['features']))
+            loss_ =  balanced_accuracy_score(val_data['target'], model_.predict(val_data['features']))
         return loss_ 
     
     def predict_clusters(
