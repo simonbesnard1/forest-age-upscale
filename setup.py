@@ -55,6 +55,7 @@ setuptools.setup(
         "optuna==3.0.3",
         "PyYAML==6.0",
         "matplotlib==3.6.2",
-        "bottleneck"],
+        "bottleneck",
+        "dask-ml==2022.5.27"],
     include_package_data=True,
 )

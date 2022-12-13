@@ -35,7 +35,7 @@ class Study(ABC):
             self,
             DataConfig_path: str,
             cube_config_path: str,            
-            out_dir: str,
+            base_dir: str,
             study_name: str = 'study_name',
             study_dir: str = None,
             n_jobs: int = 1,
@@ -47,11 +47,11 @@ class Study(ABC):
         with open(cube_config_path, 'r') as f:
             self.cube_config =  yml.safe_load(f)
         
-        self.out_dir = out_dir
+        self.base_dir = base_dir
         self.study_name = study_name
         
         if study_dir is None:
-            study_dir = self.create_study_dir(self.out_dir, self.study_name)
+            study_dir = self.version_dir(self.base_dir, self.study_name)
             os.makedirs(study_dir, exist_ok=False)
         else:
             if not os.path.exists(study_dir):
@@ -60,104 +60,55 @@ class Study(ABC):
         self.study_dir = study_dir
         self.cube_config['cube_location'] = os.path.join(study_dir, 'model_output')
         self.n_jobs = n_jobs
-
-    def create_study_dir(self, out_dir: str, study_name: str) -> str:
-        """Create study directory
-
-        Parameter
-        ---------
-        out_dir : str
-            The base directory.
-        study_name : str
-            The studyt name.
-
-        Returns
-        -------
-        <out_dir>//<study_name>/<v_0000>
+    
+    def version_dir(self, 
+                    base_dir: str, 
+                    study_name: str) -> str:
         """
-        study_dir = os.path.join(out_dir, study_name)
-        study_dir = self.next_version_path(study_dir, prefix='v_')
-        return study_dir
+        Creates a new version of a directory by appending the version number to the end of the directory name.
+        If the directory already exists, it will be renamed to include the version number before the new directory is created.
+        """
+        
+        # Return the name of the new directory
+        return self.increment_dir_version(base_dir, study_name)
     
     @staticmethod
-    def next_version_path(
-            dir_path: str,
-            prefix: str = 'v',
-            num_digits: int = 4,
-            create: bool = True) -> str:
+    def increment_dir_version(base_dir: str,
+                              study_name:str) -> str:
         """
-        Finds the next incremental path from a pattern.
-
-        Create pattern `my/dir/[prefix][DD]`, `DD` being an incremental version number:
-
-
-        Example:
-
-        Exp.next_version_path('my/dir', prefix='version-', num_digits=2)
-
-        my/dir/version-00 <- exists
-        my/dir/version-05 <- exists
-        my/dir/version-06 <- doesn't exist, is returned
-
-        Note that the largest matching version number is used even if gaps exist, i.e., if
-        version `00` and `05` exist, the returned version is `06`.
-
-        Parameters
-        ----------
-        dir_path:
-            the base directory. Must exist if `create=False`.
-        prefix:
-            the version string prefix, default is `v`.
-        num_digits:
-            The number of digits to use in incremental version numbering.
-        create:
-            Create `dir_path` if the it does not exist.
-
-        Returns
-        -------
-        The version path (str).
+        Increments the version of a directory by appending the next available version number to the end of the directory name.
         """
-
-        if num_digits < 1:
-            raise ValueError(
-                f'`num_digits` must be an integer > 0, is {num_digits}.'
-            )
-
-        if not os.path.exists(dir_path):
-            if create:
-                os.makedirs(dir_path)
-            else:
-                raise FileNotFoundError(
-                    'No such file or directory: `{dir_path}`. Use `create=True`?'
-                )
-
-        max_v = -1
-
-        for f in os.listdir(dir_path):
-            if f.startswith(prefix):
-                f_len = len(f)
-                version_string = f[len(prefix):f_len]
-                if len(version_string) == num_digits:
-                    try:
-                        version_int = int(version_string)
-                    except ValueError as e:
-                        continue
-
-                    max_v = max(max_v, version_int)
-
-        version_nr = max_v + 1
-
-        version_range = 10**num_digits - 1
-        if version_nr > version_range:
-            raise ValueError(
-                f'The next incremental version is `{version_nr}`, which is out of range  (1, {version_range}) '
-                f'given `num_digits={num_digits}`. Use `prefix="{prefix}new_test2"` to continue ;)'
-            )
-
-        pattern = f'%0{num_digits}d'
-        version_digits = pattern % version_nr
-
-        return f'{os.path.join(os.path.join(dir_path, prefix))}{version_digits}'
+        # Get a list of all directories that start with the given directory name
+        dir_list = [d for d in os.listdir(base_dir) if d.startswith(study_name)]
+        
+        # Sort the list of directories in ascending order
+        dir_list.sort()
+        
+        # Check if the list of directories is empty
+        if len(dir_list) == 0:
+            # If the list is empty, this is the first version of the directory
+            # Set the version number to "1.0"
+            version = "1.0"
+        else:
+            # If the list is not empty, get the last directory in the list
+            # This will be the most recent version of the directory
+            last_dir = dir_list[-1]
+            
+            # Split the directory name into its base name and version number
+            study_name, version = last_dir.split("-")
+            
+            # Increment the version number
+            major, minor = version.split(".")
+            major = int(major)
+            minor = int(minor)
+            minor += 1
+            if minor >= 10:
+                major += 1
+                minor = 0
+            version = f"{major}.{minor}"
+        
+        # Return the name of the new directory
+        return f"{base_dir}/{study_name}-{version}"
     
     def cross_validation(self, 
                          method:str='MLPRegressor',

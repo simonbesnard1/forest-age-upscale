@@ -37,20 +37,23 @@ class ComputeCube(ABC):
     """
 
     def __init__(self,
-                 cube_config:dict= None):
+                 cube_location: str,
+                 dims: dict,
+                 chunksizes: tuple,
+                 temporal_resolution: int,
+                 spatial_resolution: int,
+                 output_metadata: dict):
         
-        self.cube_location = cube_config['cube_location']
-        self.dims_= cube_config['output_writer_params']['dims']
-        self.chunksizes = cube_config['output_writer_params']['chunksizes']
-        self.temporal_resolution = cube_config['temporal_resolution']
-        self.spatial_resolution = cube_config['spatial_resolution']
-        self.output_metadata = cube_config['output_metadata']
+        self.cube_location = cube_location
+        self.dims_ = dims
+        self.chunksizes = chunksizes
+        self.temporal_resolution = temporal_resolution
+        self.spatial_resolution = spatial_resolution
+        self.output_metadata = output_metadata
         
     def init_variable(self, 
                       dataset, 
-                      cube,
-                      njobs=None, 
-                      parallel=True) -> xr.Dataset:
+                      cube) -> xr.Dataset:
         """init_variable(dataset)
 
         Initializes all dataset variables in the Cube.
@@ -68,8 +71,6 @@ class ComputeCube(ABC):
             result in the default njobs as defined in during initialization.
 
         """
-        var_name = set(dataset.variables) - set(dataset.coords) 
-        
         for var_name in set(dataset.variables) - set(dataset.coords):    
             if var_name not in self.cube.variables:
                 
@@ -88,24 +89,14 @@ class ComputeCube(ABC):
         Create a new empty cube. Useful for creating cubes templates with
         predefined coordinate variables and metadata.
         :return: A cube instance
-        """
-        ds_ = []
-        coords = {}
-        for dim in self.dims_.keys():
-            if dim == 'latitude':
-                dim_ = np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution) * -1 
-            elif dim == 'longitude':    
-                dim_ = np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution)
-            elif dim == 'time':    
-                dim_ = np.arange(np.datetime64(self.dims_[dim][0]), np.datetime64(self.dims_[dim][1]),
-                                 np.timedelta64(1, self.temporal_resolution))
-            elif dim == 'cluster':
-                dim_ = np.arange(self.dims_[dim]) + 1
-            elif dim == 'sample':
-                dim_ = np.arange(self.dims_[dim])
-                
-            coords.update({dim: dim_})
-        
+        """        
+        coords = {dim: np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution) * -1 if dim in 'latitude' else
+                       np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution) if dim in 'longitude' else
+                       np.arange(np.datetime64(self.dims_[dim][0]), np.datetime64(self.dims_[dim][1]), np.timedelta64(1, self.temporal_resolution)) if dim == 'time' else
+                       np.arange(self.dims_[dim]) + 1 if dim == 'cluster' else
+                       np.arange(self.dims_[dim]) if dim == 'sample' else 
+                       np.arange(self.dims_[dim]) for dim in self.dims_.keys()}
+
         ds_ = xr.Dataset(data_vars={}, coords=coords, attrs= self.output_metadata)
             
         ds_.to_zarr(self.cube_location, consolidated=True)
@@ -122,11 +113,10 @@ class ComputeCube(ABC):
         except ValueError as e:
             raise FileExistsError("cube_location already exists but is not a zarr group. Delete existing directory or choose a different cube_location: "+self.cube_location) from e
         
-        idxs = tuple([np.where( np.isin(self.cube[dim].values, da[dim].values ) )[0] for dim in da.dims])
         if len(_zarr.shape) != len(da.shape):
             raise ValueError("Inconsistent dimensions. Array `{0}` to be saved has dimensions of {1}, but target dataset expected {2}.".format(da.name, da.dims, self.cube[da.name].dims))
         try:
-            _zarr.set_orthogonal_selection(idxs, da.data)
+            _zarr.set_orthogonal_selection(tuple([np.where( np.isin(self.cube[dim].values, da[dim].values ) )[0] for dim in da.dims]), da.data)
         except Exception as e:
             raise RuntimeError("Failed to write variable to cube: "+str(da)) from e
         
@@ -138,11 +128,10 @@ class ComputeCube(ABC):
         """
         if njobs is None:
             njobs = self.njobs
-        update_function = self._update_cube_DataArray
-        if type(da) is xr.Dataset:
+        if isinstance(da, xr.Dataset):
             to_proc = [da[_var] for _var in (set(da.variables) - set(da.coords))]
-            _ = async_run(update_function, to_proc, njobs)
-        elif type(da) is xr.DataArray:
-            update_function(da)
+            _ = async_run(self._update_cube_DataArray, to_proc, njobs)
+        elif isinstance(da, xr.DataArray):
+            self._update_cube_DataArray(da)
         else:
             raise RuntimeError("Input must be xr.Dataset or xr.DataArray objects")

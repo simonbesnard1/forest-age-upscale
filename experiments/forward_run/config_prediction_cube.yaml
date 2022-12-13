@@ -5,122 +5,16 @@ temporal_resolution: 'Y'
 
 output_writer_params:
   dims:
+    members: 1
     latitude: [-89.99583333, 89.99583333]
     longitude: [-179.99583333, 179.99583333]
-  chunksizes: 
+  chunksizes:
+    members: -1 
     latitude: 250
     longitude: 250
     
 output_variables:
-  - agb_001deg_cc_min_005
-  - agb_001deg_cc_min_015
-  - agb_001deg_cc_min_000
-  - agb_001deg_cc_min_010
-  - agb_001deg_cc_min_020
-  - agb_001deg_cc_min_030
-  - Isothermality_WorlClim
-  - tmax.mon.12_WorlClim
-  - PrecipitationofDriestQuarter_WorlClim
-  - vapr.mon.09_WorlClim
-  - vapr.mon.05_WorlClim
-  - AnnualMeanTemperature_WorlClim
-  - PrecipitationofWarmestQuarter_WorlClim
-  - wind.mon.05_WorlClim
-  - tmean.mon.08_WorlClim
-  - srad.mon.07_WorlClim
-  - prec.mon.06_WorlClim
-  - tmax.mon.03_WorlClim
-  - tmax.mon.11_WorlClim
-  - PrecipitationSeasonality_WorlClim
-  - tmean.mon.02_WorlClim
-  - tmin.mon.02_WorlClim
-  - tmean.mon.04_WorlClim
-  - tmax.mon.02_WorlClim
-  - vapr.mon.06_WorlClim
-  - tmin.mon.08_WorlClim
-  - MeanTemperatureofColdestQuarter_WorlClim
-  - srad.mon.08_WorlClim
-  - TemperatureSeasonality_WorlClim
-  - srad.mon.03_WorlClim
-  - tmean.mon.06_WorlClim
-  - prec.mon.08_WorlClim
-  - vapr.mon.12_WorlClim
-  - tmax.mon.09_WorlClim
-  - srad.mon.09_WorlClim
-  - vapr.mon.11_WorlClim
-  - vapr.mon.08_WorlClim
-  - wind.mon.09_WorlClim
-  - tmin.mon.09_WorlClim
-  - tmin.mon.01_WorlClim
-  - wind.mon.02_WorlClim
-  - tmin.mon.07_WorlClim
-  - PrecipitationofWettestQuarter_WorlClim
-  - prec.mon.04_WorlClim
-  - tmean.mon.01_WorlClim
-  - srad.mon.05_WorlClim
-  - prec.mon.02_WorlClim
-  - tmean.mon.05_WorlClim
-  - tmean.mon.10_WorlClim
-  - srad.mon.11_WorlClim
-  - tmax.mon.01_WorlClim
-  - srad.mon.04_WorlClim
-  - prec.mon.05_WorlClim
-  - wind.mon.06_WorlClim
-  - vapr.mon.04_WorlClim
-  - srad.mon.12_WorlClim
-  - tmax.mon.07_WorlClim
-  - tmax.mon.05_WorlClim
-  - tmin.mon.10_WorlClim
-  - tmax.mon.08_WorlClim
-  - prec.mon.09_WorlClim
-  - PrecipitationofDriestMonth_WorlClim
-  - prec.mon.07_WorlClim
-  - tmean.mon.07_WorlClim
-  - wind.mon.10_WorlClim
-  - vapr.mon.07_WorlClim
-  - tmean.mon.09_WorlClim
-  - MinTemperatureofColdestMonth_WorlClim
-  - MeanTemperatureofWettestQuarter_WorlClim
-  - tmax.mon.04_WorlClim
-  - tmean.mon.03_WorlClim
-  - MaxTemperatureofWarmestMonth_WorlClim
-  - tmin.mon.06_WorlClim
-  - tmin.mon.04_WorlClim
-  - vapr.mon.10_WorlClim
-  - srad.mon.10_WorlClim
-  - tmean.mon.11_WorlClim
-  - vapr.mon.02_WorlClim
-  - prec.mon.11_WorlClim
-  - wind.mon.03_WorlClim
-  - AnnualPrecipitation_WorlClim
-  - srad.mon.06_WorlClim
-  - TemperatureAnnualRange_WorlClim
-  - vapr.mon.03_WorlClim
-  - prec.mon.10_WorlClim
-  - prec.mon.03_WorlClim
-  - srad.mon.01_WorlClim
-  - MeanDiurnalRange_WorlClim
-  - srad.mon.02_WorlClim
-  - wind.mon.11_WorlClim
-  - tmean.mon.12_WorlClim
-  - tmin.mon.11_WorlClim
-  - wind.mon.08_WorlClim
-  - wind.mon.04_WorlClim
-  - PrecipitationofWettestMonth_WorlClim
-  - MeanTemperatureofWarmestQuarter_WorlClim
-  - tmin.mon.03_WorlClim
-  - PrecipitationofColdestQuarter_WorlClim
-  - tmax.mon.10_WorlClim
-  - vapr.mon.01_WorlClim
-  - prec.mon.01_WorlClim
-  - wind.mon.12_WorlClim
-  - prec.mon.12_WorlClim
-  - tmax.mon.06_WorlClim
-  - tmin.mon.12_WorlClim
-  - MeanTemperatureofDriestQuarter_WorlClim
-  - wind.mon.01_WorlClim
-  - wind.mon.07_WorlClim
-  - tmin.mon.05_WorlClim
+  - forest_age
 
 output_metadata:
   # CF: A succinct description of what is in the dataset.
