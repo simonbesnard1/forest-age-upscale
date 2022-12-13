@@ -9,11 +9,10 @@ from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.core.cube import DataCube
 from abc import ABC
 from tqdm import tqdm
-import joblib
 import atexit
 import zarr
-from dask_ml.wrappers import ParallelPostFit
 import dask.array as da
+import multiprocessing as mp
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
 def cleanup():
@@ -123,38 +122,52 @@ class UpscaleAge(ABC):
         return f"{base_dir}/{study_name}-{version}"
     
     def _predict_func(self, 
-                      model, 
-                      input_xr):
-        x, y, chunk_size, = input_xr.longitude, input_xr.latitude, input_xr.chunk_size
-    
-        input_data = []
-    
-        for var_name in input_xr.data_vars:
-            input_data.append(self.norm(input_xr[var_name], model['norm_stats'][var_name]))
-    
-        input_data_flattened = []
-    
-        for arr in input_data:
-            data = arr.data.flatten().rechunk(chunk_size)
-            input_data_flattened.append(data)
-    
-        input_data_flattened = da.array(input_data_flattened).transpose()
+                      params) -> None:
         
-        input_data_flattened = da.where(
-                da.isfinite(input_data_flattened), input_data_flattened, 0)
+        subset_cube = params['feature_cube'].sel(latitude= params['latitude'],longitude=params['longitude'])
         
-        out_ = self.denorm_target(model['best_model'].predict(input_data_flattened), 
-                                  model['norm_stats']['age'])
-        out_ = da.where(da.isfinite(out_), out_, 0)
+        X_upscale_class = []
+        for var_name in params["best_classifier"]['selected_features']:
+            X_upscale_class.append(self.norm(subset_cube[var_name], params["best_classifier"]['norm_stats'][var_name]))
+            
+        X_upscale_reg = []
+        for var_name in params["best_regressor"]['selected_features']:
+            X_upscale_reg.append(self.norm(subset_cube[var_name], params["best_regressor"]['norm_stats'][var_name]))
+        
+        X_upscale_reg_flattened = []
+
+        for arr in X_upscale_reg:
+            data = arr.data.flatten()
+            X_upscale_reg_flattened.append(data)
+            
+        X_upscale_class_flattened = []
+
+        for arr in X_upscale_class:
+            data = arr.data.flatten()
+            X_upscale_class_flattened.append(data)
     
-        out_ = out_.reshape(len(y), len(x))
-    
-        output_xr = xr.DataArray(out_, coords={"longitude": x, "latitude": y}, dims=["longitude", "latitude"])
-    
-        output_xr = output_xr.to_dataset(name="forest_age")
-    
-        return output_xr
-   
+        X_upscale_reg_flattened = da.array(X_upscale_reg_flattened).transpose().compute()
+        X_upscale_class_flattened = da.array(X_upscale_class_flattened).transpose().compute()
+        
+        RF_pred = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
+        mask = (np.all(np.isfinite(X_upscale_reg_flattened), axis=1)) & (np.all(np.isfinite(X_upscale_class_flattened), axis=1))
+        
+        if (X_upscale_class_flattened[mask].shape[0]>0):
+            pred_ = params["best_classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
+            pred_[pred_==1] = params["max_forest_age"][0]
+            pred_reg= self.denorm_target(params["best_regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
+                                         params["best_regressor"]['norm_stats']['age'])
+            pred_reg[pred_reg>=params["max_forest_age"][0]] = params["max_forest_age"][0] -1
+            pred_reg[pred_reg<0] = 0                
+            pred_[pred_== 0] = pred_reg[pred_==0]
+            RF_pred[mask] = pred_
+            out_ = RF_pred.reshape(len(subset_cube.latitude), len(subset_cube.longitude), 1)
+            output_xr = xr.DataArray(out_, coords={"latitude": subset_cube.latitude, 
+                                                   "longitude": subset_cube.longitude, 
+                                                   'members': [params["member"]]}, dims=["latitude", "longitude", "members"])
+            output_xr = output_xr.to_dataset(name="forest_age")
+            params['pred_cube'].compute_cube(output_xr)
+        
     def model_tuning(self,
                      method:str='MLPRegressor') -> None:
         """Perform cross-validation.
@@ -190,85 +203,43 @@ class UpscaleAge(ABC):
         shutil.rmtree(os.path.join(self.study_dir, "tune"))        
         return {'best_model': mlp_method.best_model, 'selected_features': mlp_method.final_features, 'norm_stats' : mlp_method.mldata.norm_stats}
     
-    def predict_xr(self,
-                   model,
-                   input_xr):
-        """
-        Using dask-ml ParallelPostfit(), runs  the parallel
-        predict and predict_proba methods of sklearn
-        estimators. Useful for running predictions
-        on a larger-than-RAM datasets.
-        Last modified: September 2020
-        Parameters
-        ----------
-        model : scikit-learn model or compatible object
-            Must have a .predict() method that takes numpy arrays.
-        input_xr : xarray.DataArray or xarray.Dataset.
-            Must have dimensions 'x' and 'y'
-        chunk_size : int
-            The dask chunk size to use on the flattened array. If this
-            is left as None, then the chunks size is inferred from the
-            .chunks method on the `input_xr`
-        persist : bool
-            If True, and proba=True, then 'input_xr' data will be
-            loaded into distributed memory. This will ensure data
-            is not loaded twice for the prediction of probabilities,
-            but this will only work if the data is not larger than
-            distributed RAM.
-        proba : bool
-            If True, predict probabilities
-        clean : bool
-            If True, remove Infs and NaNs from input and output arrays
-        Returns
-        ----------
-        output_xr : xarray.Dataset
-            An xarray.Dataset containing the prediction output from model.
-            if proba=True then dataset will also contain probabilites, and
-            Has the same spatiotemporal structure as input_xr.
-        """
-        model = ParallelPostFit(model)
-        with joblib.parallel_backend("dask", wait_for_workers_timeout=20):
-            output_xr = self._predict_func(
-                                            model, input_xr
-                                            )       
-
-        return output_xr
-    
     def ForwardRun(self,
-                   tree_cover_treshold:int = 10,
+                   tree_cover_treshold:int = '010',
                    MLRegressor_path:str=None,
-                   MLPClassifier_path:str=None):
+                   MLPClassifier_path:str=None,
+                   nLatChunks:int=50,
+                   nLonChunks:int=2,
+                   njobs:int = 10):
         
         for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):
             
-            cube = DataCube(cube_config = self.cube_config)
+            pred_cube           = DataCube(cube_config = self.cube_config)
+            feature_cube        = xr.open_zarr(self.DataConfig['global_cube'], synchronizer=synchronizer)
+            feature_cube        = feature_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = tree_cover_treshold) : 'agb'})
             
-            best_regressor  = self.model_tuning(method = 'MLPRegressor')
-            best_classifier = self.model_tuning(method = 'MLPClassifier')
+            best_regressor      = self.model_tuning(method = 'MLPRegressor')
+            best_classifier     = self.model_tuning(method = 'MLPClassifier')
             
-            X_upscale_class = xr.open_zarr(self.DataConfig['global_cube'], 
-                                           synchronizer=synchronizer)[best_classifier['selected_features']]
-            X_upscale_reg = xr.open_zarr(self.DataConfig['global_cube'], 
-                                         synchronizer=synchronizer)[best_regressor['selected_features']]
-            
-            out_ = self.predict_xr(best_regressor, X_upscale_reg)
-            
-            # OrigShape = X_upscale_class.shape            
-            # RF_pred = np.zeros(X_upscale_class.shape[0]) * np.nan
-            # mask = (np.all(np.isfinite(X_upscale_class), axis=1)) & (np.all(np.isfinite(X_upscale_reg), axis=1))
-            
-            # if (X_upscale_class[mask].shape[0]>0):
-            #     pred_ = best_classifier.predict_(X_upscale_class[mask])
-            #     pred_[pred_==1] = 300
-            #     pred_reg= best_regressor.predict_(X_upscale_reg[mask])
-            #     pred_reg[pred_reg>=300] = 299
-            #     pred_reg[pred_reg<0] = 0                
-            #     pred_[pred_==0] = pred_reg[pred_==0]
-            #     RF_pred[mask] = pred_    
-    
-            # RF_pred = RF_pred.reshape(OrigShape)
-            cube.update(out_)
-            
+            LatChunks           = np.linspace(90,-90,nLatChunks)
+            LonChunks           = np.linspace(-180,180,nLonChunks)
+            AllExtents          = []
+            for lat in range(nLatChunks-1):
+                for lon in range(nLonChunks-1):
+                    AllExtents.append({'latitude':slice(LatChunks[lat],LatChunks[lat+1]),
+                                       'longitude':slice(LonChunks[lon],LonChunks[lon+1]),
+                                        'best_regressor': best_regressor,
+                                        'best_classifier': best_classifier,
+                                        'feature_cube': feature_cube,
+                                        'pred_cube': pred_cube,
+                                        'member':run_,
+                                        'max_forest_age': self.DataConfig['max_forest_age']})
+                  
+            p=mp.Pool(njobs,maxtasksperchild=1)
+            p.map(self._predict_func, 
+                  AllExtents)
+            p.close()
+            p.join()
+
     def norm(self, 
              x: np.array,
              norm_stats:dict) -> np.array:
