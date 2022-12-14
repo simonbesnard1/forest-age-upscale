@@ -149,23 +149,29 @@ class UpscaleAge(ABC):
         X_upscale_reg_flattened = da.array(X_upscale_reg_flattened).transpose().compute()
         X_upscale_class_flattened = da.array(X_upscale_class_flattened).transpose().compute()
         
-        RF_pred = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
+        RF_pred_class = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
+        RF_pred_reg = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
+        
         mask = (np.all(np.isfinite(X_upscale_reg_flattened), axis=1)) & (np.all(np.isfinite(X_upscale_class_flattened), axis=1))
         
         if (X_upscale_class_flattened[mask].shape[0]>0):
-            pred_ = params["best_classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
-            pred_[pred_==1] = params["max_forest_age"][0]
+            pred_class = params["best_classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
+            RF_pred_class[mask] = pred_class
+            out_class = RF_pred_class.reshape(len(subset_cube.latitude), len(subset_cube.longitude), 1)
+            
             pred_reg= self.denorm_target(params["best_regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
                                          params["best_regressor"]['norm_stats']['age'])
             pred_reg[pred_reg>=params["max_forest_age"][0]] = params["max_forest_age"][0] -1
-            pred_reg[pred_reg<0] = 0                
-            pred_[pred_== 0] = pred_reg[pred_==0]
-            RF_pred[mask] = pred_
-            out_ = RF_pred.reshape(len(subset_cube.latitude), len(subset_cube.longitude), 1)
-            output_xr = xr.DataArray(out_, coords={"latitude": subset_cube.latitude, 
-                                                   "longitude": subset_cube.longitude, 
-                                                   'members': [params["member"]]}, dims=["latitude", "longitude", "members"])
-            output_xr = output_xr.to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= params["tree_cover"][0]))
+            pred_reg[pred_reg<0] = 0
+            RF_pred_reg[mask] = pred_reg            
+            out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), 1)
+            output_reg_xr = xr.DataArray(out_reg, coords={"latitude": subset_cube.latitude, 
+                                                          "longitude": subset_cube.longitude, 
+                                                          'members': [params["member"]]}, dims=["latitude", "longitude", "members"])
+            
+            output_xr = xr.where(out_class == 0, 
+                                 output_reg_xr, 
+                                 params["max_forest_age"][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= params["tree_cover"]))
             params['pred_cube'].compute_cube(output_xr)
         
     def model_tuning(self,
@@ -216,7 +222,7 @@ class UpscaleAge(ABC):
             pred_cube           = DataCube(cube_config = self.cube_config)
             feature_cube        = xr.open_zarr(self.DataConfig['global_cube'], synchronizer=synchronizer)
             feature_cube        = feature_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = tree_cover_treshold) : 'agb'})
-            
+        
             best_regressor      = self.model_tuning(method = 'MLPRegressor')
             best_classifier     = self.model_tuning(method = 'MLPClassifier')
             
