@@ -32,10 +32,10 @@ from ageUpscaling.core.study import Study
 DataConfig_path= "./experiments/cross_validation/data_config.yaml"
 CubeConfig_path= "./experiments/cross_validation/config_prediction_cube.yaml"
 study_ = Study(DataConfig_path = DataConfig_path,
-		cube_config_path= CubeConfig_path,
-               study_name  = 'Xval_MLPregressor',
-       	base_dir= './output/',
-               n_jobs = 10)
+                cube_config_path= CubeConfig_path,
+                study_name  = 'Xval_MLPregressor',
+                base_dir= './output/',
+                n_jobs = 10)
 ```
  
 ```
