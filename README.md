@@ -29,45 +29,42 @@ from ageUpscaling.core.study import Study
 
 ```
 #%% Define study
-DataConfig_path= "./experiments/data_config.yaml"
+DataConfig_path= "./experiments/cross_validation/data_config.yaml"
+CubeConfig_path= "./experiments/cross_validation/config_prediction_cube.yaml"
 study_ = Study(DataConfig_path = DataConfig_path,
-                  study_name  = 'Xval_MLPregressor',
-                  out_dir= './output/',
-                  n_jobs = 10)
+		cube_config_path= CubeConfig_path,
+               study_name  = 'Xval_MLPregressor'
+       	base_dir= './output/',
+               n_jobs = 10)
 ```
  
 ```
 #%% Run cross-validation study
-study_.cross_validation(n_folds=10, 
-			valid_fraction=0.3, 
-			feature_selection=False,
-                       feature_selection_method= 'recursive')
+study_.cross_validation(method ='MLPRegressor',
+                        n_folds=10, 
+                        valid_fraction=0.5, 
+                        feature_selection=True, 
+                        feature_selection_method= 'recursive')
 ```
 
-#### 2. Model training study
+#### 2. Forest age upscaling
 
 ```
 #%% Load modules
-from ageUpscaling.core.study import Study
+from ageUpscaling.upscaling.upscaling import UpscaleAge
 ```
 
 ```
-#%% Define study
-DataConfig_path= "./experiments/data_config.yaml"
-study_ = Study(DataConfig_path = DataConfig_path,
-                  study_name  = 'training_MLPregressor',
-                  out_dir= './output/',
-                  n_jobs = 10)
-```
- 
-```
-#%% Run model training study
-study_.model_training(n_model=10,
-                       valid_fraction=0.5, 
-                       feature_selection=True, 
-                       feature_selection_method= 'recursive')
-```
+#DataConfig_path= "./experiments/forward_run/data_config.yaml"
+CubeConfig_path= "./experiments/forward_run/config_prediction_cube.yaml"
+upscale_init = UpscaleAge(DataConfig_path = DataConfig_path,
+                           cube_config_path= CubeConfig_path,
+                           study_name  = 'test_upscale',
+                           base_dir= './output/',
+                           n_jobs = 10)
+upscale_init.ForwardRun()
 
+```
 ## :busts_in_silhouette: &nbsp;Contributing
 If you find something which doesn't make sense, or something doesn't seem right, please make a pull request and please add valid and well-reasoned explanations about your changes or comments.
 

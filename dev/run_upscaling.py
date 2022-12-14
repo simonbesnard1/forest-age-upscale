@@ -8,7 +8,6 @@ Created on Mon Dec 12 12:15:15 2022
 #%%Load modules
 from ageUpscaling.upscaling.upscaling import UpscaleAge
 
-
 #%% Run upscaling
 DataConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/forward_run/data_config.yaml"
 CubeConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/forward_run/config_prediction_cube.yaml"

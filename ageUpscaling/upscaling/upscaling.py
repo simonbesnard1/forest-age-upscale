@@ -165,7 +165,7 @@ class UpscaleAge(ABC):
             output_xr = xr.DataArray(out_, coords={"latitude": subset_cube.latitude, 
                                                    "longitude": subset_cube.longitude, 
                                                    'members': [params["member"]]}, dims=["latitude", "longitude", "members"])
-            output_xr = output_xr.to_dataset(name="forest_age")
+            output_xr = output_xr.to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= params["tree_cover"][0]))
             params['pred_cube'].compute_cube(output_xr)
         
     def model_tuning(self,
@@ -208,8 +208,8 @@ class UpscaleAge(ABC):
                    MLRegressor_path:str=None,
                    MLPClassifier_path:str=None,
                    nLatChunks:int=50,
-                   nLonChunks:int=2,
-                   njobs:int = 10):
+                   nLonChunks:int=50,
+                   njobs:int = 14):
         
         for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):
             
@@ -232,7 +232,8 @@ class UpscaleAge(ABC):
                                         'feature_cube': feature_cube,
                                         'pred_cube': pred_cube,
                                         'member':run_,
-                                        'max_forest_age': self.DataConfig['max_forest_age']})
+                                        'max_forest_age': self.DataConfig['max_forest_age'],
+                                        'tree_cover': tree_cover_treshold})
                   
             p=mp.Pool(njobs,maxtasksperchild=1)
             p.map(self._predict_func, 
