@@ -214,8 +214,7 @@ class UpscaleAge(ABC):
                    MLRegressor_path:str=None,
                    MLPClassifier_path:str=None,
                    nLatChunks:int=50,
-                   nLonChunks:int=50,
-                   njobs:int = 14):
+                   nLonChunks:int=50):
         
         for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):
             
@@ -241,7 +240,7 @@ class UpscaleAge(ABC):
                                         'max_forest_age': self.DataConfig['max_forest_age'],
                                         'tree_cover': tree_cover_treshold})
                   
-            p=mp.Pool(njobs,maxtasksperchild=1)
+            p=mp.Pool(self.n_jobs, maxtasksperchild=1)
             p.map(self._predict_func, 
                   AllExtents)
             p.close()
