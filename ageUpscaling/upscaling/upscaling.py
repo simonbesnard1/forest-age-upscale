@@ -13,6 +13,7 @@ import atexit
 import zarr
 import dask.array as da
 import multiprocessing as mp
+from dask.distributed import Client
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
 def cleanup():
@@ -122,9 +123,11 @@ class UpscaleAge(ABC):
         return f"{base_dir}/{study_name}-{version}"
     
     def _predict_func(self, 
-                      params) -> None:
+                     params,
+                      
+                      ) -> None:
         
-        subset_cube = params['feature_cube'].sel(latitude= params['latitude'],longitude=params['longitude'])
+        subset_cube = params["feature_cube"].sel(latitude= params['latitude'],longitude=params['longitude'])
         
         X_upscale_class = []
         for var_name in params["best_classifier"]['selected_features']:
@@ -172,7 +175,7 @@ class UpscaleAge(ABC):
             output_xr = xr.where(out_class == 0, 
                                  output_reg_xr, 
                                  params["max_forest_age"][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= params["tree_cover"]))
-            params['pred_cube'].compute_cube(output_xr)
+            params["pred_cube"].compute_cube(output_xr)
         
     def model_tuning(self,
                      method:str='MLPRegressor') -> None:
@@ -213,8 +216,8 @@ class UpscaleAge(ABC):
                    tree_cover_treshold:int = '010',
                    MLRegressor_path:str=None,
                    MLPClassifier_path:str=None,
-                   nLatChunks:int=50,
-                   nLonChunks:int=50):
+                   nLatChunks:int=100,
+                   nLonChunks:int=100):
         
         for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):
             
@@ -225,13 +228,28 @@ class UpscaleAge(ABC):
             best_regressor      = self.model_tuning(method = 'MLPRegressor')
             best_classifier     = self.model_tuning(method = 'MLPClassifier')
             
+            # # create a Dask client
+            # client = Client(self.n_jobs)
+
+            # # apply the ufunc to the datacube using xr.apply_ufunc
+            # _ = xr.apply_ufunc(self._predict_func,
+            #                    pred_cube,
+            #                    feature_cube,
+            #                    best_regressor,
+            #                    best_classifier,
+            #                    run_,
+            #                    self.DataConfig['max_forest_age'],
+            #                    tree_cover_treshold,                                    
+            #                    dask='allowed')
+            # client.shutdown()
+
             LatChunks           = np.linspace(90,-90,nLatChunks)
             LonChunks           = np.linspace(-180,180,nLonChunks)
             AllExtents          = []
             for lat in range(nLatChunks-1):
                 for lon in range(nLonChunks-1):
                     AllExtents.append({'latitude':slice(LatChunks[lat],LatChunks[lat+1]),
-                                       'longitude':slice(LonChunks[lon],LonChunks[lon+1]),
+                                        'longitude':slice(LonChunks[lon],LonChunks[lon+1]),
                                         'best_regressor': best_regressor,
                                         'best_classifier': best_classifier,
                                         'feature_cube': feature_cube,
@@ -260,8 +278,26 @@ class UpscaleAge(ABC):
         
         return x * norm_stats['std'] + norm_stats['mean']
     
-    
-    
-    
+
+
+import xarray as xr
+import dask.array as da
+
+# Load the data cube from a zarr store
+ds = xr.open_zarr("path/to/data.zarr")
+
+# Define a function that applies your model to a single data sample
+def predict(data):
+  # Apply your model to the data sample and return the predictions
+  return model.predict(data)
+
+# Use xr.apply_ufunc to apply the predict function to each sample in the data cube
+predictions = xr.apply_ufunc(predict, ds,
+                             input_core_dims=[["lat"], ["lon"]],
+                             output_core_dims=[["latitutde"], ["longitude"]],
+                             dask="parallelized",  # Use dask to parallelize the computation
+                             output_dtypes=[float])  # Specify the data type of the output
+
+
 
     
