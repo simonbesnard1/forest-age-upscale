@@ -278,26 +278,3 @@ class UpscaleAge(ABC):
         
         return x * norm_stats['std'] + norm_stats['mean']
     
-
-
-import xarray as xr
-import dask.array as da
-
-# Load the data cube from a zarr store
-ds = xr.open_zarr("path/to/data.zarr")
-
-# Define a function that applies your model to a single data sample
-def predict(data):
-  # Apply your model to the data sample and return the predictions
-  return model.predict(data)
-
-# Use xr.apply_ufunc to apply the predict function to each sample in the data cube
-predictions = xr.apply_ufunc(predict, ds,
-                             input_core_dims=[["lat"], ["lon"]],
-                             output_core_dims=[["latitutde"], ["longitude"]],
-                             dask="parallelized",  # Use dask to parallelize the computation
-                             output_dtypes=[float])  # Specify the data type of the output
-
-
-
-    
