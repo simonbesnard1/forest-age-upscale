@@ -40,7 +40,7 @@ class GlobalCube(DataCube):
             
             for var_name in self.cube_config['output_variables']:
                 if var_name in da.variables:
-                    self.compute_cube(da[var_name])
+                    self.compute_cube(da[var_name].to_dataset())
             
             
             
