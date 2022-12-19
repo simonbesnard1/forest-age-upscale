@@ -10,6 +10,8 @@ from ageUpscaling.core.cube import DataCube
 import xarray as xr
 
 import yaml as yml
+import os
+import glob
 
 class GlobalCube(DataCube):
     
@@ -26,7 +28,16 @@ class GlobalCube(DataCube):
 
     def generate_cube(self):
                 
-        for var_name in self.cube_config['output_variables']:
-            da = xr.open_dataset(self.base_file_path + '/{var_}.nc'.format(var_= var_name))
-            self.compute_cube(da)
+        
+        for f_ in glob.glob(os.path.join(self.base_file_path, '*.nc')):
+            #da = xr.open_dataset(self.base_file_path + '/{var_}.nc'.format(var_= var_name))
+            da = xr.open_dataset(f_)
+            if 'lon' in da.coords:
+                da = da.rename({'lon': 'longitude'})
+            elif 'lat' in da.coords:
+                da = da.rename({'lat': 'latitude'})
+            
+            for var_name in self.cube_config['output_variables']:
+                if var_name in da.variables:
+                    self.compute_cube(da[var_name])
             
