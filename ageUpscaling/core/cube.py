@@ -48,7 +48,7 @@ class DataCube(ComputeCube):
         self.cube_config = cube_config
         
         if not os.path.isdir(self.cube_config['cube_location']):
-            self.new_cube(self.coords)
+            self.new_cube()
         self.cube = xr.open_zarr(self.cube_config['cube_location'])
         
     def compute_cube(self, 
