@@ -35,7 +35,8 @@ class DataCube(ComputeCube):
 
     """ 
     
-    def __init__(self, 
+    def __init__(self,
+                 coords = None,
                  cube_config:dict= {}):
         
         super().__init__(cube_config['cube_location'],
@@ -46,9 +47,10 @@ class DataCube(ComputeCube):
                          cube_config['output_metadata'])
         
         self.cube_config = cube_config
+        self.coords = coords        
         
         if not os.path.isdir(self.cube_config['cube_location']):
-            self.new_cube()
+            self.new_cube(self.coords)
         self.cube = xr.open_zarr(self.cube_config['cube_location'])
         
     def compute_cube(self, 

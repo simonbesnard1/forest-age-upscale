@@ -15,6 +15,7 @@ from ageUpscaling.utils.utilities import async_run
 import numpy as np
 import xarray as xr
 import dask
+import pandas as pd
 
 import zarr
 import shutil
@@ -84,18 +85,23 @@ class ComputeCube(ABC):
 
         self.cube = xr.open_zarr(self.cube_location)
     
-    def new_cube(self) -> xr.Dataset:
+    def new_cube(self,
+                 coords) -> xr.Dataset:
         """
         Create a new empty cube. Useful for creating cubes templates with
         predefined coordinate variables and metadata.
         :return: A cube instance
         """        
-        coords = {dim: np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution) * -1 if dim in 'latitude' else
-                       np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution) if dim in 'longitude' else
-                       np.arange(np.datetime64(self.dims_[dim][0]), np.datetime64(self.dims_[dim][1]), np.timedelta64(1, self.temporal_resolution)) if dim == 'time' else
-                       np.arange(self.dims_[dim]) + 1 if dim == 'cluster' else
-                       np.arange(self.dims_[dim]) if dim == 'sample' else 
-                       np.arange(self.dims_[dim]) for dim in self.dims_.keys()}
+        if coords is None:
+            coords = {dim: np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution) * -1 if dim in 'latitude' else
+                           np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution) if dim in 'longitude' else
+                           #np.arange(np.datetime64(self.dims_[dim][0]), np.datetime64(self.dims_[dim][1]), np.timedelta64(1, self.temporal_resolution)) if dim == 'time' else
+                           np.array(pd.to_datetime(self.dims_[dim])) if dim == 'time' else
+                           np.arange(self.dims_[dim]) + 1 if dim == 'cluster' else
+                           np.arange(self.dims_[dim]) if dim == 'sample' else 
+                           np.arange(self.dims_[dim]) for dim in self.dims_.keys()}
+        else:
+            coords = coords
 
         ds_ = xr.Dataset(data_vars={}, coords=coords, attrs= self.output_metadata)
             

@@ -27,17 +27,21 @@ class GlobalCube(DataCube):
         super().__init__(self.cube_config)
 
     def generate_cube(self):
-                
         
         for f_ in glob.glob(os.path.join(self.base_file_path, '*.nc')):
             #da = xr.open_dataset(self.base_file_path + '/{var_}.nc'.format(var_= var_name))
             da = xr.open_dataset(f_)
             if 'lon' in da.coords:
                 da = da.rename({'lon': 'longitude'})
+                da['longitude'] = self.cube['longitude']
             elif 'lat' in da.coords:
                 da = da.rename({'lat': 'latitude'})
+                da['latitude'] = self.cube['latitude']
             
             for var_name in self.cube_config['output_variables']:
                 if var_name in da.variables:
                     self.compute_cube(da[var_name])
             
+            
+            
+
