@@ -34,7 +34,7 @@ class GlobalCube(DataCube):
             if 'lon' in da.coords:
                 da = da.rename({'lon': 'longitude'})
                 da['longitude'] = self.cube['longitude']
-            elif 'lat' in da.coords:
+            if 'lat' in da.coords:
                 da = da.rename({'lat': 'latitude'})
                 da['latitude'] = self.cube['latitude']
             
