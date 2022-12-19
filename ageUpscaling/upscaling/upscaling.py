@@ -14,6 +14,7 @@ import zarr
 import dask.array as da
 import multiprocessing as mp
 from dask.distributed import Client
+from typing import Any
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
 def cleanup():
@@ -213,56 +214,60 @@ class UpscaleAge(ABC):
         return {'best_model': mlp_method.best_model, 'selected_features': mlp_method.final_features, 'norm_stats' : mlp_method.mldata.norm_stats}
     
     def ForwardRun(self,
-                   tree_cover_treshold:int = '010',
+                   tree_cover_tresholds:dict[str, Any] = {'000', '005', '010', '015', '020', '030'},
                    MLRegressor_path:str=None,
                    MLPClassifier_path:str=None,
-                   nLatChunks:int=100,
-                   nLonChunks:int=100):
+                   nLatChunks:int=50,
+                   nLonChunks:int=50):
+        
+        pred_cube           = DataCube(cube_config = self.cube_config)
         
         for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):
             
-            pred_cube           = DataCube(cube_config = self.cube_config)
-            feature_cube        = xr.open_zarr(self.DataConfig['global_cube'], synchronizer=synchronizer)
-            feature_cube        = feature_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = tree_cover_treshold) : 'agb'})
-        
             best_regressor      = self.model_tuning(method = 'MLPRegressor')
             best_classifier     = self.model_tuning(method = 'MLPClassifier')
             
-            # # create a Dask client
-            # client = Client(self.n_jobs)
-
-            # # apply the ufunc to the datacube using xr.apply_ufunc
-            # _ = xr.apply_ufunc(self._predict_func,
-            #                    pred_cube,
-            #                    feature_cube,
-            #                    best_regressor,
-            #                    best_classifier,
-            #                    run_,
-            #                    self.DataConfig['max_forest_age'],
-            #                    tree_cover_treshold,                                    
-            #                    dask='allowed')
-            # client.shutdown()
-
-            LatChunks           = np.linspace(90,-90,nLatChunks)
-            LonChunks           = np.linspace(-180,180,nLonChunks)
-            AllExtents          = []
-            for lat in range(nLatChunks-1):
-                for lon in range(nLonChunks-1):
-                    AllExtents.append({'latitude':slice(LatChunks[lat],LatChunks[lat+1]),
-                                        'longitude':slice(LonChunks[lon],LonChunks[lon+1]),
-                                        'best_regressor': best_regressor,
-                                        'best_classifier': best_classifier,
-                                        'feature_cube': feature_cube,
-                                        'pred_cube': pred_cube,
-                                        'member':run_,
-                                        'max_forest_age': self.DataConfig['max_forest_age'],
-                                        'tree_cover': tree_cover_treshold})
-                  
-            p=mp.Pool(self.n_jobs, maxtasksperchild=1)
-            p.map(self._predict_func, 
-                  AllExtents)
-            p.close()
-            p.join()
+            for tree_cover in tree_cover_tresholds:
+            
+                feature_cube        = xr.open_zarr(self.DataConfig['global_cube'], synchronizer=synchronizer)
+                feature_cube        = feature_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = tree_cover) : 'agb'})
+            
+                
+                # # create a Dask client
+                # client = Client(self.n_jobs)
+    
+                # # apply the ufunc to the datacube using xr.apply_ufunc
+                # _ = xr.apply_ufunc(self._predict_func,
+                #                    pred_cube,
+                #                    feature_cube,
+                #                    best_regressor,
+                #                    best_classifier,
+                #                    run_,
+                #                    self.DataConfig['max_forest_age'],
+                #                    tree_cover_treshold,                                    
+                #                    dask='allowed')
+                # client.shutdown()
+    
+                LatChunks           = np.linspace(90,-90,nLatChunks)
+                LonChunks           = np.linspace(-180,180,nLonChunks)
+                AllExtents          = []
+                for lat in range(nLatChunks-1):
+                    for lon in range(nLonChunks-1):
+                        AllExtents.append({'latitude':slice(LatChunks[lat],LatChunks[lat+1]),
+                                            'longitude':slice(LonChunks[lon],LonChunks[lon+1]),
+                                            'best_regressor': best_regressor,
+                                            'best_classifier': best_classifier,
+                                            'feature_cube': feature_cube,
+                                            'pred_cube': pred_cube,
+                                            'member':run_,
+                                            'max_forest_age': self.DataConfig['max_forest_age'],
+                                            'tree_cover': tree_cover})
+                      
+                p=mp.Pool(self.n_jobs, maxtasksperchild=1)
+                p.map(self._predict_func, 
+                      AllExtents)
+                p.close()
+                p.join()
 
     def norm(self, 
              x: np.array,

@@ -16,4 +16,4 @@ upscale_init = UpscaleAge(DataConfig_path = DataConfig_path,
                            study_name  = 'test_upscale',
                            base_dir= '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/output/',
                            n_jobs = 10)
-upscale_init.ForwardRun(tree_cover_treshold = '010')
+upscale_init.ForwardRun(tree_cover_tresholds = {'010'})
