@@ -130,8 +130,8 @@ class UpscaleAge(ABC):
         if params["high_res_pred"]:
             subset_agb_cube  =  params["feature_cube"]['highres_agb_cube'].sel(latitude= params['latitude'],longitude=params['longitude'])
             subset_clim_cube =  params["feature_cube"]['lowres_clim_cube'].sel(latitude= params['latitude'],longitude=params['longitude'])
-            subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
-            subset_cube      = xr.merge([subset_agb_cube, subset_clim_cube])
+            subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
+            subset_cube      =  xr.merge([subset_agb_cube, subset_clim_cube])
         else:
             subset_cube = params["feature_cube"].sel(latitude= params['latitude'],longitude=params['longitude'])
         
@@ -224,7 +224,7 @@ class UpscaleAge(ABC):
                    MLPClassifier_path:str=None,
                    nLatChunks:int=50,
                    nLonChunks:int=50,
-                   high_res_pred:bool =False):
+                   high_res_pred:bool =True):
         
         pred_cube           = DataCube(cube_config = self.cube_config)
         
