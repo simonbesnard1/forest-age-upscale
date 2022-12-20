@@ -28,19 +28,27 @@ class GlobalCube(DataCube):
 
     def generate_cube(self):
         
-        for f_ in glob.glob(os.path.join(self.base_file_path, '*.nc')):
+        if len(glob.glob(os.path.join(self.base_file_path, '*.nc'))) >0 :
+            da = xr.open_mfdataset(os.path.join(self.base_file_path, '*.nc'))
             #da = xr.open_dataset(self.base_file_path + '/{var_}.nc'.format(var_= var_name))
-            da = xr.open_dataset(f_)
-            if 'lon' in da.coords:
-                da = da.rename({'lon': 'longitude'})
-                da['longitude'] = self.cube['longitude']
-            if 'lat' in da.coords:
-                da = da.rename({'lat': 'latitude'})
-                da['latitude'] = self.cube['latitude']
+        else:
+            da = xr.open_dataset(glob.glob(os.path.join(self.base_file_path, '*.nc')))
+        if 'lon' in da.coords:
+            da = da.rename({'lon': 'longitude'})
+            da['longitude'] = self.cube['longitude']
+        if 'lat' in da.coords:
+            da = da.rename({'lat': 'latitude'})
+            da['latitude'] = self.cube['latitude']
             
-            for var_name in self.cube_config['output_variables']:
-                if var_name in da.variables:
-                    self.compute_cube(da[var_name].to_dataset())
+        for var_name in self.cube_config['output_variables']:
+            if var_name not in da.variables:
+                raise RuntimeError(f'Failed to write cube to cube: {var_name} is not present in the data')
+            
+        da = da[self.cube_config['output_variables']]
+        
+        if isinstance(da, xr.DataArray):
+            da = da.to_dataset()
+        self.compute_cube(da)
             
             
             
