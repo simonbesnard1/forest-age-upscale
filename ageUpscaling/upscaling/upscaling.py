@@ -7,6 +7,7 @@ import yaml as yml
 import shutil
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.core.cube import DataCube
+from ageUpscaling.utils.utilities import interpolate_worlClim
 from abc import ABC
 from tqdm import tqdm
 import atexit
@@ -124,11 +125,15 @@ class UpscaleAge(ABC):
         return f"{base_dir}/{study_name}-{version}"
     
     def _predict_func(self, 
-                     params,
-                      
+                     params
                       ) -> None:
-        
-        subset_cube = params["feature_cube"].sel(latitude= params['latitude'],longitude=params['longitude'])
+        if params["high_res_pred"]:
+            subset_agb_cube  =  params["feature_cube"]['highres_agb_cube'].sel(latitude= params['latitude'],longitude=params['longitude'])
+            subset_clim_cube =  params["feature_cube"]['lowres_clim_cube'].sel(latitude= params['latitude'],longitude=params['longitude'])
+            subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
+            subset_cube      = xr.merge([subset_agb_cube, subset_clim_cube])
+        else:
+            subset_cube = params["feature_cube"].sel(latitude= params['latitude'],longitude=params['longitude'])
         
         X_upscale_class = []
         for var_name in params["best_classifier"]['selected_features']:
@@ -218,7 +223,8 @@ class UpscaleAge(ABC):
                    MLRegressor_path:str=None,
                    MLPClassifier_path:str=None,
                    nLatChunks:int=50,
-                   nLonChunks:int=50):
+                   nLonChunks:int=50,
+                   high_res_pred:bool =False):
         
         pred_cube           = DataCube(cube_config = self.cube_config)
         
@@ -228,10 +234,15 @@ class UpscaleAge(ABC):
             best_classifier     = self.model_tuning(method = 'MLPClassifier')
             
             for tree_cover in tree_cover_tresholds:
+                
+                if high_res_pred:
+                    highres_agb_cube        = xr.open_zarr(self.DataConfig['highres_agb_cube'], synchronizer=synchronizer).isel(time=1) #TODO: predict for all time period together 
+                    lowres_clim_cube        = xr.open_zarr(self.DataConfig['low_res_cube'], synchronizer=synchronizer)
+                    feature_cube            = {"highres_agb_cube": highres_agb_cube, "lowres_clim_cube": lowres_clim_cube}
             
-                feature_cube        = xr.open_zarr(self.DataConfig['global_cube'], synchronizer=synchronizer)
-                feature_cube        = feature_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = tree_cover) : 'agb'})
-            
+                else:
+                    feature_cube            = xr.open_zarr(self.DataConfig['global_cube'], synchronizer=synchronizer)
+                    feature_cube            = feature_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = tree_cover) : 'agb'})
                 
                 # # create a Dask client
                 # client = Client(self.n_jobs)
@@ -261,7 +272,8 @@ class UpscaleAge(ABC):
                                             'pred_cube': pred_cube,
                                             'member':run_,
                                             'max_forest_age': self.DataConfig['max_forest_age'],
-                                            'tree_cover': tree_cover})
+                                            'tree_cover': tree_cover,
+                                            'high_res_pred': high_res_pred})
                       
                 p=mp.Pool(self.n_jobs, maxtasksperchild=1)
                 p.map(self._predict_func, 

@@ -56,6 +56,6 @@ setuptools.setup(
         "PyYAML==6.0",
         "matplotlib==3.6.2",
         "bottleneck",
-        "dask-ml==2022.5.27"],
+        "rasterio==1.3.4"],
     include_package_data=True,
 )

@@ -3,6 +3,7 @@ import multiprocessing as mp
 import dask
 from collections.abc import Iterable
 from threadpoolctl import threadpool_limits
+from rasterio.enums import Resampling
 
 def _iter_pack(func, itterable, *args, **kwargs):
     out = []
@@ -77,4 +78,22 @@ def async_run(func, iterable, njobs, *args, **kwargs):
     assert isinstance(iterable, Iterable), "`iterable` must be iterable, e.g. list, set, or tuple"
     to_proc = _iter_pack(func, iterable, *args, **kwargs)
     return _async_run(to_proc, njobs=njobs)
+
+def interpolate_worlClim(source_ds, 
+                         target_ds,
+                         method:str = 'linear'):
+    
+    resampled = source_ds.interp(
+                                latitude = target_ds.latitude, 
+                                longitude = target_ds.longitude,
+                                method=method)
+    
+    
+    if not (resampled.latitude.data == target_ds.latitude.data).all():
+        raise ValueError("Failed to interpolate in the latitude axis")
+        
+    if not (resampled.longitude.data == target_ds.longitude.data).all():
+        raise ValueError("Failed to interpolate in the longitude axis")
+    
+    return resampled
 
