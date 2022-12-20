@@ -42,9 +42,9 @@ class GlobalCube(DataCube):
             
         for var_name in self.cube_config['output_variables']:
             if var_name not in da.variables:
-                raise RuntimeError(f'Failed to write cube to cube: {var_name} is not present in the data')
+                raise RuntimeError(f'Failed to create cube: {var_name} is not present in the input dataset')
             
-        da = da[self.cube_config['output_variables']]
+        da = da[self.cube_config['output_variables']].transpose(*self.cube.dims)
         
         if isinstance(da, xr.DataArray):
             da = da.to_dataset()
