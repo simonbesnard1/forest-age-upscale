@@ -125,15 +125,15 @@ class UpscaleAge(ABC):
         return f"{base_dir}/{study_name}-{version}"
     
     def _predict_func(self, 
-                     params
-                      ) -> None:
+                     params) -> None:
+        subset_agb_cube  =  params["feature_cubes"]['agb_cube'].sel(latitude= params['latitude'],longitude=params['longitude'])
+        subset_clim_cube =  params["feature_cubes"]['clim_cube'].sel(latitude= params['latitude'],longitude=params['longitude'])
+        
         if params["high_res_pred"]:
-            subset_agb_cube  =  params["feature_cube"]['highres_agb_cube'].sel(latitude= params['latitude'],longitude=params['longitude'])
-            subset_clim_cube =  params["feature_cube"]['lowres_clim_cube'].sel(latitude= params['latitude'],longitude=params['longitude'])
             subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
-            subset_cube      =  xr.merge([subset_agb_cube, subset_clim_cube])
-        else:
-            subset_cube = params["feature_cube"].sel(latitude= params['latitude'],longitude=params['longitude'])
+        
+        subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
+        subset_cube      = xr.merge([subset_agb_cube, subset_clim_cube])
         
         X_upscale_class = []
         for var_name in params["best_classifier"]['selected_features']:
@@ -173,10 +173,13 @@ class UpscaleAge(ABC):
             pred_reg[pred_reg>=params["max_forest_age"][0]] = params["max_forest_age"][0] -1
             pred_reg[pred_reg<0] = 0
             RF_pred_reg[mask] = pred_reg            
-            out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), 1)
-            output_reg_xr = xr.DataArray(out_reg, coords={"latitude": subset_cube.latitude, 
-                                                          "longitude": subset_cube.longitude, 
-                                                          'members': [params["member"]]}, dims=["latitude", "longitude", "members"])
+            out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
+            output_reg_xr = xr.DataArray(out_reg, 
+                                         coords={"latitude": subset_cube.latitude, 
+                                                 "longitude": subset_cube.longitude,
+                                                 "time": subset_cube.time,                                                          
+                                                 'members': [params["member"]]}, 
+                                         dims=["latitude", "longitude", "time", "members"])
             
             output_xr = xr.where(out_class == 0, 
                                  output_reg_xr, 
@@ -226,7 +229,7 @@ class UpscaleAge(ABC):
                    nLonChunks:int=50,
                    high_res_pred:bool =True):
         
-        pred_cube           = DataCube(cube_config = self.cube_config)
+        pred_cube = DataCube(cube_config = self.cube_config)
         
         for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):
             
@@ -235,15 +238,17 @@ class UpscaleAge(ABC):
             
             for tree_cover in tree_cover_tresholds:
                 
-                if high_res_pred:
-                    highres_agb_cube        = xr.open_zarr(self.DataConfig['highres_agb_cube'], synchronizer=synchronizer).isel(time=1) #TODO: predict for all time period together 
-                    lowres_clim_cube        = xr.open_zarr(self.DataConfig['low_res_cube'], synchronizer=synchronizer)
-                    feature_cube            = {"highres_agb_cube": highres_agb_cube, "lowres_clim_cube": lowres_clim_cube}
-            
-                else:
-                    feature_cube            = xr.open_zarr(self.DataConfig['global_cube'], synchronizer=synchronizer)
-                    feature_cube            = feature_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = tree_cover) : 'agb'})
+                if (high_res_pred and tree_cover != '000'):
+                    raise ValueError(f'tree cover threshold of {tree_cover} is not supported for the high-resolution cubes -  Thereshold has to be 000')
                 
+                agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer) 
+                clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer)
+            
+                if not high_res_pred:
+                    agb_cube            = agb_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = tree_cover) : 'agb'})
+                
+                feature_cubes    = {"agb_cube": agb_cube, "clim_cube": clim_cube}
+       
                 # # create a Dask client
                 # client = Client(self.n_jobs)
     
@@ -259,8 +264,8 @@ class UpscaleAge(ABC):
                 #                    dask='allowed')
                 # client.shutdown()
     
-                LatChunks           = np.linspace(90,-90,nLatChunks)
-                LonChunks           = np.linspace(-180,180,nLonChunks)
+                LatChunks           = np.linspace(self.cube_config['output_region'][2], self.cube_config['output_region'][3], nLatChunks)
+                LonChunks           = np.linspace(self.cube_config['output_region'][0],self.cube_config['output_region'][1], nLonChunks)
                 AllExtents          = []
                 for lat in range(nLatChunks-1):
                     for lon in range(nLonChunks-1):
@@ -268,7 +273,7 @@ class UpscaleAge(ABC):
                                             'longitude':slice(LonChunks[lon],LonChunks[lon+1]),
                                             'best_regressor': best_regressor,
                                             'best_classifier': best_classifier,
-                                            'feature_cube': feature_cube,
+                                            'feature_cubes': feature_cubes,
                                             'pred_cube': pred_cube,
                                             'member':run_,
                                             'max_forest_age': self.DataConfig['max_forest_age'],
