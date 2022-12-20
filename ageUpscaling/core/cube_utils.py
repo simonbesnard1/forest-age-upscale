@@ -87,10 +87,14 @@ class ComputeCube(ABC):
     
     def new_cube(self) -> xr.Dataset:
         """
-        Create a new empty cube. Useful for creating cubes templates with
-        predefined coordinate variables and metadata.
+        Create a new empty cube with predefined coordinate variables and metadata.
+    
+        The coordinates and metadata are taken from the object's `dims_` and `output_metadata` attributes, respectively.
+        The spatial resolution is taken from the object's `spatial_resolution` attribute.
+        The temporal resolution is taken from the object's `temporal_resolution` attribute.
+    
         :return: A cube instance
-        """        
+        """  
         coords = {dim: np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution) * -1 if dim in 'latitude' else
                        np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution) if dim in 'longitude' else
                        #np.arange(np.datetime64(self.dims_[dim][0]), np.datetime64(self.dims_[dim][1]), np.timedelta64(1, self.temporal_resolution)) if dim == 'time' else
