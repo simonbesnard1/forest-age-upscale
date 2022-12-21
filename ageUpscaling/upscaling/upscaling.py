@@ -168,7 +168,7 @@ class UpscaleAge(ABC):
         if (X_upscale_class_flattened[mask].shape[0]>0):
             pred_class = IN['params']["best_classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
             RF_pred_class[mask] = pred_class
-            out_class = RF_pred_class.reshape(len(subset_cube.latitude), len(subset_cube.longitude), 1)
+            out_class = RF_pred_class.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
             
             pred_reg= self.denorm_target(IN['params']["best_regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
                                          IN['params']["best_regressor"]['norm_stats']['age'])
