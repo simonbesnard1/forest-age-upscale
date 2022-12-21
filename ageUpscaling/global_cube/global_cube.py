@@ -48,6 +48,9 @@ class GlobalCube(DataCube):
         
         if isinstance(da, xr.DataArray):
             da = da.to_dataset()
+            
+        da = da.chunk(chunks=self.cube.chunks)
+
         self.compute_cube(da)
             
             
