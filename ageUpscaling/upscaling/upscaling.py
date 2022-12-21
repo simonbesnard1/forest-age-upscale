@@ -17,6 +17,8 @@ from typing import Any
 from itertools import product
 import pickle
 import multiprocessing as mp
+import dask
+from threadpoolctl import threadpool_limits
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
 def cleanup():
@@ -267,12 +269,13 @@ class UpscaleAge(ABC):
                                   "high_res_pred": high_res_pred}} for extent in AllExtents]
   
                 if(self.n_jobs > 1):
-                    
-                    p=mp.Pool(self.n_jobs, maxtasksperchild=1)
-                    p.map(self._predict_func, 
-                          IN)
-                    p.close()
-                    p.join()
+                    with dask.config.set(scheduler='single-threaded'), threadpool_limits(limits=1, user_api='blas'):
+                
+                        p=mp.Pool(self.n_jobs, maxtasksperchild=1)
+                        p.map(self._predict_func, 
+                              IN)
+                        p.close()
+                        p.join()
                 else:
                     _ = map(self._predict_func, IN)
             
