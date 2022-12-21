@@ -73,7 +73,8 @@ class UpscaleAge(ABC):
         self.n_jobs = n_jobs
         self.valid_fraction= self.DataConfig["valid_fraction"]
         self.feature_selection= self.DataConfig["feature_selection"]
-        self.feature_selection_method= self.DataConfig["feature_selection_method"]           
+        self.feature_selection_method= self.DataConfig["feature_selection_method"]      
+        self.cube_config['cube_location'] = os.path.join(self.study_dir, self.cube_config['cube_name'])
     
     def version_dir(self, 
                     base_dir: str, 
