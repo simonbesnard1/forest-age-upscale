@@ -13,9 +13,10 @@ from tqdm import tqdm
 import atexit
 import zarr
 import dask.array as da
-import dask
 from typing import Any
 from itertools import product
+import pickle
+import multiprocessing as mp
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
 def cleanup():
@@ -125,31 +126,24 @@ class UpscaleAge(ABC):
         # Return the name of the new directory
         return f"{base_dir}/{study_name}-{version}"
     
-    @dask.delayed
-    def _predict_func_delayed(self, 
-                              extent, 
-                              **kwargs):
-        return self._predict_func(extent, **kwargs)
-
     def _predict_func(self, 
-                     extent,
-                     **kwargs) -> None:
-        subset_agb_cube  =  kwargs["feature_cubes"]['agb_cube'].sel(latitude= extent['latitude'],longitude=extent['longitude'])
-        subset_clim_cube =  kwargs["feature_cubes"]['clim_cube'].sel(latitude= extent['latitude'],longitude=extent['longitude'])
+                     IN) -> None:
+        subset_agb_cube  =  IN['params']["feature_cubes"]['agb_cube'].sel(latitude= IN['chuncks']['latitude'],longitude=IN['chuncks']['longitude'])
+        subset_clim_cube =  IN['params']["feature_cubes"]['clim_cube'].sel(latitude= IN['chuncks']['latitude'],longitude=IN['chuncks']['longitude'])
         
-        if kwargs["high_res_pred"]:
+        if IN['params']["high_res_pred"]:
             subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
         
         subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
         subset_cube      = xr.merge([subset_agb_cube, subset_clim_cube])
         
         X_upscale_class = []
-        for var_name in kwargs["best_classifier"]['selected_features']:
-            X_upscale_class.append(self.norm(subset_cube[var_name], kwargs["best_classifier"]['norm_stats'][var_name]))
+        for var_name in IN['params']["best_classifier"]['selected_features']:
+            X_upscale_class.append(self.norm(subset_cube[var_name], IN['params']["best_classifier"]['norm_stats'][var_name]))
             
         X_upscale_reg = []
-        for var_name in kwargs["best_regressor"]['selected_features']:
-            X_upscale_reg.append(self.norm(subset_cube[var_name], kwargs["best_regressor"]['norm_stats'][var_name]))
+        for var_name in IN['params']["best_regressor"]['selected_features']:
+            X_upscale_reg.append(self.norm(subset_cube[var_name], IN['params']["best_regressor"]['norm_stats'][var_name]))
         
         X_upscale_reg_flattened = []
 
@@ -172,13 +166,13 @@ class UpscaleAge(ABC):
         mask = (np.all(np.isfinite(X_upscale_reg_flattened), axis=1)) & (np.all(np.isfinite(X_upscale_class_flattened), axis=1))
         
         if (X_upscale_class_flattened[mask].shape[0]>0):
-            pred_class = kwargs["best_classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
+            pred_class = IN['params']["best_classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
             RF_pred_class[mask] = pred_class
             out_class = RF_pred_class.reshape(len(subset_cube.latitude), len(subset_cube.longitude), 1)
             
-            pred_reg= self.denorm_target(kwargs["best_regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
-                                         kwargs["best_regressor"]['norm_stats']['age'])
-            pred_reg[pred_reg>=kwargs["max_forest_age"][0]] = kwargs["max_forest_age"][0] -1
+            pred_reg= self.denorm_target(IN['params']["best_regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
+                                         IN['params']["best_regressor"]['norm_stats']['age'])
+            pred_reg[pred_reg>=IN['params']["max_forest_age"][0]] = IN['params']["max_forest_age"][0] -1
             pred_reg[pred_reg<0] = 0
             RF_pred_reg[mask] = pred_reg            
             out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
@@ -186,15 +180,16 @@ class UpscaleAge(ABC):
                                          coords={"latitude": subset_cube.latitude, 
                                                  "longitude": subset_cube.longitude,
                                                  "time": subset_cube.time,                                                          
-                                                 'members': [kwargs["member"]]}, 
+                                                 'members': [IN['params']["member"]]}, 
                                          dims=["latitude", "longitude", "time", "members"])
             
             output_xr = xr.where(out_class == 0, 
                                  output_reg_xr, 
-                                 kwargs["max_forest_age"][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= kwargs["tree_cover"]))
-            kwargs["pred_cube"].compute_cube(output_xr)
+                                 IN['params']["max_forest_age"][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= IN['params']["tree_cover"]))
+            IN['params']["pred_cube"].compute_cube(output_xr)
         
     def model_tuning(self,
+                     run_: int=1,
                      method:str='MLPRegressor') -> None:
         """Perform cross-validation.
 
@@ -215,7 +210,7 @@ class UpscaleAge(ABC):
         
         train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
         self.DataConfig['method'] = method
-        mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
+        mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune", method), 
                                DataConfig= self.DataConfig, 
                                method = method)
         mlp_method.train(train_subset=train_subset,
@@ -224,9 +219,11 @@ class UpscaleAge(ABC):
                           feature_selection_method=self.DataConfig['feature_selection_method'],
                           n_jobs = self.n_jobs)
         if not os.path.exists(self.study_dir + '/save_model/'):
-            os.makedirs(self.study_dir + '/save_model/')
+             os.makedirs(self.study_dir + '/save_model/')
+             
+        with open(self.study_dir + "/save_model/best_regressor_run{id_}.pickle".format(id_ = run_), "rb") as fin:
+            mlp_method.best_model = pickle.load(fin)    
             
-        shutil.rmtree(os.path.join(self.study_dir, "tune"))        
         return {'best_model': mlp_method.best_model, 'selected_features': mlp_method.final_features, 'norm_stats' : mlp_method.mldata.norm_stats}
     
     def ForwardRun(self,
@@ -239,8 +236,8 @@ class UpscaleAge(ABC):
         
         for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):
             
-            best_regressor      = self.model_tuning(method = 'MLPRegressor')
-            best_classifier     = self.model_tuning(method = 'MLPClassifier')
+            best_regressor      = self.model_tuning(run_ = run_, method = 'MLPRegressor')
+            best_classifier     = self.model_tuning(run_ = run_, method = 'MLPClassifier')
             
             for tree_cover in tree_cover_tresholds:
                 
@@ -259,31 +256,27 @@ class UpscaleAge(ABC):
                 LatChunks = np.linspace(self.cube_config['output_region'][2], self.cube_config['output_region'][3], nLatChunks)
                 AllExtents = [{'latitude':slice(LatChunks[lat],LatChunks[lat+1]),
                                'longitude':slice(LonChunks[lon],LonChunks[lon+1])} for lat, lon in product(range(nLatChunks-1), range(nLonChunks-1))]
-                
-                if self.n_jobs > 1:
-                    pool = dask.threaded.ThreadPoolExecutor(max_workers=self.n_jobs)
-                else:
-                    pool = dask.threaded.ThreadPoolExecutor(max_workers=1)
-
-                tasks = [self._predict_func_delayed(extent, 
-                                                    best_regressor= best_regressor, 
-                                                    best_classifier= best_classifier, 
-                                                    feature_cubes= feature_cubes, 
-                                                    pred_cube= pred_cube,
-                                                    member = run_,
-                                                    max_forest_age = self.DataConfig['max_forest_age'],
-                                                    tree_cover= tree_cover,
-                                                    high_res_pred= high_res_pred) for extent in AllExtents]
+                IN = [{"chuncks" : extent,
+                        "params":{"best_regressor": best_regressor, 
+                                                  "best_classifier":best_classifier, 
+                                                  "feature_cubes": feature_cubes, 
+                                                  "pred_cube":pred_cube,
+                                                  "member": run_,
+                                                  "max_forest_age": self.DataConfig['max_forest_age'],
+                                                  "tree_cover": tree_cover,
+                                                  "high_res_pred": high_res_pred}} for extent in AllExtents]
             
-                _ = dask.compute(*tasks, {"best_regressor": best_regressor, 
-                                          "best_classifier":best_classifier, 
-                                          "feature_cubes": feature_cubes, 
-                                          "pred_cube":pred_cube,
-                                          "member": run_,
-                                          "max_forest_age": self.DataConfig['max_forest_age'],
-                                          "tree_cover": tree_cover,
-                                          "high_res_pred": high_res_pred}, pool=pool)
-                pool.shutdown()                            
+                if(self.n_jobs > 1):
+                    
+                    p=mp.Pool(self.n_jobs, maxtasksperchild=1)
+                    p.map(self._predict_func, 
+                          IN)
+                    p.close()
+                    p.join()
+                else:
+                    _ = map(self._predict_func, IN)
+            
+            shutil.rmtree(os.path.join(self.study_dir, "tune"))        
                             
     def norm(self, 
              x: np.array,

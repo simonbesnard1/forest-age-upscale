@@ -3,7 +3,6 @@ import multiprocessing as mp
 import dask
 from collections.abc import Iterable
 from threadpoolctl import threadpool_limits
-from rasterio.enums import Resampling
 
 def _iter_pack(func, itterable, *args, **kwargs):
     out = []
