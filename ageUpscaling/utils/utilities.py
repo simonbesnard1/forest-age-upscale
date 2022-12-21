@@ -15,7 +15,6 @@ def _iter_pack(func, itterable, *args, **kwargs):
         out.append(tuple(_o))
     return out
 
-
 def _iter_unpack(IN):
     func = IN[0]
     itter = IN[1]
@@ -42,9 +41,8 @@ def _iter_unpack(IN):
         raise RuntimeError(func.__name__ + ' faild with args: ' +
                            ' '.join([repr(i) for i in IN[1:]])).with_traceback(e.__traceback__)
 
-
 def _async_run(IN, njobs=1):
-    if (njobs > 1) and (mp.current_process().name == 'MainProcess'):
+    if njobs > 1:
         with dask.config.set(scheduler='single-threaded'), threadpool_limits(limits=1, user_api='blas'):
             chunksize = ceil(len(IN) / njobs)
             pool = mp.Pool(njobs)
@@ -54,8 +52,7 @@ def _async_run(IN, njobs=1):
             out = out.get()
     else:
         out = map(_iter_unpack, IN)
-    return(list(out))
-
+    return list(out)
 
 def async_run(func, iterable, njobs, *args, **kwargs):
     """async_run(func, itterable, *args, **kwargs, njobs=1)
@@ -77,22 +74,4 @@ def async_run(func, iterable, njobs, *args, **kwargs):
     assert isinstance(iterable, Iterable), "`iterable` must be iterable, e.g. list, set, or tuple"
     to_proc = _iter_pack(func, iterable, *args, **kwargs)
     return _async_run(to_proc, njobs=njobs)
-
-def interpolate_worlClim(source_ds, 
-                         target_ds,
-                         method:str = 'linear'):
-    
-    resampled = source_ds.interp(
-                                latitude = target_ds.latitude, 
-                                longitude = target_ds.longitude,
-                                method=method)
-    
-    
-    if not (resampled.latitude.data == target_ds.latitude.data).all():
-        raise ValueError("Failed to interpolate in the latitude axis")
-        
-    if not (resampled.longitude.data == target_ds.longitude.data).all():
-        raise ValueError("Failed to interpolate in the longitude axis")
-    
-    return resampled
 

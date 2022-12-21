@@ -7,7 +7,7 @@ import yaml as yml
 import shutil
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.core.cube import DataCube
-from ageUpscaling.utils.utilities import interpolate_worlClim
+from ageUpscaling.transformers.spatial import interpolate_worlClim
 from abc import ABC
 from tqdm import tqdm
 import atexit
@@ -258,14 +258,14 @@ class UpscaleAge(ABC):
                                'longitude':slice(LonChunks[lon],LonChunks[lon+1])} for lat, lon in product(range(nLatChunks-1), range(nLonChunks-1))]
                 IN = [{"chuncks" : extent,
                         "params":{"best_regressor": best_regressor, 
-                                                  "best_classifier":best_classifier, 
-                                                  "feature_cubes": feature_cubes, 
-                                                  "pred_cube":pred_cube,
-                                                  "member": run_,
-                                                  "max_forest_age": self.DataConfig['max_forest_age'],
-                                                  "tree_cover": tree_cover,
-                                                  "high_res_pred": high_res_pred}} for extent in AllExtents]
-            
+                                  "best_classifier":best_classifier, 
+                                  "feature_cubes": feature_cubes, 
+                                  "pred_cube":pred_cube,
+                                  "member": run_,
+                                  "max_forest_age": self.DataConfig['max_forest_age'],
+                                  "tree_cover": tree_cover,
+                                  "high_res_pred": high_res_pred}} for extent in AllExtents]
+  
                 if(self.n_jobs > 1):
                     
                     p=mp.Pool(self.n_jobs, maxtasksperchild=1)
@@ -276,7 +276,7 @@ class UpscaleAge(ABC):
                 else:
                     _ = map(self._predict_func, IN)
             
-            shutil.rmtree(os.path.join(self.study_dir, "tune"))        
+            shutil.rmtree(os.path.join(self.study_dir, "tune"))    
                             
     def norm(self, 
              x: np.array,

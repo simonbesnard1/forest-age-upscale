@@ -49,7 +49,7 @@ class GlobalCube(DataCube):
         if isinstance(da, xr.DataArray):
             da = da.to_dataset()
             
-        self.compute_cube(da)
+        self.update_cube(da)
             
             
             

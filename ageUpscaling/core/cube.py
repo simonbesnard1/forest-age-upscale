@@ -51,9 +51,9 @@ class DataCube(ComputeCube):
             self.new_cube()
         self.cube = xr.open_zarr(self.cube_config['cube_location'])
         
-    def compute_cube(self, 
+    def update_cube(self, 
                      da: Union[xr.DataArray, xr.Dataset],
-                     njobs:int =50,
+                     njobs:int =1,
                      initialize:bool=True):
         """update_cube(da, njobs=None, initialize=True)
 

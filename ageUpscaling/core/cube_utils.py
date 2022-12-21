@@ -119,10 +119,13 @@ class ComputeCube(ABC):
         except ValueError as e:
             raise FileExistsError("cube_location already exists but is not a zarr group. Delete existing directory or choose a different cube_location: "+self.cube_location) from e
         
+        idxs = tuple([np.where( np.isin(self.cube[dim].values, da[dim].values ) )[0] for dim in da.dims])
+
+
         if len(_zarr.shape) != len(da.shape):
             raise ValueError("Inconsistent dimensions. Array `{0}` to be saved has dimensions of {1}, but target dataset expected {2}.".format(da.name, da.dims, self.cube[da.name].dims))
         try:
-            _zarr.set_orthogonal_selection(tuple([np.where( np.isin(self.cube[dim].values, da[dim].values ) )[0] for dim in da.dims]), da.data)
+            _zarr.set_orthogonal_selection(idxs, da.data)
         except Exception as e:
             raise RuntimeError("Failed to write variable to cube: "+str(da)) from e
         
@@ -134,9 +137,11 @@ class ComputeCube(ABC):
         """
         if njobs is None:
             njobs = self.njobs
+        update_function = self._update_cube_DataArray
+
         if isinstance(da, xr.Dataset):
             to_proc = [da[_var] for _var in (set(da.variables) - set(da.coords))]
-            _ = async_run(self._update_cube_DataArray, to_proc, njobs)
+            _ = async_run(update_function, to_proc, njobs)
         elif isinstance(da, xr.DataArray):
             self._update_cube_DataArray(da)
         else:
