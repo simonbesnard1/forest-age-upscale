@@ -53,7 +53,7 @@ class DataCube(ComputeCube):
         
     def compute_cube(self, 
                      da: Union[xr.DataArray, xr.Dataset],
-                     njobs:int =1,
+                     njobs:int =50,
                      initialize:bool=True):
         """update_cube(da, njobs=None, initialize=True)
 

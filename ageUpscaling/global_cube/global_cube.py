@@ -44,13 +44,11 @@ class GlobalCube(DataCube):
             if var_name not in da.variables:
                 raise RuntimeError(f'Failed to create cube: {var_name} is not present in the input dataset')
             
-        da = da[self.cube_config['output_variables']].transpose(*self.cube.dims)
+        da = da[self.cube_config['output_variables']].transpose(*self.cube.dims).chunk(chunks=self.cube.chunks)
         
         if isinstance(da, xr.DataArray):
             da = da.to_dataset()
             
-        da = da.chunk(chunks=self.cube.chunks)
-
         self.compute_cube(da)
             
             
