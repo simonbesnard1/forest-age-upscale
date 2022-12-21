@@ -221,7 +221,7 @@ class UpscaleAge(ABC):
         if not os.path.exists(self.study_dir + '/save_model/'):
              os.makedirs(self.study_dir + '/save_model/')
              
-        with open(self.study_dir + "/save_model/best_regressor_run{id_}.pickle".format(id_ = run_), "rb") as fout:
+        with open(self.study_dir + "/save_model/best_regressor_run{id_}.pickle".format(id_ = run_), "wb") as fout:
             pickle.dump(mlp_method.best_model, fout)
             
         return {'best_model': mlp_method.best_model, 'selected_features': mlp_method.final_features, 'norm_stats' : mlp_method.mldata.norm_stats}
