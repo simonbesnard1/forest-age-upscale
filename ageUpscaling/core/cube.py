@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Dec  1 12:10:34 2022
-
-@author: simon
+@author: sbesnard
+@File    :   cube.py
+@Time    :   Mon Sep 26 10:47:17 2022
+@Author  :   Simon Besnard
+@Version :   1.0
+@Contact :   besnard@gfz-potsdam.de
+@License :   (C)Copyright 2022-2023, GFZ-Potsdam
+@Desc    :   A method class for creating new cube datasets.
 """
 from typing import Union
 import os
@@ -13,27 +18,41 @@ import xarray as xr
 from ageUpscaling.core.cube_utils import ComputeCube
 
 class DataCube(ComputeCube):
-    """DataCube(cube_location, coords=None, chunks = None, njobs=1)
+    """
+    A class for handling the creation and updating of regularized cube zarr files.
 
-    Handles creation and updating of regularized cube zarr files.
+    The `DataCube` class inherits from the `ComputeCube` class and adds additional
+    functionality for creating and updating data cubes stored in the zarr format.
+    The cube is built using the provided coordinates and metadata. The data can be
+    written to the cube in parallel using multiple cores.
 
-    Cubes are build with provided coordinates
-
-    Parameters
-    ----------
-    cube_location : str
-        Path to cube .zarr array, which will be created if it does not exist.
-
-    coords : dictionary of coordinates
-        `coords` will be passed to xarray.Dataset().
-
-    chunks : dictionary defining chunks
-        `chunks` will be passed to xarray.Dataset()
-
-    njobs : int
-        Number of cores to use in parallel when writing data.
-
-    """ 
+    Parameters:
+    -----------
+    cube_config: dict
+        A dictionary containing the configuration parameters for the data cube.
+        The following keys are required:
+        - 'cube_location': str
+            Path to the cube .zarr array, which will be created if it does not exist.
+        - 'output_writer_params': dict
+            A dictionary containing the following keys:
+            - 'dims': dict
+                A dictionary of coordinate variables. Must have values for all dimensions.
+            - 'chunksizes': tuple
+                A tuple of chunk sizes in each dimension.
+        - 'temporal_resolution': int
+            The temporal resolution of the data.
+        - 'spatial_resolution': int
+            The spatial resolution of the data.
+        - 'output_metadata': dict
+            A dictionary of metadata for the data cube.
+    
+    Attributes:
+    -----------
+    cube_config: dict
+        A dictionary containing the configuration parameters for the data cube.
+    cube: xr.Dataset
+        The data cube stored in an xarray Dataset object.
+    """
     
     def __init__(self,
                  cube_config:dict= {}):
@@ -54,26 +73,22 @@ class DataCube(ComputeCube):
     def update_cube(self, 
                      da: Union[xr.DataArray, xr.Dataset],
                      njobs:int =1,
-                     initialize:bool=True):
-        """update_cube(da, njobs=None, initialize=True)
-
-        update the cube with the provided Dataset or DataArray.
-
-        Parameters
-        ----------
-        da : Dataset or DataArray
-            should contain the data to be updated to the cube
-        njobs : int
-            number of CPUs to use in parallel when updating,
-            each variable will be updated in parallel
-        initialize : bool
-            set false to skip variable initialization,
-            faster if variables are pre-initialized
+                     initialize:bool=True) -> None:
         """
-        if not all([(v in self.cube.variables) for v in da]):
-            missing_vars = [v for v in da if (v not in self.cube.variables)]
-            print(f"Variables missing in cube, initializing: {', '.join(missing_vars)}")
-            initialize = True
+        Update the data cube with the provided xarray Dataset or DataArray.
+    
+        Parameters:
+        -----------
+        da: xr.Dataset or xr.DataArray
+            The dataset or data array containing the data to be updated to the cube.
+        njobs: int, optional
+            The number of CPUs to use in parallel when updating. Each variable will be
+            updated in parallel. Default is 1.
+        initialize: bool, optional
+            Set to False to skip variable initialization. This is faster if the variables
+            are already initialized. Default is True.
+    
+        """
         if initialize:
             self.init_variable(da, self.cube)
             
