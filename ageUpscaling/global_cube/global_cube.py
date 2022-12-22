@@ -1,20 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Nov 28 12:06:56 2022
-
-@author: simon
+@author: sbesnard
+@File    :   global_cube.py
+@Time    :   Mon Sep 26 10:47:17 2022
+@Author  :   Simon Besnard
+@Version :   1.0
+@Contact :   besnard@gfz-potsdam.de
+@License :   (C)Copyright 2022-2023, GFZ-Potsdam
+@Desc    :   A method class for creating global cube
 """
-from ageUpscaling.core.cube import DataCube
-
 import xarray as xr
-
 import yaml as yml
 import os
 import glob
 
+from ageUpscaling.core.cube import DataCube
+
 class GlobalCube(DataCube):
+    """GlobalCube is a subclass of DataCube that is used to create a global datacube from a base file and a cube configuration file.
     
+    Parameters:
+        base_file_path: str
+            Path to the base file.
+        cube_config_path: str
+            Path to the cube configuration file.
+    """
     def __init__(self,
                  base_file_path:str, 
                  cube_config_path:str):
@@ -26,11 +37,17 @@ class GlobalCube(DataCube):
     
         super().__init__(self.cube_config)
 
-    def generate_cube(self):
-        
+    def generate_cube(self) -> None:
+        """Generate a data cube from input datasets.
+   
+        Parameters:
+            base_file_path: str
+                Path to the input dataset.
+            cube_config_path: str
+                Path to the configuration file for the data cube.
+        """
         if len(glob.glob(os.path.join(self.base_file_path, '*.nc'))) >0 :
             da = xr.open_mfdataset(os.path.join(self.base_file_path, '*.nc'))
-            #da = xr.open_dataset(self.base_file_path + '/{var_}.nc'.format(var_= var_name))
         else:
             da = xr.open_dataset(glob.glob(os.path.join(self.base_file_path, '*.nc')))
         if 'lon' in da.coords:
