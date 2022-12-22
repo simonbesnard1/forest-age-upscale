@@ -1,10 +1,48 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+@author: sbesnard
+@File    :   cube_utils.py
+@Time    :   Mon Sep 26 10:47:17 2022
+@Author  :   Code adapted from Jake Nelson async_run functions
+@Version :   1.0
+@Contact :   besnard@gfz-potsdam.de
+@License :   (C)Copyright 2022-2023, GFZ-Potsdam
+@Desc    :   Functions to run asynchronous tasks
+"""
+
+from typing import Callable, Any, List, Tuple
+
 from math import ceil
+
 import multiprocessing as mp
 import dask
+
 from collections.abc import Iterable
 from threadpoolctl import threadpool_limits
 
-def _iter_pack(func, itterable, *args, **kwargs):
+def _iter_pack(func: Callable, 
+               itterable: Iterable, 
+               *args: Any, 
+               **kwargs: Any) -> List[Tuple[Callable, Any, Any, Any]]:
+    """Pack function and arguments into tuples.
+    
+    Parameters
+    ----------
+    func : Callable
+        The function to be called.
+    itterable : Iterable
+        An iterable containing the arguments to be passed to `func`.
+    *args : Any
+        Additional arguments to be passed to `func`.
+    **kwargs : Any
+        Additional keyword arguments to be passed to `func`.
+        
+    Returns
+    -------
+    out : List[Tuple[Callable, Any, Any, Any]]
+        A list of tuples containing `func` and the arguments to be passed to it.
+    """
     out = []
     for itter in itterable:
         _o = [func, itter]
@@ -15,7 +53,28 @@ def _iter_pack(func, itterable, *args, **kwargs):
         out.append(tuple(_o))
     return out
 
-def _iter_unpack(IN):
+def _iter_unpack(IN:tuple):
+    """
+    Unpack the input tuple and execute the function with the specified arguments and keyword arguments.
+
+    Parameters
+    ----------
+    IN : tuple
+        A tuple containing the function as the first element, followed by the arguments and keyword arguments to be passed to the function.
+
+    Returns
+    -------
+    Any
+        The result of executing the function with the specified arguments and keyword arguments.
+
+    Raises
+    ------
+    ValueError
+        If the input tuple does not contain the correct number of elements.
+    RuntimeError
+        If an error occurs while executing the function with the specified arguments and keyword arguments.
+
+    """
     func = IN[0]
     itter = IN[1]
     args = None
@@ -41,7 +100,23 @@ def _iter_unpack(IN):
         raise RuntimeError(func.__name__ + ' faild with args: ' +
                            ' '.join([repr(i) for i in IN[1:]])).with_traceback(e.__traceback__)
 
-def _async_run(IN, njobs=1):
+def _async_run(IN:tuple, 
+               njobs:int=1):
+    """
+    Asynchronously runs a list of functions with their respective input arguments.
+    
+    Parameters
+    ----------
+    IN : list
+        A list of tuples containing the function to be run and its input arguments.
+    njobs : int, optional
+        The number of jobs to run in parallel. Default is 1.
+        
+    Returns
+    -------
+    list
+        A list containing the output of each function run.
+    """
     if njobs > 1:
         with dask.config.set(scheduler='single-threaded'), threadpool_limits(limits=1, user_api='blas'):
             chunksize = ceil(len(IN) / njobs)
@@ -54,21 +129,30 @@ def _async_run(IN, njobs=1):
         out = map(_iter_unpack, IN)
     return list(out)
 
-def async_run(func, iterable, njobs, *args, **kwargs):
-    """async_run(func, itterable, *args, **kwargs, njobs=1)
-
-    Runs func asyncronouly across njobs processes. *args and **kwargs will be passed onto the function.
+def async_run(func: Callable, 
+              iterable: Iterable, 
+              njobs:int, 
+              *args:Any,
+              **kwargs:Any) -> List:
+    """Runs `func` asynchronously across `njobs` processes. `*args` and `**kwargs` will be passed onto `func`.
 
     Parameters
     ----------
-    func : function
-        The first argument of the function must be the value that changes, corresponding to an item in itterable
-    itterable : list or list like
-        The values which change for each job
+    func : Callable
+        The function to be run asynchronously. The first argument of `func` must be an item in `iterable`.
+    iterable : Iterable
+        The values which change for each job.
+    njobs : int
+        The number of processes to use for running `func` asynchronously.
     *args : args
-        Arguments that will be passed onto the function, but will be the same for each call
+        Additional arguments to pass to `func`. These will be the same for each call to `func`.
     *kwargs : kwargs
-        Keyword arguments that will be passed onto the function, but will be the same for each call
+        Additional keyword arguments to pass to `func`. These will be the same for each call to `func`.
+
+    Returns
+    -------
+    List
+        A list of the results from each call to `func`.
     """
     assert type(njobs) is int, "njobs must be an iteger"
     assert isinstance(iterable, Iterable), "`iterable` must be iterable, e.g. list, set, or tuple"

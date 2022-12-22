@@ -218,12 +218,12 @@ def rel_bias_gufunc(mod, obs):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
 
-        valid_values = np.isfinite(x) & np.isfinite(y)
+        valid_values = np.isfinite(mod) & np.isfinite(obs)
 
         mod[~valid_values] = np.nan
         obs[~valid_values] = np.nan
 
-        return (np.nanmean(mod, axis=-1) - np.nanmean(obs, axis=-1)) / np.nanmean(x, axis=-1)
+        return (np.nanmean(mod, axis=-1) - np.nanmean(obs, axis=-1)) / np.nanmean(obs, axis=-1)
 
 
 def xr_rel_bias(obs, mod, dim):
