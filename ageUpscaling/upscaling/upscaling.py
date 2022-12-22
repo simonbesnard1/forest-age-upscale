@@ -1,22 +1,39 @@
-from __future__ import annotations
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+@author: sbesnard
+@File    :   upscaling.py
+@Time    :   Mon Sep 26 10:47:17 2022
+@Author  :   Simon Besnard
+@Version :   1.0
+@Contact :   besnard.sim@gmail.com
+@License :   (C)Copyright 2022-2023, GFZ-Potsdam
+@Desc    :   A method class for upscaling MLP model
+"""
 import os
-import xarray as xr
-import numpy as np
-from sklearn.model_selection import train_test_split
-import yaml as yml
 import shutil
-from ageUpscaling.methods.MLP import MLPmethod
-from ageUpscaling.core.cube import DataCube
-from ageUpscaling.transformers.spatial import interpolate_worlClim
-from abc import ABC
 from tqdm import tqdm
 import atexit
-import zarr
-import dask.array as da
 from typing import Any
 from itertools import product
+from abc import ABC
+
+import numpy as np
+import yaml as yml
 import pickle
+
 import multiprocessing as mp
+
+import xarray as xr
+import zarr
+import dask.array as da
+
+from sklearn.model_selection import train_test_split
+
+from ageUpscaling.core.cube import DataCube
+from ageUpscaling.transformers.spatial import interpolate_worlClim
+from ageUpscaling.methods.MLP import MLPmethod
+
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
 def cleanup():
@@ -44,15 +61,14 @@ class UpscaleAge(ABC):
         Number of workers.
 
     """
-    def __init__(
-            self,
-            DataConfig_path: str,
-            cube_config_path: str,            
-            base_dir: str,
-            study_name: str = 'study_name',
-            study_dir: str = None,
-            n_jobs: int = 1,
-            **kwargs):
+    def __init__(self,
+                 DataConfig_path: str,
+                 cube_config_path: str,            
+                 base_dir: str,
+                 study_name: str = 'study_name',
+                 study_dir: str = None,
+                 n_jobs: int = 1,
+                 **kwargs):
 
         with open(DataConfig_path, 'r') as f:
             self.DataConfig =  yml.safe_load(f)
@@ -80,40 +96,53 @@ class UpscaleAge(ABC):
     def version_dir(self, 
                     base_dir: str, 
                     study_name: str) -> str:
-        """
-        Creates a new version of a directory by appending the version number to the end of the directory name.
+        """Creates a new version of a directory by appending the version number to the end of the directory name.
+    
         If the directory already exists, it will be renamed to include the version number before the new directory is created.
+        
+        Parameters
+        ----------
+        base_dir : str
+            The base directory where the new version of the study directory will be created.
+        study_name : str
+            The name of the study directory.
+            
+        Returns
+        -------
+        str
+            The full path to the new version of the study directory.
         """
         
-        # Return the name of the new directory
         return self.increment_dir_version(base_dir, study_name)
     
     @staticmethod
     def increment_dir_version(base_dir: str,
                               study_name:str) -> str:
+        """Increments the version of a directory by appending the next available version number to the end of the directory name.
+        
+        Parameters
+        ----------
+        base_dir : str
+            The base directory for the study.
+        study_name : str
+            The name of the study.
+        
+        Returns
+        -------
+        str
+            The name of the new directory with the incremented version number.
         """
-        Increments the version of a directory by appending the next available version number to the end of the directory name.
-        """
-        # Get a list of all directories that start with the given directory name
         dir_list = [d for d in os.listdir(base_dir) if d.startswith(study_name)]
         
-        # Sort the list of directories in ascending order
         dir_list.sort()
         
-        # Check if the list of directories is empty
         if len(dir_list) == 0:
-            # If the list is empty, this is the first version of the directory
-            # Set the version number to "1.0"
             version = "1.0"
         else:
-            # If the list is not empty, get the last directory in the list
-            # This will be the most recent version of the directory
             last_dir = dir_list[-1]
             
-            # Split the directory name into its base name and version number
             study_name, version = last_dir.split("-")
             
-            # Increment the version number
             major, minor = version.split(".")
             major = int(major)
             minor = int(minor)
@@ -123,11 +152,10 @@ class UpscaleAge(ABC):
                 minor = 0
             version = f"{major}.{minor}"
         
-        # Return the name of the new directory
         return f"{base_dir}/{study_name}-{version}"
     
     def _predict_func(self, 
-                     IN) -> None:
+                      IN) -> None:
         subset_agb_cube  =  IN['params']["feature_cubes"]['agb_cube'].sel(latitude= IN['chuncks']['latitude'],longitude=IN['chuncks']['longitude'])
         subset_clim_cube =  IN['params']["feature_cubes"]['clim_cube'].sel(latitude= IN['chuncks']['latitude'],longitude=IN['chuncks']['longitude'])
         
@@ -192,18 +220,20 @@ class UpscaleAge(ABC):
     def model_tuning(self,
                      run_: int=1,
                      method:str='MLPRegressor') -> None:
-        """Perform cross-validation.
+        """Perform model tuning using cross-validation.
 
         Parameters
         ----------
-        n_model : int
-            Number of model runs.
-        valid_fraction : float
-            Fraction of the validation fraction. Range between 0-1    
-        feature_selection : bool
-            Whether to do feature selection.
-        feature_selection_method : str
-            The method to use for the feature selections
+        run_ : int, optional
+            Number of model runs. Default is 1.
+        method : str, optional
+            The type of model to use for training. Default is 'MLPRegressor'.
+        
+        Returns
+        -------
+        None
+            The function does not return any values, but it updates the `self.best_model` attribute
+            with the best model found during the tuning process.
         """
         
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
@@ -231,7 +261,20 @@ class UpscaleAge(ABC):
                    tree_cover_tresholds:dict[str, Any] = {'000', '005', '010', '015', '020', '030'},
                    nLatChunks:int=50,
                    nLonChunks:int=50,
-                   high_res_pred:bool =False):
+                   high_res_pred:bool =False) -> None:
+        """Perform forward run of the model, which consists of generating high resolution maps of age using the trained model.
+
+        Parameters
+        ----------
+        tree_cover_tresholds : dict[str, Any], optional
+            Dictionary of tree cover tresholds to use for the forward run, default is {'000', '005', '010', '015', '020', '030'}
+        nLatChunks : int, optional
+            Number of chunks to use in the latitude dimension, default is 50
+        nLonChunks : int, optional
+            Number of chunks to use in the longitude dimension, default is 50
+        high_res_pred : bool, optional
+            Boolean indicating whether to perform high resolution prediction, default is False
+        """
         
         pred_cube = DataCube(cube_config = self.cube_config)
         
@@ -282,14 +325,40 @@ class UpscaleAge(ABC):
     def norm(self, 
              x: np.array,
              norm_stats:dict) -> np.array:
-        """Returns de-normalize target, last dimension of `x` must match len of `self.target_norm_stats`."""
+        """Normalize an array of values using the given normalization statistics.
+
+        Parameters
+        ----------
+        x : np.array
+            The array of values to normalize.
+        norm_stats : dict
+            A dictionary containing the normalization statistics, with keys 'mean' and 'std'.
+    
+        Returns
+        -------
+        np.array
+            The normalized array of values.
+        """
         
         return (x - norm_stats['mean']) / norm_stats['std'] 
     
     def denorm_target(self, 
                       x: np.array,
                       norm_stats:dict) -> np.array:
-        """Returns de-normalize target, last dimension of `x` must match len of `self.target_norm_stats`."""
+        """De-normalize an array of values using the given normalization statistics.
+
+        Parameters
+        ----------
+        x : np.array
+            The array of values to de-normalize.
+        norm_stats : dict
+            A dictionary containing the normalization statistics, with keys 'mean' and 'std'.
+    
+        Returns
+        -------
+        np.array
+            The de-normalized array of values.
+        """
         
         return x * norm_stats['std'] + norm_stats['mean']
     
