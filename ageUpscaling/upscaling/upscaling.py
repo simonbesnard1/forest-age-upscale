@@ -188,6 +188,7 @@ class UpscaleAge(ABC):
             output_xr = xr.where(out_class == 0, 
                                  output_reg_xr, 
                                  IN['params']["max_forest_age"][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= IN['params']["tree_cover"]))
+            
             IN['params']["pred_cube"].update_cube(output_xr)
         
     def model_tuning(self,
@@ -269,13 +270,12 @@ class UpscaleAge(ABC):
                                   "high_res_pred": high_res_pred}} for extent in AllExtents]
   
                 if(self.n_jobs > 1):
-                    with dask.config.set(scheduler='single-threaded'), threadpool_limits(limits=1, user_api='blas'):
-                
-                        p=mp.Pool(self.n_jobs, maxtasksperchild=1)
-                        p.map(self._predict_func, 
-                              IN)
-                        p.close()
-                        p.join()
+                    
+                    p=mp.Pool(self.n_jobs, maxtasksperchild=1)
+                    p.map(self._predict_func, 
+                          IN)
+                    p.close()
+                    p.join()
                 else:
                     _ = map(self._predict_func, IN)
             
