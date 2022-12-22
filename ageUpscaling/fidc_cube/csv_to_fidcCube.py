@@ -107,12 +107,11 @@ class ImportAndSave(ABC):
         units: dict[str, Any]
             Mapping of variable names to the desired units in the output file.
     """
-    def __init__(
-        self,
-        input_csv: str = '',
-        out_file: str = None,
-        variables: dict[str, Any] = DEFAULT_LONG_NAMES,
-        units: dict[str, Any] = DEFAULT_UNITS):
+    def __init__(self,
+                 input_csv: str = '',
+                 out_file: str = None,
+                 variables: dict[str, Any] = DEFAULT_LONG_NAMES,
+                 units: dict[str, Any] = DEFAULT_UNITS):
         
         self.input_csv = input_csv
         self.out_file = out_file

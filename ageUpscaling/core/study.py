@@ -47,15 +47,14 @@ class Study(ABC):
         Additional keyword arguments.
 
     """
-    def __init__(
-            self,
-            DataConfig_path: str,
-            cube_config_path: str,            
-            base_dir: str,
-            study_name: str = 'study_name',
-            study_dir: str = None,
-            n_jobs: int = 1,
-            **kwargs):
+    def __init__(self,
+                 DataConfig_path: str,
+                 cube_config_path: str,            
+                 base_dir: str,
+                 study_name: str = 'study_name',
+                 study_dir: str = None,
+                 n_jobs: int = 1,
+                 **kwargs):
 
         with open(DataConfig_path, 'r') as f:
             self.DataConfig =  yml.safe_load(f)

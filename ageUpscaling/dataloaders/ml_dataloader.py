@@ -35,17 +35,16 @@ class MLDataModule(MLData):
             Keyword arguments passed to `DataLoader`, same for training, validation and test set loader.
     """
     
-    def __init__(
-            self,
-            method:str='MLPRegressor',
-            DataConfig: dict[str, Any] = {},
-            target: dict[str, Any] = {},
-            features: dict[str, Any] = {},            
-            train_subset: dict[str, Any] = {},
-            valid_subset: dict[str, Any] = {},
-            test_subset: dict[str, Any] = {},
-            norm_stats: dict[str, dict[str, float]] = {},
-            **kwargs) -> None:
+    def __init__(self,
+                 method:str='MLPRegressor',
+                 DataConfig: dict[str, Any] = {},
+                 target: dict[str, Any] = {},
+                 features: dict[str, Any] = {},            
+                 train_subset: dict[str, Any] = {},
+                 valid_subset: dict[str, Any] = {},
+                 test_subset: dict[str, Any] = {},
+                 norm_stats: dict[str, dict[str, float]] = {},
+                 **kwargs) -> None:
         
         super().__init__()
 

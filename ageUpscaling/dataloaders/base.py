@@ -37,14 +37,13 @@ class MLData(ABC):
         norm_stats: dict[str, dict[str, float]]
             The normalization statistics for the data.
     """
-    def __init__(
-        self,
-        method:str='MLPRegressor',
-        DataConfig: dict[str, Any] = {},
-        target: dict[str, Any] = {},
-        features: dict[str, Any] = {},     
-        subset: dict[str, Any] = {}, 
-        norm_stats: dict[str, dict[str, float]] = {}):
+    def __init__(self,
+                 method:str='MLPRegressor',
+                 DataConfig: dict[str, Any] = {},
+                 target: dict[str, Any] = {},
+                 features: dict[str, Any] = {},     
+                 subset: dict[str, Any] = {}, 
+                 norm_stats: dict[str, dict[str, float]] = {}):
     
         super().__init__()
         
