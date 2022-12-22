@@ -17,8 +17,6 @@ from typing import Any
 from itertools import product
 import pickle
 import multiprocessing as mp
-import dask
-from threadpoolctl import threadpool_limits
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
 def cleanup():
