@@ -46,9 +46,6 @@ class GlobalCube(DataCube):
             
         da = da[self.cube_config['output_variables']].transpose(*self.cube.dims).chunk(chunks=self.cube.chunks)
         
-        if isinstance(da, xr.DataArray):
-            da = da.to_dataset()
-            
         self.update_cube(da)
             
             

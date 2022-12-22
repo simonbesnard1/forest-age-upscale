@@ -3,7 +3,7 @@ cube_location: '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/ou
 spatial_resolution: 0.00833333
 temporal_resolution: 'Y'
 
-output_region: [-180,180, 60, -80]
+output_region: [-180,180,90,-90]
 
 output_writer_params:
   dims:

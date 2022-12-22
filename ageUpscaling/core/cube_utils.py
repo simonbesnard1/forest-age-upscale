@@ -19,7 +19,7 @@ import pandas as pd
 
 import zarr
 import shutil
-synchronizer = zarr.ProcessSynchronizer('.zarrsync')
+sync = zarr.ProcessSynchronizer('.zarrsync')
 
 def cleanup():
     if os.path.isdir('.zarrsync') and (len(os.listdir('.zarrsync')) == 0):
@@ -52,13 +52,29 @@ class ComputeCube(ABC):
         self.spatial_resolution = spatial_resolution
         self.output_metadata = output_metadata
         
-    def init_variable(self, 
-                      dataset, 
-                      cube) -> xr.Dataset:
+    def _init_zarr_variable(self, IN):
+        """
+        Initializes a new zarr variable in the data cube.
+        """
+        name, dims, attrs, dtype = IN
+        #_cube = xr.open_zarr(self.cube_location, synchronizer=synchronizer)
+        dims = [dim for dim in self.dims_ if dim in dims]
+        if name not in self.cube.variables:
+            xr.DataArray(
+                 dask.array.full(shape  = [self.cube.coords[dim].size for dim in dims],
+                          chunks = [self.chunksizes[dim] for dim in dims], fill_value=np.nan),
+                 coords = {dim:self.cube.coords[dim] for dim in dims},
+                 dims   = dims,
+                 name   = name,
+                 attrs  = attrs
+            ).chunk({dim:self.chunksizes[dim] for dim in dims}).to_dataset().to_zarr(self.cube_location, mode='a')
+
+            
+    def init_variable(self, dataset, njobs = None, parallel = False):
         """init_variable(dataset)
-
-        Initializes all dataset variables in the Cube.
-
+        
+        Initializes all dataset variables in the SiteCube.
+        
         Parameters
         ----------
         dataset : xr.Dataset, xr.DataArray, dictionary, or tuple
@@ -66,24 +82,42 @@ class ComputeCube(ABC):
             or a dictionary with of the form {var_name: dims}
             where var_name is a string and dims is a list of
             dimension names as stings.
-
+            
         njobs : int, default is None
             Number of cores to use in parallel when writing data, None will
             result in the default njobs as defined in during initialization.
-
+        
         """
-        for var_name in set(dataset.variables) - set(dataset.coords):    
-            if var_name not in self.cube.variables:
-                
-                xr.DataArray(dask.array.full(shape=[v.size for v in cube.coords.values() if len(v.shape) > 0],
-                                             chunks=self.chunksizes, 
-                                             fill_value=np.nan),
-                            coords=cube.coords,
-                            dims=cube.coords.keys(),
-                            name=var_name
-                        ).chunk(self.chunksizes).to_dataset().to_zarr(self.cube_location, mode='a')
-
-        self.cube = xr.open_zarr(self.cube_location)
+        if njobs is None:
+            njobs = self.njobs
+        #self._init_cube()
+        if type(dataset) is xr.DataArray:
+            self._init_zarr_variable( (dataset.name, dataset.dims, dataset.attrs, dataset.dtype) )
+        elif type(dataset) is tuple:
+            self._init_zarr_variable( dataset )
+        else:
+            to_proc = []
+            if type(dataset) is xr.Dataset:
+                for _var in set(dataset.variables) - set(dataset.coords):
+                    to_proc.append( (_var, dataset[_var].dims, dataset[_var].attrs, dataset[_var].dtype) )
+            elif type(dataset) is dict:
+                for k,v in dataset.items():
+                    if type(v) is str:
+                        to_proc.append( (k, v, None, np.float64) )
+                    elif type(v) is dict:
+                        to_proc.append( (k, v['dims'], v['attrs'], np.float64) )
+                    elif len(v) ==2:
+                        to_proc.append( (k, v[0], v[1], np.float64) )
+                    else:
+                        raise ValueError("key:value pair must be constructed as one of: var_name:(dims, attrs), var_name:{dims:dims, attrs:attrs}, or var_name:dim")
+            else:
+                raise RuntimeError("dataset must be xr.Dataset, xr.DataArray, dictionary, or tuple")
+            if parallel:
+                out = async_run(self._init_zarr_variable, to_proc, njobs) # issue with cascading multiprocessing, maybe fix in the future.
+            else:
+                out = list(map(self._init_zarr_variable, to_proc))
+        
+        self.cube = xr.open_zarr(self.cube_location) 
     
     def new_cube(self) -> xr.Dataset:
         """
@@ -115,16 +149,16 @@ class ComputeCube(ABC):
         """
         
         try:
-            _zarr = zarr.open_group(self.cube_location, synchronizer = synchronizer)[da.name]
+            _zarr = zarr.open_group(self.cube_location, synchronizer = sync)[da.name]
         except ValueError as e:
             raise FileExistsError("cube_location already exists but is not a zarr group. Delete existing directory or choose a different cube_location: "+self.cube_location) from e
         
         idxs = tuple([np.where( np.isin(self.cube[dim].values, da[dim].values ) )[0] for dim in da.dims])
-
-
-        if len(_zarr.shape) != len(da.shape):
-            raise ValueError("Inconsistent dimensions. Array `{0}` to be saved has dimensions of {1}, but target dataset expected {2}.".format(da.name, da.dims, self.cube[da.name].dims))
+        
+        if da.shape != _zarr.shape:
+            raise ValueError("Inconsistent shape. Array '{}' to be saved has shape of {}, but target dataset expected {}.".format(da.name, da.shape, _zarr.shape))
         try:
+            #with sync:
             _zarr.set_orthogonal_selection(idxs, da.data)
         except Exception as e:
             raise RuntimeError("Failed to write variable to cube: "+str(da)) from e

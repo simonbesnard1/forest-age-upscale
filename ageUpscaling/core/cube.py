@@ -70,6 +70,10 @@ class DataCube(ComputeCube):
             set false to skip variable initialization,
             faster if variables are pre-initialized
         """
+        if not all([(v in self.cube.variables) for v in da]):
+            missing_vars = [v for v in da if (v not in self.cube.variables)]
+            print(f"Variables missing in cube, initializing: {', '.join(missing_vars)}")
+            initialize = True
         if initialize:
             self.init_variable(da, self.cube)
             
