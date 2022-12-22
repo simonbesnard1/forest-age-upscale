@@ -189,7 +189,7 @@ class ComputeCube(ABC):
         
     def _update_cube_DataArray(self, 
                                da: Union[xr.DataArray, xr.Dataset],
-                               sync: Optional[zarr.Synchronizer] = None) -> None:
+                               sync: Optional[zarr.ProcessSynchronizer] = None) -> None:
         """
         Updates a single DataArray in the zarr cube. Data must be pre-sorted.
         

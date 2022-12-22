@@ -1,10 +1,11 @@
-from ageUpscaling.core.cube import DataCube
-from ageUpscaling.core.study import Study
-from ageUpscaling.core.cube_utils import ComputeCube
-
+from ageUpscaling.core import (
+    cube,
+    study,
+    cube_utils
+)
 
 __all__ = [
-    'DataCube',
-    'Study'
-    'ComputeCube'
+    'cube',
+    'study',
+    'cube_utils'
 ]
