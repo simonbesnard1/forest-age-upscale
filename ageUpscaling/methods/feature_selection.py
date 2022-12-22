@@ -11,38 +11,31 @@
 @Desc    :   A method class for feature selection
 """
 
-#%%Load library
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from boruta import BorutaPy
 import numpy as np
-from sklearn.feature_selection import RFE
 
-class FeatureSelection(object):
+from abc import ABC
+
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.feature_selection import RFE
+from boruta import BorutaPy
+
+class FeatureSelection(ABC):
+    """A class for selecting the most important features in a dataset.
+    
+    Parameters:
+        method: str, optional (default='regression')
+            The type of model to use for training, either 'regression' or 'classification'.
+        feature_selection_method: str, optional (default='boruta')
+            The method to use for feature selection, either 'boruta' or 'recursive'.
+        features: dict, optional
+            A dictionary of features to use in the model.
+    """
     
     def __init__(self, 
                  method:str='regression',
                  feature_selection_method:str = "boruta",
                  features:dict = {}):
-        """FeatureSelction(model:str='regression', selection_method:str = "boruta")
-        
-        Method for selecting most important features.
-
-        Parameters
-        ----------
-        model : str, default is "regression"
-        
-            string defining the model type for training - "regression" or "classification"
-            
-        selection_method : str, default is "boruta"
-        
-            string defining the method used for features selection - "boruta" or "recursive"
-            
-        Return
-        ------
-        an array (np.array): an array containing the list of selected features
-        
-        """
-        
+    
         self.method = method
         self.feature_selection_method = feature_selection_method
         self.features = features
@@ -51,23 +44,27 @@ class FeatureSelection(object):
                      data:dict= {},
                      max_features:int=10,
                      max_depth:int=5,
-                     n_jobs:int=-1):
+                     n_jobs:int=1)-> np.array:
+        """Selects the most important features from the input data using the specified feature selection method.
         
-        """Parameters
+        Parameters
         ----------
-        n_features : int, default is "10        
-            integer defining the maximum number of features to select
+        data : dict, default is {}
+            Dictionary containing the 'features' and 'target' arrays for feature selection.
         
+        max_features : int, default is 10        
+            Maximum number of features to select.
         
-        n_features : int, default is "10        
-            integer defining the maximum number of features to select
-            
         max_depth : int, default is 5
-            integer defining the maximum depth of the model
+            Maximum depth of the model.
         
         n_jobs : int, default is -1
-            integer defining the number of jobs
-            
+            Number of jobs to use for feature selection.
+        
+        Returns
+        -------
+        var_selected : np.array
+            Array containing the list of selected features.
         """
         
         if self.method == "MLPRegressor":
