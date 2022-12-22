@@ -158,8 +158,8 @@ class ComputeCube(ABC):
         
         idxs = tuple([np.where( np.isin(self.cube[dim].values, da[dim].values ) )[0] for dim in da.dims])
         
-        if da.shape != _zarr.shape:
-            raise ValueError("Inconsistent shape. Array '{}' to be saved has shape of {}, but target dataset expected {}.".format(da.name, da.shape, _zarr.shape))
+        if len(_zarr.shape) != len(da.shape):
+            raise ValueError("Inconsistent dimensions. Array `{0}` to be saved has dimensions of {1}, but target dataset expected {2}.".format(da.name, da.dims, self.cube[da.name].dims))
         try:
             _zarr.set_orthogonal_selection(idxs, da.data)
         except Exception as e:
