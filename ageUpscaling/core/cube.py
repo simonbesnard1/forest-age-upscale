@@ -18,8 +18,7 @@ import xarray as xr
 from ageUpscaling.core.cube_utils import ComputeCube
 
 class DataCube(ComputeCube):
-    """
-    A class for handling the creation and updating of regularized cube zarr files.
+    """A class for handling the creation and updating of regularized cube zarr files.
 
     The `DataCube` class inherits from the `ComputeCube` class and adds additional
     functionality for creating and updating data cubes stored in the zarr format.
@@ -74,8 +73,7 @@ class DataCube(ComputeCube):
                      da: Union[xr.DataArray, xr.Dataset],
                      njobs:int =1,
                      initialize:bool=True) -> None:
-        """
-        Update the data cube with the provided xarray Dataset or DataArray.
+        """Update the data cube with the provided xarray Dataset or DataArray.
     
         Parameters:
         -----------

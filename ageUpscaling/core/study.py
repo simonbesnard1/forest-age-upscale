@@ -25,8 +25,7 @@ from ageUpscaling.methods.MLP import MLPmethod
 
 
 class Study(ABC):
-    """
-    Study abstract class for cross validation, model training, prediction.
+    """Study abstract class for cross validation, model training, prediction.
 
     Parameters
     ----------
@@ -81,8 +80,7 @@ class Study(ABC):
     def version_dir(self, 
                     base_dir: str, 
                     study_name: str) -> str:
-        """
-        Creates a new version of a directory by appending the version number to the end of the directory name.
+        """Creates a new version of a directory by appending the version number to the end of the directory name.
     
         If the directory already exists, it will be renamed to include the version number before the new directory is created.
         
@@ -104,8 +102,7 @@ class Study(ABC):
     @staticmethod
     def increment_dir_version(base_dir: str,
                               study_name:str) -> str:
-        """
-        Increments the version of a directory by appending the next available version number to the end of the directory name.
+        """Increments the version of a directory by appending the next available version number to the end of the directory name.
         
         Parameters
         ----------
@@ -147,8 +144,7 @@ class Study(ABC):
                          valid_fraction:float=0.3,
                          feature_selection:bool=False,
                          feature_selection_method:str=None) -> None:
-        """
-        Perform cross-validation on the data.
+        """Perform cross-validation on the data.
     
         Parameters
         ----------

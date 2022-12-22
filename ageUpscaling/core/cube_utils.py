@@ -30,8 +30,7 @@ def cleanup():
 atexit.register(cleanup)
 
 class ComputeCube(ABC):
-    """
-    A schema for creating new cube datasets.
+    """A schema for creating new cube datasets.
     
     This class can be used to create new cube datasets with the given shape, dimensions,
     chunksizes, and coordinate variables.
@@ -69,8 +68,7 @@ class ComputeCube(ABC):
         
     def _init_zarr_variable(self, 
                             IN:tuple) -> None:
-        """
-        Initializes a new zarr variable in the data cube.
+        """Initializes a new zarr variable in the data cube.
         
         Parameters:
         -----------
@@ -86,7 +84,6 @@ class ComputeCube(ABC):
                 The data type of the new variable.
         """
         name, dims, attrs, dtype = IN
-        #_cube = xr.open_zarr(self.cube_location, synchronizer=synchronizer)
         dims = [dim for dim in self.dims_ if dim in dims]
         if name not in self.cube.variables:
             xr.DataArray(
@@ -103,8 +100,7 @@ class ComputeCube(ABC):
                       dataset: Union[xr.DataArray, xr.Dataset], 
                       njobs:int = None, 
                       parallel:bool = False) ->None:
-        """
-        Initializes all dataset variables in the SiteCube.
+        """Initializes all dataset variables in the SiteCube.
         
         Parameters:
         -----------
@@ -159,8 +155,7 @@ class ComputeCube(ABC):
         self.cube = xr.open_zarr(self.cube_location) 
     
     def new_cube(self) -> xr.Dataset:
-        """
-        Create a new empty cube with predefined coordinate variables and metadata.
+        """Create a new empty cube with predefined coordinate variables and metadata.
         
         This function creates a new empty cube with coordinate variables and metadata 
         defined by the object's `dims_` and `output_metadata` attributes. The spatial 
@@ -190,8 +185,7 @@ class ComputeCube(ABC):
     def _update_cube_DataArray(self, 
                                da: Union[xr.DataArray, xr.Dataset],
                                sync: Optional[zarr.ProcessSynchronizer] = None) -> None:
-        """
-        Updates a single DataArray in the zarr cube. Data must be pre-sorted.
+        """Update a single DataArray in the zarr cube. Data must be pre-sorted.
         
         This function is called by the `update_cube` function to update a specific 
         DataArray in the zarr cube. The data must be pre-sorted and aligned with the 
@@ -236,8 +230,7 @@ class ComputeCube(ABC):
     def _update(self, 
                 da:Union[xr.DataArray, xr.Dataset], 
                 njobs:int=None) -> None:
-        """
-        Update the data cube with the provided data.
+        """Update the data cube with the provided data.
     
         This function updates the data cube with the data provided in the xarray Dataset
         or DataArray object. The update operation can be performed in parallel using
