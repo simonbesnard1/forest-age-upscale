@@ -10,20 +10,19 @@
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
 @Desc    :   A method class for creating new cube datasets.
 """
-from typing import Union, Optional
-from abc import ABC
-import os
 import atexit
+import os
+from abc import ABC
+from typing import Optional, Union
 
-from ageUpscaling.utils.utilities import async_run
-
-import numpy as np
-import xarray as xr
 import dask
+import numpy as np
 import pandas as pd
-
+import xarray as xr
 import zarr
 import shutil
+
+from ageUpscaling.utils.utilities import async_run
 
 def cleanup():
     if os.path.isdir('.zarrsync') and (len(os.listdir('.zarrsync')) == 0):

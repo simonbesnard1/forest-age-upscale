@@ -1,34 +1,51 @@
-from __future__ import annotations
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+@author: sbesnard
+@File    :   study.py
+@Time    :   Mon Sep 26 10:47:17 2022
+@Author  :   Simon Besnard
+@Version :   1.0
+@Contact :   besnard@gfz-potsdam.de
+@License :   (C)Copyright 2022-2023, GFZ-Potsdam
+@Desc    :   A method class for cross validation, model training, prediction
+"""
 import os
-import xarray as xr
+
 import numpy as np
-from sklearn.model_selection import KFold
-from sklearn.model_selection import train_test_split
+import xarray as xr
+from abc import ABC
+from sklearn.model_selection import KFold, train_test_split
+from tqdm import tqdm
 import yaml as yml
 import shutil
-from ageUpscaling.methods.MLP import MLPmethod
+
 from ageUpscaling.core.cube import DataCube
-from abc import ABC
-from tqdm import tqdm
+from ageUpscaling.methods.MLP import MLPmethod
+
 
 class Study(ABC):
-    """Study abstract class used for cross validation, model training, prediction.
+    """
+    Study abstract class for cross validation, model training, prediction.
 
     Parameters
     ----------
-    DataConfig_path : DataConfig_path
-        A data configuration path.     
-    out_dir : str
-        The study base directory.
+    DataConfig_path : str
+        Path to the data configuration file.     
+    cube_config_path : str
+        Path to the cube configuration file.
+    base_dir : str
+        The base directory for the study. See `directory structure` for further details.
+    study_name : str, optional
+        The study name. Default is 'study_name'.
         See `directory structure` for further details.
-    study_name : str = 'study_name'
-        The study name.
+    study_dir : str, optional
+        The directory to restore an existing study. If passed, an existing study is loaded.
         See `directory structure` for further details.
-    study_dir : Optional[str] = None
-        The restore directory. If passed, an existing study is loaded.
-        See `directory structure` for further details.
-    n_jobs : int = 1
-        Number of workers.
+    n_jobs : int, optional
+        Number of workers. Default is 1.
+    **kwargs : additional keyword arguments
+        Additional keyword arguments.
 
     """
     def __init__(
@@ -66,10 +83,22 @@ class Study(ABC):
                     study_name: str) -> str:
         """
         Creates a new version of a directory by appending the version number to the end of the directory name.
+    
         If the directory already exists, it will be renamed to include the version number before the new directory is created.
+        
+        Parameters
+        ----------
+        base_dir : str
+            The base directory where the new version of the study directory will be created.
+        study_name : str
+            The name of the study directory.
+            
+        Returns
+        -------
+        str
+            The full path to the new version of the study directory.
         """
         
-        # Return the name of the new directory
         return self.increment_dir_version(base_dir, study_name)
     
     @staticmethod
@@ -77,27 +106,30 @@ class Study(ABC):
                               study_name:str) -> str:
         """
         Increments the version of a directory by appending the next available version number to the end of the directory name.
+        
+        Parameters
+        ----------
+        base_dir : str
+            The base directory for the study.
+        study_name : str
+            The name of the study.
+        
+        Returns
+        -------
+        str
+            The name of the new directory with the incremented version number.
         """
-        # Get a list of all directories that start with the given directory name
         dir_list = [d for d in os.listdir(base_dir) if d.startswith(study_name)]
         
-        # Sort the list of directories in ascending order
         dir_list.sort()
         
-        # Check if the list of directories is empty
         if len(dir_list) == 0:
-            # If the list is empty, this is the first version of the directory
-            # Set the version number to "1.0"
             version = "1.0"
         else:
-            # If the list is not empty, get the last directory in the list
-            # This will be the most recent version of the directory
             last_dir = dir_list[-1]
             
-            # Split the directory name into its base name and version number
             study_name, version = last_dir.split("-")
             
-            # Increment the version number
             major, minor = version.split(".")
             major = int(major)
             minor = int(minor)
@@ -107,7 +139,6 @@ class Study(ABC):
                 minor = 0
             version = f"{major}.{minor}"
         
-        # Return the name of the new directory
         return f"{base_dir}/{study_name}-{version}"
     
     def cross_validation(self, 
@@ -116,18 +147,32 @@ class Study(ABC):
                          valid_fraction:float=0.3,
                          feature_selection:bool=False,
                          feature_selection_method:str=None) -> None:
-        """Perform cross-validation.
-
+        """
+        Perform cross-validation on the data.
+    
         Parameters
         ----------
-        n_folds : int
-            Number of cross-validation folds.
-        valid_fraction : float
-            Fraction of the validation fraction. Range between 0-1    
-        feature_selection : bool
-            Whether to do feature selection.
-        feature_selection_method : str
-            The method to use for the feature selections
+        method : str, optional
+            The type of model to use for the cross-validation.
+            Default is 'MLPRegressor'.
+        n_folds : int, optional
+            The number of cross-validation folds.
+            Default is 10.
+        valid_fraction : float, optional
+            The fraction of the data to use as the validation set.
+            Range is between 0 and 1.
+            Default is 0.3.
+        feature_selection : bool, optional
+            Whether to perform feature selection before training the model.
+            Default is False.
+        feature_selection_method : str, optional
+            The method to use for feature selection.
+            Only applicable if `feature_selection` is True.
+            Default is None.
+    
+        Notes
+        -----
+        - If `feature_selection` is True, `feature_selection_method` must be specified.
         """
         
         pred_cube = DataCube(cube_config = self.cube_config)

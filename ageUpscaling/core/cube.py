@@ -8,10 +8,10 @@
 @Version :   1.0
 @Contact :   besnard@gfz-potsdam.de
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for creating new cube datasets.
+@Desc    :   A method class for handling the creation and updating of regularized cube zarr files.
 """
-from typing import Union
 import os
+from typing import Union
 
 import xarray as xr
 
