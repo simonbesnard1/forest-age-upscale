@@ -19,7 +19,6 @@ import pandas as pd
 
 import zarr
 import shutil
-sync = zarr.ProcessSynchronizer('.zarrsync')
 
 def cleanup():
     if os.path.isdir('.zarrsync') and (len(os.listdir('.zarrsync')) == 0):
@@ -142,15 +141,19 @@ class ComputeCube(ABC):
         ds_.to_zarr(self.cube_location, consolidated=True)
         
     def _update_cube_DataArray(self, 
-                               da: Union[xr.DataArray, xr.Dataset]):
+                               da: Union[xr.DataArray, xr.Dataset],
+                               sync = None):
         """
         Updates a single DataArray in the zarr cube. Data must be pre-sorted.
         Inputs to the `update_cube` function ultimately are passed here.
         """
         
+        if sync is None:
+            sync = zarr.ProcessSynchronizer('.zarrsync')
+        
         try:
             _zarr = zarr.open_group(self.cube_location, synchronizer = sync)[da.name]
-        except ValueError as e:
+        except (IOError, ValueError, TypeError) as e:
             raise FileExistsError("cube_location already exists but is not a zarr group. Delete existing directory or choose a different cube_location: "+self.cube_location) from e
         
         idxs = tuple([np.where( np.isin(self.cube[dim].values, da[dim].values ) )[0] for dim in da.dims])
@@ -158,7 +161,6 @@ class ComputeCube(ABC):
         if da.shape != _zarr.shape:
             raise ValueError("Inconsistent shape. Array '{}' to be saved has shape of {}, but target dataset expected {}.".format(da.name, da.shape, _zarr.shape))
         try:
-            #with sync:
             _zarr.set_orthogonal_selection(idxs, da.data)
         except Exception as e:
             raise RuntimeError("Failed to write variable to cube: "+str(da)) from e
