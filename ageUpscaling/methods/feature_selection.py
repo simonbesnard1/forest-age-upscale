@@ -6,7 +6,7 @@
 @Time    :   Mon Sep 26 10:47:17 2022
 @Author  :   Simon Besnard
 @Version :   1.0
-@Contact :   besnard.sim@gmail.com
+@Contact :   besnard@gfz-potsdam.de
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
 @Desc    :   A method class for feature selection
 """

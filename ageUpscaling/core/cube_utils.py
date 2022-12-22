@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Dec  1 12:36:53 2022
-
-@author: simon
+@author: sbesnard
+@File    :   cube_utils.py
+@Time    :   Mon Sep 26 10:47:17 2022
+@Author  :   Code adapted from Jake Nelson cube_utils modules
+@Version :   1.0
+@Contact :   besnard@gfz-potsdam.de
+@License :   (C)Copyright 2022-2023, GFZ-Potsdam
+@Desc    :   A method class for creating new cube datasets.
 """
-from typing import Union
+from typing import Union, Optional
 from abc import ABC
 import os
 import atexit
@@ -27,13 +32,25 @@ atexit.register(cleanup)
 
 class ComputeCube(ABC):
     """
-    A schema that can be used to create new cube datasets.
-    The given *shape*, *dims*, and *chunks*, *coords* apply to all data variables.
-
-    :param shape: A tuple of dimension sizes.
-    :param coords: A dictionary of coordinate variables. Must have values for all *dims*.
-    :param dims: A sequence of dimension names. Defaults to ``('time', 'lat', 'lon')``.
-    :param chunks: A tuple of chunk sizes in each dimension.
+    A schema for creating new cube datasets.
+    
+    This class can be used to create new cube datasets with the given shape, dimensions,
+    chunksizes, and coordinate variables.
+    
+    Parameters:
+    -----------
+    cube_location: str
+        The location of the cube dataset.
+    dims: dict
+        A dictionary of dimension names and their corresponding sizes.
+    chunksizes: tuple
+        A tuple of chunk sizes in each dimension.
+    temporal_resolution: int
+        The temporal resolution of the dataset (in seconds).
+    spatial_resolution: int
+        The spatial resolution of the dataset (in meters).
+    output_metadata: dict
+        A dictionary containing metadata for the output dataset.
     """
 
     def __init__(self,
@@ -51,9 +68,23 @@ class ComputeCube(ABC):
         self.spatial_resolution = spatial_resolution
         self.output_metadata = output_metadata
         
-    def _init_zarr_variable(self, IN):
+    def _init_zarr_variable(self, 
+                            IN:tuple) -> None:
         """
         Initializes a new zarr variable in the data cube.
+        
+        Parameters:
+        -----------
+        IN: tuple
+            A tuple containing the following items:
+            - name: str
+                The name of the new zarr variable.
+            - dims: list
+                A list of dimension names for the new variable.
+            - attrs: dict
+                A dictionary of attributes for the new variable.
+            - dtype: np.dtype
+                The data type of the new variable.
         """
         name, dims, attrs, dtype = IN
         #_cube = xr.open_zarr(self.cube_location, synchronizer=synchronizer)
@@ -68,28 +99,38 @@ class ComputeCube(ABC):
                  attrs  = attrs
             ).chunk({dim:self.chunksizes[dim] for dim in dims}).to_dataset().to_zarr(self.cube_location, mode='a')
 
-            
-    def init_variable(self, dataset, njobs = None, parallel = False):
-        """init_variable(dataset)
         
+    def init_variable(self, 
+                      dataset: Union[xr.DataArray, xr.Dataset], 
+                      njobs:int = None, 
+                      parallel:bool = False) ->None:
+        """
         Initializes all dataset variables in the SiteCube.
         
-        Parameters
-        ----------
-        dataset : xr.Dataset, xr.DataArray, dictionary, or tuple
-            Must be either xr.Dataset or xr.DataArray objects,
-            or a dictionary with of the form {var_name: dims}
-            where var_name is a string and dims is a list of
+        Parameters:
+        -----------
+        dataset: xr.Dataset, xr.DataArray, dict, or tuple
+            The dataset containing the variables to be initialized. Can be either an 
+            xr.Dataset or xr.DataArray object, or a dictionary with the form 
+            {var_name: dims} where var_name is a string and dims is a list of 
             dimension names as stings.
+        njobs: int, optional
+            The number of cores to use in parallel when writing data. If not provided,
+            the default value of `njobs` specified during initialization will be used.
+        parallel: bool, optional
+            A flag indicating whether to run the initialization in parallel. If set to
+            `True`, the function will use the specified number of cores to write data 
+            in parallel. If set to `False`, the function will write data sequentially.
             
-        njobs : int, default is None
-            Number of cores to use in parallel when writing data, None will
-            result in the default njobs as defined in during initialization.
-        
+        Raises:
+        -------
+        ValueError:
+            If the dictionary provided as `dataset` is not in a valid format.
+        RuntimeError:
+            If `dataset` is not an xr.Dataset, xr.DataArray, dictionary, or tuple.
         """
         if njobs is None:
             njobs = self.njobs
-        #self._init_cube()
         if type(dataset) is xr.DataArray:
             self._init_zarr_variable( (dataset.name, dataset.dims, dataset.attrs, dataset.dtype) )
         elif type(dataset) is tuple:
@@ -121,19 +162,26 @@ class ComputeCube(ABC):
     def new_cube(self) -> xr.Dataset:
         """
         Create a new empty cube with predefined coordinate variables and metadata.
-    
-        The coordinates and metadata are taken from the object's `dims_` and `output_metadata` attributes, respectively.
-        The spatial resolution is taken from the object's `spatial_resolution` attribute.
-        The temporal resolution is taken from the object's `temporal_resolution` attribute.
-    
-        :return: A cube instance
-        """  
+        
+        This function creates a new empty cube with coordinate variables and metadata 
+        defined by the object's `dims_` and `output_metadata` attributes. The spatial 
+        resolution is taken from the object's `spatial_resolution` attribute, and the 
+        temporal resolution is taken from the object's `temporal_resolution` attribute.
+        
+        Returns:
+        --------
+        xr.Dataset:
+            The new empty cube as an xarray Dataset object.
+        
+        Raises:
+        -------
+        ValueError:
+            If the dimensions of the new cube are not valid.
+        """ 
         coords = {dim: np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution) * -1 if dim in 'latitude' else
                        np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution) if dim in 'longitude' else
-                       #np.arange(np.datetime64(self.dims_[dim][0]), np.datetime64(self.dims_[dim][1]), np.timedelta64(1, self.temporal_resolution)) if dim == 'time' else
                        np.array(pd.to_datetime(self.dims_[dim])) if dim == 'time' else
                        np.arange(self.dims_[dim]) + 1 if dim == 'cluster' else
-                       np.arange(self.dims_[dim]) if dim == 'sample' else 
                        np.arange(self.dims_[dim]) for dim in self.dims_.keys()}
         
         ds_ = xr.Dataset(data_vars={}, coords=coords, attrs= self.output_metadata)
@@ -142,10 +190,31 @@ class ComputeCube(ABC):
         
     def _update_cube_DataArray(self, 
                                da: Union[xr.DataArray, xr.Dataset],
-                               sync = None):
+                               sync: Optional[zarr.Synchronizer] = None) -> None:
         """
         Updates a single DataArray in the zarr cube. Data must be pre-sorted.
-        Inputs to the `update_cube` function ultimately are passed here.
+        
+        This function is called by the `update_cube` function to update a specific 
+        DataArray in the zarr cube. The data must be pre-sorted and aligned with the 
+        dimensions of the target DataArray in the zarr cube.
+        
+        Parameters:
+        -----------
+        da: xr.DataArray or xr.Dataset
+            The DataArray or Dataset to be updated in the zarr cube.
+        sync: zarr.Synchronizer, optional
+            An optional synchronizer to use when updating the data. If not provided,
+            the default synchronizer specified during initialization will be used.
+            
+        Raises:
+        -------
+        FileExistsError:
+            If the `self.cube_location` already exists but is not a zarr group.
+        ValueError:
+            If the dimensions of `da` do not match the expected dimensions of the 
+            target DataArray in the zarr cube.
+        RuntimeError:
+            If the update operation fails.
         """
         
         if sync is None:
@@ -167,9 +236,32 @@ class ComputeCube(ABC):
         
     def _update(self, 
                 da:Union[xr.DataArray, xr.Dataset], 
-                njobs:int=None):
+                njobs:int=None) -> None:
         """
-        Handles both Datasets and DataArrays.
+        Update the data cube with the provided data.
+    
+        This function updates the data cube with the data provided in the xarray Dataset
+        or DataArray object. The update operation can be performed in parallel using
+        multiple cores.
+    
+        Parameters:
+        -----------
+        da: Union[xr.DataArray, xr.Dataset]
+            The xarray Dataset or DataArray object containing the data to be written to 
+            the data cube.
+        njobs: int, optional
+            The number of cores to use when performing the update operation in parallel.
+            The default value is None, which will use the default number of cores specified
+            during the initialization of the SiteCube object.
+    
+        Returns:
+        --------
+        None
+    
+        Raises:
+        -------
+        RuntimeError:
+            If the input is not an xr.Dataset or xr.DataArray object.
         """
         if njobs is None:
             njobs = self.njobs
