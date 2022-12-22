@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Sep  3 14:49:25 2019
-
-@author: simon
+@author: sbesnard
+@File    :   csv_to_fidcCube.py
+@Time    :   Mon Sep 26 10:47:17 2022
+@Author  :   Simon Besnard
+@Version :   1.0
+@Contact :   besnard@gfz-potsdam.de
+@License :   (C)Copyright 2022-2023, GFZ-Potsdam
+@Desc    :   A method class for creating FIDC cube
 """
-import xarray as xr
-import pandas as pd
-import numpy as np
-from datetime import datetime
-from abc import ABC
 from typing import Any
 
+import numpy as np
+import pandas as pd
+import xarray as xr
+from datetime import datetime
+from abc import ABC
 
 DEFAULT_VARS = {"age",
                 "agb",
@@ -90,10 +95,17 @@ DEFAULT_UNITS = {"age"  : "years",
         "AnnualVapr_WorlClim" : "hPa"}
 
 class ImportAndSave(ABC):
-    """ImportAndSave
+    """Abstract class for importing FIDC formatted CSV files and saving them in a specified format.
     
-    Imports FIDC formatted csv file.
-    
+    Parameters:
+        input_csv: str
+            Path to the input CSV file.
+        out_file: str
+            Path to the output file. If not provided, the output file will be saved in the same directory as the input file.
+        variables: dict[str, Any]
+            Mapping of variable names in the input CSV file to the desired names in the output file.
+        units: dict[str, Any]
+            Mapping of variable names to the desired units in the output file.
     """
     def __init__(
         self,
@@ -101,8 +113,6 @@ class ImportAndSave(ABC):
         out_file: str = None,
         variables: dict[str, Any] = DEFAULT_LONG_NAMES,
         units: dict[str, Any] = DEFAULT_UNITS):
-    
-        super().__init__()
         
         self.input_csv = input_csv
         self.out_file = out_file
@@ -110,7 +120,17 @@ class ImportAndSave(ABC):
         self.units = units
 
     def compute_cube(self, 
-                     variables:dict= 'default'):
+                     variables: dict[str, Any] = 'default') -> xr.Dataset:
+        """
+        Compute the data cube from the input CSV file.
+        
+        Parameters:
+            variables: dict[str, Any]
+                Mapping of variable names in the input CSV file to the desired names in the output file. If not provided, the default variables will be used.
+        
+        Returns:
+            xr.Dataset: The computed data cube.
+        """
         if variables == 'default':
             var_names = DEFAULT_VARS
         

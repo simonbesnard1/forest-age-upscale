@@ -18,6 +18,23 @@ from ageUpscaling.dataloaders.base import MLData
 
 class MLDataModule(MLData):
     
+    """Define dataloaders.
+
+    Parameters:
+        cube_path: str
+            Path to the datacube.
+        DataConfig: DataConfig
+            The data configuration.
+        train_subset: Dict[str, Any]:
+            Training set selection.
+        valid_subset: Dict[str, Any]:
+            Same as `train_subset`, for validation set.
+        test_subset: Dict[str, Any]:
+            Same as `train_subset`, for test set.
+        **kwargs:
+            Keyword arguments passed to `DataLoader`, same for training, validation and test set loader.
+    """
+    
     def __init__(
             self,
             method:str='MLPRegressor',
@@ -29,23 +46,6 @@ class MLDataModule(MLData):
             test_subset: dict[str, Any] = {},
             norm_stats: dict[str, dict[str, float]] = {},
             **kwargs) -> None:
-        
-        """Define dataloaders.
-
-        Parameters:
-            cube_path: str
-                Path to the datacube.
-            DataConfig: DataConfig
-                The data configuration.
-            train_subset: Dict[str, Any]:
-                Training set selection.
-            valid_subset: Dict[str, Any]:
-                Same as `train_subset`, for validation set.
-            test_subset: Dict[str, Any]:
-                Same as `train_subset`, for test set.
-            **kwargs:
-                Keyword arguments passed to `DataLoader`, same for training, validation and test set loader.
-        """
         
         super().__init__()
 
