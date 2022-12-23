@@ -138,7 +138,6 @@ class Study(ABC):
         return f"{base_dir}/{study_name}-{version}"
     
     def cross_validation(self, 
-                         method:str='MLPRegressor',
                          n_folds:int=10, 
                          valid_fraction:float=0.3,
                          feature_selection:bool=False,
@@ -147,9 +146,6 @@ class Study(ABC):
     
         Parameters
         ----------
-        method : str, optional
-            The type of model to use for the cross-validation.
-            Default is 'MLPRegressor'.
         n_folds : int, optional
             The number of cross-validation folds.
             Default is 10.
@@ -178,17 +174,19 @@ class Study(ABC):
         for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
             train_subset, test_subset = cluster_[train_index], cluster_[test_index]
             train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
-            mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
-                                   DataConfig= self.DataConfig,
-                                   method=method)
-            mlp_method.train(train_subset=train_subset,
-                              valid_subset=valid_subset, 
-                              test_subset=test_subset, 
-                              feature_selection= feature_selection,
-                              feature_selection_method=feature_selection_method,
-                              n_jobs = self.n_jobs)
-            mlp_method.predict_clusters(save_cube = pred_cube)                       
-            shutil.rmtree(os.path.join(self.study_dir, "tune"))
+            
+            for method in ["MLPRegressor", "MLPClassifier"]:
+                mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
+                                       DataConfig= self.DataConfig,
+                                       method=method)
+                mlp_method.train(train_subset=train_subset,
+                                  valid_subset=valid_subset, 
+                                  test_subset=test_subset, 
+                                  feature_selection= feature_selection,
+                                  feature_selection_method=feature_selection_method,
+                                  n_jobs = self.n_jobs)
+                mlp_method.predict_clusters(save_cube = pred_cube)                       
+                shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
     
             
