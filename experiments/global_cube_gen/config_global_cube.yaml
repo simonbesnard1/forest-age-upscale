@@ -17,6 +17,8 @@ output_variables:
   - agb_001deg_cc_min_000
   - AnnualMeanTemperature_WorlClim
 
+njobs: 2
+
 output_metadata:
   # CF: A succinct description of what is in the dataset.
   title: "Global data cube for forest age upscaling"

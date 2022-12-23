@@ -64,6 +64,7 @@ class DataCube(ComputeCube):
                          cube_config['output_metadata'])
         
         self.cube_config = cube_config
+        self.njobs = cube_config['njobs']
         
         if not os.path.isdir(self.cube_config['cube_location']):
             self.new_cube()
@@ -71,7 +72,6 @@ class DataCube(ComputeCube):
         
     def update_cube(self, 
                      da: Union[xr.DataArray, xr.Dataset],
-                     njobs:int =1,
                      initialize:bool=True) -> None:
         """Update the data cube with the provided xarray Dataset or DataArray.
     
@@ -79,16 +79,22 @@ class DataCube(ComputeCube):
         -----------
         da: xr.Dataset or xr.DataArray
             The dataset or data array containing the data to be updated to the cube.
-        njobs: int, optional
-            The number of CPUs to use in parallel when updating. Each variable will be
-            updated in parallel. Default is 1.
         initialize: bool, optional
             Set to False to skip variable initialization. This is faster if the variables
             are already initialized. Default is True.
     
         """
+        if da.__class__ is xr.Dataset:
+            parallel = True
+            njobs = self.njobs
+        elif da.__class__ is xr.DataArray:
+            parallel = False
+            njobs = None
+        
         if initialize:
-            self.init_variable(da, self.cube)
+            self.init_variable(da, 
+                               njobs, 
+                               parallel)
             
         self._update(da, njobs=njobs)
     

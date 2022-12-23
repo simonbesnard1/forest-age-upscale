@@ -22,7 +22,7 @@ import xarray as xr
 import zarr
 import shutil
 
-from ageUpscaling.utils.utilities import async_run
+#from ageUpscaling.utils.utilities import async_run
 
 def cleanup():
     if os.path.isdir('.zarrsync') and (len(os.listdir('.zarrsync')) == 0):
@@ -124,33 +124,20 @@ class ComputeCube(ABC):
         RuntimeError:
             If `dataset` is not an xr.Dataset, xr.DataArray, dictionary, or tuple.
         """
-        if njobs is None:
-            njobs = self.njobs
-        if type(dataset) is xr.DataArray:
+        if dataset.__class__ is xr.DataArray:
             self._init_zarr_variable( (dataset.name, dataset.dims, dataset.attrs, dataset.dtype) )
-        elif type(dataset) is tuple:
-            self._init_zarr_variable( dataset )
-        else:
+        elif dataset.__class__ is xr.Dataset:
             to_proc = []
-            if type(dataset) is xr.Dataset:
-                for _var in set(dataset.variables) - set(dataset.coords):
-                    to_proc.append( (_var, dataset[_var].dims, dataset[_var].attrs, dataset[_var].dtype) )
-            elif type(dataset) is dict:
-                for k,v in dataset.items():
-                    if type(v) is str:
-                        to_proc.append( (k, v, None, np.float64) )
-                    elif type(v) is dict:
-                        to_proc.append( (k, v['dims'], v['attrs'], np.float64) )
-                    elif len(v) ==2:
-                        to_proc.append( (k, v[0], v[1], np.float64) )
-                    else:
-                        raise ValueError("key:value pair must be constructed as one of: var_name:(dims, attrs), var_name:{dims:dims, attrs:attrs}, or var_name:dim")
-            else:
-                raise RuntimeError("dataset must be xr.Dataset, xr.DataArray, dictionary, or tuple")
-            if parallel:
-                out = async_run(self._init_zarr_variable, to_proc, njobs) # issue with cascading multiprocessing, maybe fix in the future.
-            else:
-                out = list(map(self._init_zarr_variable, to_proc))
+            for _var in set(dataset.variables) - set(dataset.coords):
+                to_proc.append( (_var, dataset[_var].dims, dataset[_var].attrs, dataset[_var].dtype) )
+            futures = [dask.delayed(self._init_zarr_variable)(da_var) for da_var in to_proc]
+            dask.compute(*futures, num_workers= njobs)
+        else:
+            raise RuntimeError("dataset must be xr.Dataset, xr.DataArray")
+            # if parallel:
+            #     out = async_run(self._init_zarr_variable, to_proc, njobs) # issue with cascading multiprocessing, maybe fix in the future.
+            # else:
+            #     out = list(map(self._init_zarr_variable, to_proc))
         
         self.cube = xr.open_zarr(self.cube_location) 
     
@@ -255,14 +242,12 @@ class ComputeCube(ABC):
         RuntimeError:
             If the input is not an xr.Dataset or xr.DataArray object.
         """
-        if njobs is None:
-            njobs = self.njobs
-        update_function = self._update_cube_DataArray
-
-        if isinstance(da, xr.Dataset):
+        if da.__class__ is xr.Dataset:
             to_proc = [da[_var] for _var in (set(da.variables) - set(da.coords))]
-            _ = async_run(update_function, to_proc, njobs)
-        elif isinstance(da, xr.DataArray):
+            futures = [dask.delayed(self._update_cube_DataArray)(da_var) for da_var in to_proc]
+            dask.compute(*futures, num_workers= njobs)
+            #_ = async_run(self._update_cube_DataArray, to_proc, njobs)
+        elif da.__class__ is xr.DataArray:
             self._update_cube_DataArray(da)
         else:
             raise RuntimeError("Input must be xr.Dataset or xr.DataArray objects")

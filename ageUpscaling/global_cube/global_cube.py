@@ -46,25 +46,25 @@ class GlobalCube(DataCube):
             cube_config_path: str
                 Path to the configuration file for the data cube.
         """
-        if len(glob.glob(os.path.join(self.base_file_path, '*.nc'))) >0 :
-            da = xr.open_mfdataset(os.path.join(self.base_file_path, '*.nc'))
-        else:
-            da = xr.open_dataset(glob.glob(os.path.join(self.base_file_path, '*.nc')))
-        if 'lon' in da.coords:
-            da = da.rename({'lon': 'longitude'})
-            da['longitude'] = self.cube['longitude']
-        if 'lat' in da.coords:
-            da = da.rename({'lat': 'latitude'})
-            da['latitude'] = self.cube['latitude']
+        for file_ in  glob.glob(os.path.join(self.base_file_path, '*.nc')):
+            da = xr.open_dataset(file_)
+            if 'lon' in da.coords:
+                da = da.rename({'lon': 'longitude'})
+                da['longitude'] = self.cube['longitude']
+            if 'lat' in da.coords:
+                da = da.rename({'lat': 'latitude'})
+                da['latitude'] = self.cube['latitude']
             
-        for var_name in self.cube_config['output_variables']:
-            if var_name not in da.variables:
-                raise RuntimeError(f'Failed to create cube: {var_name} is not present in the input dataset')
-            
-        da = da[self.cube_config['output_variables']].transpose(*self.cube.dims).chunk(chunks=self.cube.chunks)
-        
-        self.update_cube(da)
-            
+            vars_to_proc = {}
+            for var_name in self.cube_config['output_variables']:
+                if var_name in da.variables:
+                    vars_to_proc[var_name] = var_name
+                    
+            if len(vars_to_proc) > 0:        
+                da = da[list(vars_to_proc)].transpose(*self.cube.dims).chunk(chunks=self.cube.chunks)
+                
+                self.update_cube(da)
+                    
             
             
 
