@@ -88,7 +88,7 @@ class ComputeCube(ABC):
         if name not in self.cube.variables:
             xr.DataArray(
                  dask.array.full(shape  = [self.cube.coords[dim].size for dim in dims],
-                          chunks = [self.chunksizes[dim] for dim in dims], fill_value=np.nan),
+                                 chunks = [self.chunksizes[dim] for dim in dims], fill_value=np.nan),
                  coords = {dim:self.cube.coords[dim] for dim in dims},
                  dims   = dims,
                  name   = name,
@@ -206,13 +206,14 @@ class ComputeCube(ABC):
             raise FileExistsError("cube_location already exists but is not a zarr group. Delete existing directory or choose a different cube_location: "+self.cube_location) from e
         
         idxs = tuple([np.where( np.isin(self.cube[dim].values, da[dim].values ) )[0] for dim in da.dims])
+        print(idxs)
         
         if len(_zarr.shape) != len(da.shape):
             raise ValueError("Inconsistent dimensions. Array `{0}` to be saved has dimensions of {1}, but target dataset expected {2}.".format(da.name, da.dims, self.cube[da.name].dims))
         try:
             _zarr.set_orthogonal_selection(idxs, da.data)
         except Exception as e:
-            raise RuntimeError("Failed to write variable to cube: "+str(da)) from e
+            raise RuntimeError("Failed to write variable to cube: " + str(da)) from e
         
     def _update(self, 
                 da:Union[xr.DataArray, xr.Dataset], 

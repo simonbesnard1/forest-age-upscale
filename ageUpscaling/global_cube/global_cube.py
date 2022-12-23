@@ -62,7 +62,6 @@ class GlobalCube(DataCube):
                     
             if len(vars_to_proc) > 0:        
                 da = da[list(vars_to_proc)].transpose(*self.cube.dims)#.chunk(chunks=self.cube.chunks)
-                
                 self.update_cube(da)
                     
             
