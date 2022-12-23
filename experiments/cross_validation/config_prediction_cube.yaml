@@ -12,6 +12,10 @@ output_writer_params:
 output_variables:
   - forestAge_pred
   - forestAge_obs
+  - oldGrowth_pred
+  - oldGrowth_obs
+  
+njobs: 4
 
 output_metadata:
   # CF: A succinct description of what is in the dataset.

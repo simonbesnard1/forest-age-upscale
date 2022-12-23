@@ -260,9 +260,16 @@ class MLPmethod:
             if X_cluster[mask_nan, :].shape[0]>0:
                 y_hat = self.best_model.predict(X_cluster[mask_nan, :])
                 preds = xr.Dataset()
-                preds["forestAge_pred"] = xr.DataArray([self.denorm_target(y_hat) if self.method=='MLPRegressor' else y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-                preds["forestAge_obs"] = xr.DataArray([self.denorm_target(Y_cluster[mask_nan]) if self.method=='MLPRegressor' else Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-                save_cube.compute_cube(preds, initialize=True, njobs=1)
+                
+                if self.method == "MLPClassifier": 
+                    out_var = 'oldGrowth'
+                elif self.method == "MLPRegressor": 
+                    out_var = 'forestAge'
+                
+                preds["{out_var}_pred".format(out_var = out_var)] = xr.DataArray([self.denorm_target(y_hat) if self.method=='MLPRegressor' else y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+                preds["{out_var}_obs".format(out_var = out_var)] = xr.DataArray([self.denorm_target(Y_cluster[mask_nan]) if self.method=='MLPRegressor' else Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+                
+                save_cube.update_cube(preds.transpose('sample', 'cluster'), initialize=True)
    
     def denorm_target(self, 
                       x: np.array) -> np.array:
