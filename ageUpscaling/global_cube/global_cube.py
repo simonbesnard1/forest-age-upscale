@@ -17,7 +17,6 @@ import glob
 import dask
 import numpy as np
 from itertools import product
-from dask.distributed import Client
 
 from ageUpscaling.core.cube import DataCube
 
@@ -78,11 +77,9 @@ class GlobalCube(DataCube):
                                   longitude=slice(LonChunks[lon][0], LonChunks[lon][-1])) 
                            for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
 
-                client = Client()
                 futures = [dask.delayed(self.update_cube)(da_var) for da_var in to_proc]
                 dask.compute(*futures, num_workers=self.cube_config['njobs'])
-                client.close()
-
+                
                     
             
             
