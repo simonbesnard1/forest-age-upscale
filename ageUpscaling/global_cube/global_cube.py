@@ -41,8 +41,7 @@ class GlobalCube(DataCube):
     
         super().__init__(self.cube_config)
 
-    def generate_cube(self,
-                      njobs:int=9) -> None:
+    def generate_cube(self) -> None:
         """Generate a data cube from input datasets.
 
         This function processes input datasets stored at the path specified in the `base_file_path` attribute, 
@@ -52,11 +51,8 @@ class GlobalCube(DataCube):
         and only include variables specified in the 'output_variables' field of the `cube_config` dictionary. 
         The resulting data array will be transposed to the dimensions specified in the `dims` attribute of the 
         `cube` attribute. The data array is then split into chunks and processed by separate workers using the 
-        Dask library, with the number of workers specified by the `njobs` argument (default is 9).
+        Dask library, with the number of workers specified.
     
-        Parameters:
-            njobs: int
-                The number of workers to use for processing the data array.
         """
         for file_ in  glob.glob(os.path.join(self.base_file_path, '*.nc')):
             da = xr.open_dataset(file_)
@@ -75,8 +71,8 @@ class GlobalCube(DataCube):
             if len(vars_to_proc) > 0:        
                 da = da[list(vars_to_proc)].transpose(*self.cube.dims)
                 
-                LatChunks = np.array_split(np.flip(da.latitude.values), np.sqrt(njobs))
-                LonChunks = np.array_split(da.longitude.values, np.sqrt(njobs))
+                LatChunks = np.array_split(np.flip(da.latitude.values), np.sqrt(self.cube_config['njobs']))
+                LonChunks = np.array_split(da.longitude.values, np.sqrt(self.cube_config['njobs']))
                 
                 to_proc = [da.sel(latitude=slice(LatChunks[lat][0], LatChunks[lat][-1]),
                                   longitude=slice(LonChunks[lon][0], LonChunks[lon][-1])) 
@@ -84,7 +80,7 @@ class GlobalCube(DataCube):
 
                 client = Client()
                 futures = [dask.delayed(self.update_cube)(da_var) for da_var in to_proc]
-                dask.compute(*futures, num_workers=njobs)
+                dask.compute(*futures, num_workers=self.cube_config['njobs'])
                 client.close()
 
                     

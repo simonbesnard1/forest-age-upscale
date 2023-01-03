@@ -64,7 +64,6 @@ class DataCube(ComputeCube):
                          cube_config['output_metadata'])
         
         self.cube_config = cube_config
-        self.njobs = cube_config['njobs']
         
         if not os.path.isdir(self.cube_config['cube_location']):
             self.new_cube()
@@ -86,7 +85,7 @@ class DataCube(ComputeCube):
         """
         if da.__class__ is xr.Dataset:
             parallel = True
-            njobs = self.njobs
+            njobs = len((set(da.variables) - set(da.coords)))
         elif da.__class__ is xr.DataArray:
             parallel = False
             njobs = None
