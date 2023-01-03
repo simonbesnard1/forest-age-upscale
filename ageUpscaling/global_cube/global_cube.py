@@ -70,7 +70,7 @@ class GlobalCube(DataCube):
             if len(vars_to_proc) > 0:        
                 da = da[list(vars_to_proc)].transpose(*self.cube.dims)
                 
-                LatChunks = np.array_split(np.flip(da.latitude.values), np.sqrt(self.cube_config['njobs']))
+                LatChunks = np.array_split(da.latitude.values, np.sqrt(self.cube_config['njobs']))
                 LonChunks = np.array_split(da.longitude.values, np.sqrt(self.cube_config['njobs']))
                 
                 to_proc = [da.sel(latitude=slice(LatChunks[lat][0], LatChunks[lat][-1]),
