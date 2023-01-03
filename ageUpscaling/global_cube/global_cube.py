@@ -14,6 +14,10 @@ import xarray as xr
 import yaml as yml
 import os
 import glob
+import dask
+import numpy as np
+from itertools import product
+from dask.distributed import Client
 
 from ageUpscaling.core.cube import DataCube
 
@@ -37,7 +41,10 @@ class GlobalCube(DataCube):
     
         super().__init__(self.cube_config)
 
-    def generate_cube(self) -> None:
+    def generate_cube(self,
+                      nLatChunks:int=4,
+                      nLonChunks:int=4,
+                      njobs:int=9) -> None:
         """Generate a data cube from input datasets.
    
         Parameters:
@@ -61,8 +68,17 @@ class GlobalCube(DataCube):
                     vars_to_proc[var_name] = var_name
                     
             if len(vars_to_proc) > 0:        
-                da = da[list(vars_to_proc)].transpose(*self.cube.dims)#.chunk(chunks=self.cube.chunks)
-                self.update_cube(da)
+                da = da[list(vars_to_proc)].transpose(*self.cube.dims)
+                LonChunks = np.linspace(self.cube_config['output_region'][0], self.cube_config['output_region'][1], nLonChunks)
+                LatChunks = np.linspace(self.cube_config['output_region'][2], self.cube_config['output_region'][3], nLatChunks)
+                to_proc = [da.sel(latitude= slice(LatChunks[lat],LatChunks[lat+1]),
+                                  longitude=slice(LonChunks[lon],LonChunks[lon+1])) for lat, lon in product(range(nLatChunks-1), range(nLonChunks-1))]
+                
+                client = Client()
+                futures = [dask.delayed(self.update_cube)(da_var) for da_var in to_proc]
+                dask.compute(*futures, num_workers=njobs)
+                client.close()
+
                     
             
             
