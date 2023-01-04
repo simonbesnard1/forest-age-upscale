@@ -22,7 +22,6 @@ import xarray as xr
 import zarr
 import shutil
 
-#from ageUpscaling.utils.utilities import async_run
 
 def cleanup():
     if os.path.isdir('.zarrsync') and (len(os.listdir('.zarrsync')) == 0):
@@ -66,6 +65,7 @@ class ComputeCube(ABC):
         self.spatial_resolution = spatial_resolution
         self.output_metadata = output_metadata
         
+    @dask.delayed
     def _init_zarr_variable(self, 
                             IN:tuple) -> None:
         """Initializes a new zarr variable in the data cube.
@@ -98,8 +98,7 @@ class ComputeCube(ABC):
         
     def init_variable(self, 
                       dataset: Union[xr.DataArray, xr.Dataset], 
-                      njobs:int = None, 
-                      parallel:bool = False) ->None:
+                      njobs:int = None) ->None:
         """Initializes all dataset variables in the SiteCube.
         
         Parameters:
@@ -111,12 +110,7 @@ class ComputeCube(ABC):
             dimension names as stings.
         njobs: int, optional
             The number of cores to use in parallel when writing data. If not provided,
-            the default value of `njobs` specified during initialization will be used.
-        parallel: bool, optional
-            A flag indicating whether to run the initialization in parallel. If set to
-            `True`, the function will use the specified number of cores to write data 
-            in parallel. If set to `False`, the function will write data sequentially.
-            
+            the default value of `njobs` specified during initialization will be used.    
         Raises:
         -------
         ValueError:
@@ -125,19 +119,15 @@ class ComputeCube(ABC):
             If `dataset` is not an xr.Dataset, xr.DataArray, dictionary, or tuple.
         """
         if dataset.__class__ is xr.DataArray:
-            self._init_zarr_variable( (dataset.name, dataset.dims, dataset.attrs, dataset.dtype) )
+            self._init_zarr_variable( (dataset.name, dataset.dims, dataset.attrs, dataset.dtype) ).compute()
         elif dataset.__class__ is xr.Dataset:
-            to_proc = []
+            vars_to_proc = []
             for _var in set(dataset.variables) - set(dataset.coords):
-                to_proc.append( (_var, dataset[_var].dims, dataset[_var].attrs, dataset[_var].dtype) )
-            futures = [dask.delayed(self._init_zarr_variable)(da_var) for da_var in to_proc]
+                vars_to_proc.append( (_var, dataset[_var].dims, dataset[_var].attrs, dataset[_var].dtype) )
+            futures = [self._init_zarr_variable(da_var) for da_var in vars_to_proc]
             dask.compute(*futures, num_workers= njobs)
         else:
             raise RuntimeError("dataset must be xr.Dataset, xr.DataArray")
-            # if parallel:
-            #     out = async_run(self._init_zarr_variable, to_proc, njobs) # issue with cascading multiprocessing, maybe fix in the future.
-            # else:
-            #     out = list(map(self._init_zarr_variable, to_proc))
         
         self.cube = xr.open_zarr(self.cube_location) 
     
@@ -169,6 +159,7 @@ class ComputeCube(ABC):
             
         ds_.to_zarr(self.cube_location, consolidated=True)
         
+    @dask.delayed
     def _update_cube_DataArray(self, 
                                da: Union[xr.DataArray, xr.Dataset],
                                sync: Optional[zarr.ProcessSynchronizer] = None) -> None:
@@ -213,10 +204,10 @@ class ComputeCube(ABC):
             _zarr.set_orthogonal_selection(indx, da.data)
         except Exception as e:
             raise RuntimeError("Failed to write variable to cube: " + str(da)) from e
-        
+      
+    @dask.delayed
     def _update(self, 
-                da:Union[xr.DataArray, xr.Dataset], 
-                njobs:int=None) -> None:
+                da:Union[xr.DataArray, xr.Dataset]) -> None:
         """Update the data cube with the provided data.
     
         This function updates the data cube with the data provided in the xarray Dataset
@@ -228,11 +219,7 @@ class ComputeCube(ABC):
         da: Union[xr.DataArray, xr.Dataset]
             The xarray Dataset or DataArray object containing the data to be written to 
             the data cube.
-        njobs: int, optional
-            The number of cores to use when performing the update operation in parallel.
-            The default value is None, which will use the default number of cores specified
-            during the initialization of the SiteCube object.
-    
+        
         Returns:
         --------
         None
@@ -243,11 +230,13 @@ class ComputeCube(ABC):
             If the input is not an xr.Dataset or xr.DataArray object.
         """
         if da.__class__ is xr.Dataset:
-            to_proc = [da[_var] for _var in (set(da.variables) - set(da.coords))]
-            futures = [dask.delayed(self._update_cube_DataArray)(da_var) for da_var in to_proc]
-            dask.compute(*futures, num_workers= njobs)
-            #_ = async_run(self._update_cube_DataArray, to_proc, njobs)
+            vars_to_proc = [da[_var] for _var in (set(da.variables) - set(da.coords))]
+            futures = [self._update_cube_DataArray(da_var) for da_var in vars_to_proc]
+            dask.compute(*futures, num_workers=len(vars_to_proc))
+            
         elif da.__class__ is xr.DataArray:
-            self._update_cube_DataArray(da)
+            self._update_cube_DataArray(da).compute()
         else:
             raise RuntimeError("Input must be xr.Dataset or xr.DataArray objects")
+        
+        

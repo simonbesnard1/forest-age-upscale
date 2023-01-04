@@ -1,21 +1,26 @@
 cube_location: '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/output/ESACCI_BIOMASS_100m'
 
-spatial_resolution: 0.00833333
+spatial_resolution: 0.00088889
 temporal_resolution: 'Y'
 
 output_writer_params:
   dims:
-    latitude: [-89.99583333, 89.99583333]
-    longitude: [-179.99583333, 179.99583333]
+    latitude: [-60, 80]
+    longitude: [-180, 180]
+    time: ["2010-01-01", "2017-01-01", "2018-01-01"]
   chunksizes: 
-    latitude: 2000
-    longitude: 2000
+    latitude: 1000
+    longitude: 1000
+    time: 1
     
 output_variables:
-  - agb_001deg_cc_min_000
-  - AnnualMeanTemperature_WorlClim
+  - agb
   
 njobs: 1
+
+num_chunks: 100
+
+mem_limit_per_cpu: '15GB'
 
 output_metadata:
   # CF: A succinct description of what is in the dataset.

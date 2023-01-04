@@ -14,7 +14,6 @@ import xarray as xr
 import yaml as yml
 import os
 import glob
-import dask
 import numpy as np
 from itertools import product
 
@@ -69,16 +68,15 @@ class GlobalCube(DataCube):
                     
             if len(vars_to_proc) > 0:        
                 da = da[list(vars_to_proc)].transpose(*self.cube.dims)
+                        
+                LatChunks = np.array_split(da.latitude.values, self.cube_config["num_chunks"])
+                LonChunks = np.array_split(da.longitude.values, self.cube_config["num_chunks"])
                 
-                LatChunks = np.array_split(da.latitude.values, np.sqrt(self.cube_config['njobs']))
-                LonChunks = np.array_split(da.longitude.values, np.sqrt(self.cube_config['njobs']))
-                
-                to_proc = [da.sel(latitude=slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                                  longitude=slice(LonChunks[lon][0], LonChunks[lon][-1])) 
+                to_proc = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
+                            "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                            for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-
-                futures = [dask.delayed(self.update_cube)(da_var) for da_var in to_proc]
-                dask.compute(*futures, num_workers=self.cube_config['njobs'])
+                
+                self.update_cube(da, chunks=to_proc)
                 
                     
             

@@ -14,6 +14,8 @@ import os
 from typing import Union
 
 import xarray as xr
+from dask.distributed import Client
+import dask
 
 from ageUpscaling.core.cube_utils import ComputeCube
 
@@ -71,29 +73,43 @@ class DataCube(ComputeCube):
         
     def update_cube(self, 
                      da: Union[xr.DataArray, xr.Dataset],
+                     chunks:dict = None,
                      initialize:bool=True) -> None:
         """Update the data cube with the provided xarray Dataset or DataArray.
-    
+
+        This function updates the data cube with the data in the input xarray Dataset or DataArray. 
+        If the `initialize` flag is set to `True`, the function will also initialize any new variables 
+        found in the input data. If the `chunks` argument is provided, it should be a dictionary with 
+        keys representing the names of variables and values representing the chunk sizes for those 
+        variables.
+        
         Parameters:
         -----------
         da: xr.Dataset or xr.DataArray
             The dataset or data array containing the data to be updated to the cube.
+        chunks: dict, optional
+            A dictionary specifying the chunk sizes for each variable in the data array. The dictionary 
+            should have keys representing variable names and values representing chunk sizes.
         initialize: bool, optional
-            Set to False to skip variable initialization. This is faster if the variables
-            are already initialized. Default is True.
-    
+            Set to False to skip variable initialization. This is faster if the variables are already 
+            initialized. Default is True.
         """
-        if da.__class__ is xr.Dataset:
-            parallel = True
-            njobs = len((set(da.variables) - set(da.coords)))
-        elif da.__class__ is xr.DataArray:
-            parallel = False
-            njobs = None
         
         if initialize:
-            self.init_variable(da, 
-                               njobs, 
-                               parallel)
             
-        self._update(da, njobs=njobs)
-    
+            if da.__class__ is xr.Dataset:
+                self.init_variable(da, njobs= len((set(da.variables) - set(da.coords))))
+            elif da.__class__ is xr.DataArray:
+                self.init_variable(da)
+            
+        if chunks is not None:
+            client = Client(memory_limit= self.cube_config['mem_limit_per_cpu'])
+            futures = [self._update(da.sel(latitude = chunk['latitude'], 
+                                           longitude = chunk['longitude'])) 
+                       for chunk in chunks]
+            dask.compute(*futures, num_workers=self.cube_config['njobs'])
+            client.close()
+        else:
+            self._update(da).compute()
+         
+
