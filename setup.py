@@ -56,6 +56,7 @@ setuptools.setup(
         "PyYAML==6.0",
         "matplotlib==3.6.2",
         "bottleneck",
-        "rasterio==1.3.4"],
+        "rasterio==1.3.4",
+        "xgboost==1.7.2"],
     include_package_data=True,
 )

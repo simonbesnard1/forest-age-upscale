@@ -67,9 +67,9 @@ class FeatureSelection(ABC):
             Array containing the list of selected features.
         """
         
-        if self.method == "MLPRegressor":
+        if "Regressor" in self.method:
             rf = RandomForestRegressor(n_jobs=n_jobs)
-        elif self.method == "MLPClassifier":
+        elif "Classifier" in self.method:
             rf = RandomForestClassifier(n_jobs=n_jobs, class_weight='balanced', max_depth=max_depth)
          
         if self.feature_selection_method == "boruta":

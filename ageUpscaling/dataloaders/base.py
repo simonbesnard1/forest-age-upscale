@@ -55,6 +55,7 @@ class MLData(ABC):
         self.method = method
                 
     def get_x(self,
+              method:str,
               features:dict) -> Tuple[ArrayLike, ArrayLike, float]:
 
         """Concatenate the features and normalize them.
@@ -74,7 +75,8 @@ class MLData(ABC):
 
         X = data[features]
         
-        X = self.norm(X, self.norm_stats)
+        if 'MLP' in method:
+            X = self.norm(X, self.norm_stats)
         
         return X.to_array().transpose('cluster','sample', 'variable').values
 
@@ -101,7 +103,7 @@ class MLData(ABC):
 
         Y = xr.open_dataset(self.DataConfig['training_dataset']).sel(cluster = self.subset)[target]
         
-        if method == 'MLPClassifier':
+        if 'Classifier' in method :
             Y = Y.to_array().values
             mask_old = Y==max_forest_age
             mask_young = Y<max_forest_age
@@ -111,6 +113,10 @@ class MLData(ABC):
         elif method == 'MLPRegressor':
             Y = Y.where(Y<max_forest_age)
             Y = self.norm(Y, self.norm_stats).to_array().values
+            
+        elif method == 'XGBoostRegressor':
+            Y = Y.where(Y<max_forest_age).to_array().values
+        
         return Y
             
     def get_xy(self,  
@@ -132,13 +138,13 @@ class MLData(ABC):
                             method = self.method, 
                             max_forest_age =self.DataConfig['max_forest_age'][0]).reshape(-1)
         
-        self.x = self.get_x(features= self.features).reshape(-1, len(self.features))        
+        self.x = self.get_x(method = self.method, features= self.features).reshape(-1, len(self.features))        
         mask_nan = (np.all(np.isfinite(self.x), axis=1)) & (np.isfinite(self.y))
         
         self.x, self.y = self.x[mask_nan, :], self.y[mask_nan]    
-        if self.method == 'MLPRegressor': 
+        if 'Regressor' in self.method: 
             self.y=self.y.astype('float32')
-        elif self.method == 'MLPClassifier': 
+        elif 'Classifier' in self.method: 
             self.y=self.y.astype('int8')
         
         return {'features' : self.x.astype('float32'), "target": self.y, 'norm_stats': self.norm_stats}
