@@ -186,26 +186,34 @@ class XGBoost:
         float
             The loss of the model.
         """
-    
-        booster_params = {'max_depth': trial.suggest_int('max_depth', 1, 10),
-                          'learning_rate': trial.suggest_float('learning_rate', 0.01, 1.0),
-                          'n_estimators': trial.suggest_int('n_estimators', 50, 1000),
-                          'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
-                          'gamma': trial.suggest_float('gamma', 0.01, 1.0),
-                          'subsample': trial.suggest_float('subsample', 0.01, 1.0),
-                          'colsample_bytree': trial.suggest_float('colsample_bytree', 0.01, 1.0),
-                          'reg_alpha': trial.suggest_float('reg_alpha', 0.01, 1.0),
-                          'reg_lambda': trial.suggest_float('reg_lambda', 0.01, 1.0),
-                          'random_state': trial.suggest_int('random_state', 1, 1000)
+        
+        hyper_params = {
+                        'eta': trial.suggest_float('eta ', DataConfig['hyper_params']['eta']['min'], DataConfig['hyper_params']['eta']['max']),
+                        'gamma': trial.suggest_float('gamma ', DataConfig['hyper_params']['gamma']['min'], DataConfig['hyper_params']['gamma']['max']),
+                        'max_depth': trial.suggest_int('max_depth', DataConfig['hyper_params']['max_depth']['min'], DataConfig['hyper_params']['max_depth']['max'], step=DataConfig['hyper_params']['max_depth']['step']),
+                        'min_child_weight': trial.suggest_int('min_child_weight', DataConfig['hyper_params']['min_child_weight']['min'], DataConfig['hyper_params']['min_child_weight']['max'], step=DataConfig['hyper_params']['min_child_weight']['step']),
+                        'subsample': trial.suggest_float('subsample ', DataConfig['hyper_params']['subsample']['min'], DataConfig['hyper_params']['subsample']['max'], step=DataConfig['hyper_params']['subsample']['step']),
+                        'colsample_bytree': trial.suggest_float('colsample_bytree ', DataConfig['hyper_params']['colsample_bytree']['min'], DataConfig['hyper_params']['colsample_bytree']['max'], step=DataConfig['hyper_params']['colsample_bytree']['step']),
+                        'lambda': trial.suggest_float('lambda ', DataConfig['hyper_params']['lambda']['min'], DataConfig['hyper_params']['lambda']['max']),
+                        'alpha': trial.suggest_float('alpha ', DataConfig['hyper_params']['alpha']['min'], DataConfig['hyper_params']['alpha']['max']),
                         }
         
+        training_params = {'num_boost_round': trial.suggest_int('num_boost_round', DataConfig['hyper_params']['num_boost_round']['min'], DataConfig['hyper_params']['num_boost_round']['max'], step=DataConfig['hyper_params']['num_boost_round']['step']),
+                          'early_stopping_rounds': trial.suggest_int('early_stopping_rounds', DataConfig['hyper_params']['early_stopping_rounds']['min'], DataConfig['hyper_params']['early_stopping_rounds']['max'], step=DataConfig['hyper_params']['early_stopping_rounds']['step'])
+                          }
+                    
+        if self.method == "XGBoostRegressor":
+            hyper_params['objective'] = "reg:squarederror"
+            
+        elif self.method == "XGBoostClassifier":
+            hyper_params['objective'] = "binary:logistic"
+
         dtrain = xgb.DMatrix(train_data['features'], label=train_data['target'])
         deval = xgb.DMatrix(val_data['features'], label = val_data['target'])
         vallist = [(dtrain, 'train'), (deval, 'eval')]
        
-        model_ = xgb.train(booster_params, dtrain, evals=vallist,
-                           num_boost_round = 1000, early_stopping_rounds = 10,
-                           callbacks = None, verbose_eval=1)
+        model_ = xgb.train(hyper_params, dtrain, evals=vallist,
+                           callbacks = None, verbose_eval=False, **training_params)
         
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)
@@ -216,7 +224,7 @@ class XGBoost:
         if self.method == "XGBoostRegressor":
             loss_ = mean_squared_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), squared=False)
         elif self.method == "XGBoostClassifier":
-            loss_ =  balanced_accuracy_score(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])))
+            loss_ =  balanced_accuracy_score(val_data['target'], np.rint(model_.predict(xgb.DMatrix(val_data['features']))))
         return loss_ 
     
         return loss_

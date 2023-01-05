@@ -67,7 +67,6 @@ class Study(ABC):
         self.algorithm = algorithm
         
         if study_dir is None:
-            os.makedirs(os.path.join(base_dir, algorithm), exist_ok=True)
             study_dir = self.version_dir(self.base_dir, self.algorithm)
             os.makedirs(study_dir, exist_ok=False)
         else:
@@ -117,6 +116,9 @@ class Study(ABC):
         str
             The name of the new directory with the incremented version number.
         """
+        if not os.path.isdir(os.path.join(base_dir, algorithm)):
+            os.makedirs(os.path.join(base_dir, algorithm))
+        
         dir_list = [d for d in os.listdir(os.path.join(base_dir, algorithm)) if d.startswith("version")]
         
         dir_list.sort()
@@ -177,7 +179,7 @@ class Study(ABC):
             train_subset, test_subset = cluster_[train_index], cluster_[test_index]
             train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
             
-            for task_ in ["Classifier"]:
+            for task_ in ["Regressor", "Classifier"]:
                 if self.algorithm == "MLP":
                     ml_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
                                            DataConfig= self.DataConfig,
