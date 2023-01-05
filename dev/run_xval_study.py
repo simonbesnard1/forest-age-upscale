@@ -12,6 +12,7 @@ DataConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/
 CubeConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/cross_validation/config_prediction_cube.yaml"
 study_ = Study(DataConfig_path = DataConfig_path,
                cube_config_path= CubeConfig_path,
+               exp_name = 'subsetFIA',
                algorithm  = 'XGBoost',
                base_dir= '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/output/',
                n_jobs = 10)

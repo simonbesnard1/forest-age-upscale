@@ -53,6 +53,7 @@ class Study(ABC):
                  cube_config_path: str,            
                  base_dir: str,
                  algorithm: str = 'MLP',
+                 exp_name: str = None,
                  study_dir: str = None,
                  n_jobs: int = 1,
                  **kwargs):
@@ -65,9 +66,11 @@ class Study(ABC):
         
         self.base_dir = base_dir
         self.algorithm = algorithm
+        self.exp_name = exp_name
+        
         
         if study_dir is None:
-            study_dir = self.version_dir(self.base_dir, self.algorithm)
+            study_dir = self.version_dir(self.base_dir, self.exp_name, self.algorithm)
             os.makedirs(study_dir, exist_ok=False)
         else:
             if not os.path.exists(study_dir):
@@ -78,7 +81,8 @@ class Study(ABC):
         self.n_jobs = n_jobs
     
     def version_dir(self, 
-                    base_dir: str, 
+                    base_dir: str,
+                    exp_name:str,
                     algorithm: str) -> str:
         """Creates a new version of a directory by appending the version number to the end of the directory name.
     
@@ -97,10 +101,11 @@ class Study(ABC):
             The full path to the new version of the study directory.
         """
         
-        return self.increment_dir_version(base_dir, algorithm)
+        return self.increment_dir_version(base_dir,exp_name, algorithm)
     
     @staticmethod
     def increment_dir_version(base_dir: str,
+                              exp_name:str,
                               algorithm:str) -> str:
         """Increments the version of a directory by appending the next available version number to the end of the directory name.
         
@@ -116,10 +121,10 @@ class Study(ABC):
         str
             The name of the new directory with the incremented version number.
         """
-        if not os.path.isdir(os.path.join(base_dir, algorithm)):
-            os.makedirs(os.path.join(base_dir, algorithm))
+        if not os.path.isdir(os.path.join(base_dir, exp_name, algorithm)):
+            os.makedirs(os.path.join(base_dir, exp_name, algorithm))
         
-        dir_list = [d for d in os.listdir(os.path.join(base_dir, algorithm)) if d.startswith("version")]
+        dir_list = [d for d in os.listdir(os.path.join(base_dir, exp_name, algorithm)) if d.startswith("version")]
         
         dir_list.sort()
         
@@ -139,7 +144,7 @@ class Study(ABC):
                 minor = 0
             version = f"{major}.{minor}"
         
-        return f"{base_dir}/{algorithm}/version-{version}"
+        return f"{base_dir}/{exp_name}/{algorithm}/version-{version}"
     
     def cross_validation(self, 
                          n_folds:int=10, 
