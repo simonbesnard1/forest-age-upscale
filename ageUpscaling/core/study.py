@@ -22,6 +22,7 @@ import shutil
 
 from ageUpscaling.core.cube import DataCube
 from ageUpscaling.methods.MLP import MLPmethod
+from ageUpscaling.methods.xgboost import XGBoost
 
 
 class Study(ABC):
@@ -35,8 +36,8 @@ class Study(ABC):
         Path to the cube configuration file.
     base_dir : str
         The base directory for the study. See `directory structure` for further details.
-    study_name : str, optional
-        The study name. Default is 'study_name'.
+    algorithm : str, optional
+        The algorithm name. Default is 'MLP'.
         See `directory structure` for further details.
     study_dir : str, optional
         The directory to restore an existing study. If passed, an existing study is loaded.
@@ -51,7 +52,7 @@ class Study(ABC):
                  DataConfig_path: str,
                  cube_config_path: str,            
                  base_dir: str,
-                 study_name: str = 'study_name',
+                 algorithm: str = 'MLP',
                  study_dir: str = None,
                  n_jobs: int = 1,
                  **kwargs):
@@ -63,10 +64,10 @@ class Study(ABC):
             self.cube_config =  yml.safe_load(f)
         
         self.base_dir = base_dir
-        self.study_name = study_name
+        self.algorithm = algorithm
         
         if study_dir is None:
-            study_dir = self.version_dir(self.base_dir, self.study_name)
+            study_dir = self.version_dir(self.base_dir, self.algorithm)
             os.makedirs(study_dir, exist_ok=False)
         else:
             if not os.path.exists(study_dir):
@@ -78,7 +79,7 @@ class Study(ABC):
     
     def version_dir(self, 
                     base_dir: str, 
-                    study_name: str) -> str:
+                    algorithm: str) -> str:
         """Creates a new version of a directory by appending the version number to the end of the directory name.
     
         If the directory already exists, it will be renamed to include the version number before the new directory is created.
@@ -87,7 +88,7 @@ class Study(ABC):
         ----------
         base_dir : str
             The base directory where the new version of the study directory will be created.
-        study_name : str
+        algorithm : str
             The name of the study directory.
             
         Returns
@@ -96,18 +97,18 @@ class Study(ABC):
             The full path to the new version of the study directory.
         """
         
-        return self.increment_dir_version(base_dir, study_name)
+        return self.increment_dir_version(base_dir, algorithm)
     
     @staticmethod
     def increment_dir_version(base_dir: str,
-                              study_name:str) -> str:
+                              algorithm:str) -> str:
         """Increments the version of a directory by appending the next available version number to the end of the directory name.
         
         Parameters
         ----------
         base_dir : str
             The base directory for the study.
-        study_name : str
+        algorithm : str
             The name of the study.
         
         Returns
@@ -115,7 +116,10 @@ class Study(ABC):
         str
             The name of the new directory with the incremented version number.
         """
-        dir_list = [d for d in os.listdir(base_dir) if d.startswith(study_name)]
+        if not os.path.isdir(os.path.join(base_dir, algorithm)):
+            os.makedirs(os.path.join(base_dir, algorithm))
+        
+        dir_list = [d for d in os.listdir(os.path.join(base_dir, algorithm)) if d.startswith("version")]
         
         dir_list.sort()
         
@@ -124,7 +128,7 @@ class Study(ABC):
         else:
             last_dir = dir_list[-1]
             
-            study_name, version = last_dir.split("-")
+            _, version = last_dir.split("-")
             
             major, minor = version.split(".")
             major = int(major)
@@ -135,7 +139,7 @@ class Study(ABC):
                 minor = 0
             version = f"{major}.{minor}"
         
-        return f"{base_dir}/{study_name}-{version}"
+        return f"{base_dir}/{algorithm}/version-{version}"
     
     def cross_validation(self, 
                          n_folds:int=10, 
@@ -175,17 +179,23 @@ class Study(ABC):
             train_subset, test_subset = cluster_[train_index], cluster_[test_index]
             train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
             
-            for method in ["MLPRegressor", "MLPClassifier"]:
-                mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
-                                       DataConfig= self.DataConfig,
-                                       method=method)
-                mlp_method.train(train_subset=train_subset,
+            for task_ in ["Regressor", "Classifier"]:
+                if self.algorithm == "MLP":
+                    ml_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
+                                           DataConfig= self.DataConfig,
+                                           method=self.algorithm + task_)
+                elif self.algorithm == "XGBoost":
+                    ml_method = XGBoost(tune_dir=os.path.join(self.study_dir, "tune"), 
+                                        DataConfig= self.DataConfig,
+                                        method=self.algorithm + task_)
+                    
+                ml_method.train(train_subset=train_subset,
                                   valid_subset=valid_subset, 
                                   test_subset=test_subset, 
                                   feature_selection= feature_selection,
                                   feature_selection_method=feature_selection_method,
                                   n_jobs = self.n_jobs)
-                mlp_method.predict_clusters(save_cube = pred_cube)                       
+                ml_method.predict_clusters(save_cube = pred_cube)                       
                 shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
     

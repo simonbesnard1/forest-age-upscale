@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 @author: sbesnard
-@File    :   MLP.py
+@File    :   xgboost.py
 @Time    :   Mon Sep 26 10:47:17 2022
 @Author  :   Simon Besnard
 @Version :   1.0
 @Contact :   besnard.sim@gmail.com
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for training MLP model
+@Desc    :   A method class for training Xgboost model
 """
 import os
 import numpy as np
@@ -17,7 +17,7 @@ from typing import Any
 
 import xarray as xr
 
-from sklearn.neural_network import MLPRegressor, MLPClassifier
+import xgboost as xgb
 from sklearn.metrics import mean_squared_error, balanced_accuracy_score
 
 import optuna
@@ -25,8 +25,8 @@ import optuna
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
 from ageUpscaling.methods.feature_selection import FeatureSelection
 
-class MLPmethod:
-    """A method class for training and evaluating an MLP model.
+class XGBoost:
+    """A method class for training and evaluating an XGBoost model.
     
     Parameters
     ----------
@@ -34,14 +34,14 @@ class MLPmethod:
         Directory to save the model experiment. If not provided, the model experiment will not be saved.
     DataConfig : dict, default is None
         Dictionary containing the data configuration.
-    method : str, default is 'MLPRegressor'
-        String defining the type of MLP model to use. Can be 'MLPRegressor' for a regression model or 'MLPClassifier' for a classification model.
+    method : str, default is 'XGBoostRegressor'
+        String defining the type of XGBoost model to use. Can be 'XGBoostRegressor' for a regression model or 'XGBoostClassifier' for a classification model.
     """
     
     def __init__(self,
                  tune_dir: str=None,
                  DataConfig:dict=None,
-                 method:str = 'MLPRegressor') -> None:
+                 method:str = 'XGBoostRegressor') -> None:
 
         self.tune_dir = tune_dir
         
@@ -52,7 +52,7 @@ class MLPmethod:
         self.method = method
         
     def get_datamodule(self, 
-                       method:str = 'MLPRegressor',
+                       method:str = 'XGBoostRegressor',
                        DataConfig: dict[str, Any] = {},
                        target: dict[str, Any] = {},
                        features: dict[str, Any] = {},
@@ -63,8 +63,8 @@ class MLPmethod:
         """Returns the data module for training the model.
 
         Parameters:
-            method: str, default is 'MLPRegressor'
-                The type of model to use for training ('MLPRegressor' or 'MLPClassifier').
+            method: str, default is 'XGBoostRegressor'
+                The type of model to use for training ('XGBoostRegressor' or 'XGBoostClassifier').
             DataConfig: dict[str, Any]
                 The data configuration.
             target: dict[str, Any]
@@ -103,7 +103,7 @@ class MLPmethod:
               feature_selection_method:str="recursive", 
               n_jobs:int=10) -> None:
         
-        """Trains an MLP model using the specified training and validation datasets.
+        """Trains an XGBoost model using the specified training and validation datasets.
 
         Parameters:
             train_subset: dict
@@ -153,7 +153,7 @@ class MLPmethod:
                                     pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
                                                                                    reduction_factor=4, 
                                                                                    min_early_stopping_rate=8),
-                                    direction=['minimize' if self.method == 'MLPRegressor' else 'maximize'][0])
+                                    direction=['minimize' if self.method == 'XGBoostRegressor' else 'maximize'][0])
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
@@ -186,58 +186,48 @@ class MLPmethod:
         float
             The loss of the model.
         """
-    
+        
         hyper_params = {
-            'learning_rate_init': trial.suggest_float('learning_rate_init ', DataConfig['hyper_params']['learning_rate_init']['min'], DataConfig['hyper_params']['learning_rate_init']['max'], step=DataConfig['hyper_params']['learning_rate_init']['step']),
-            'learning_rate': trial.suggest_categorical('learning_rate', DataConfig['hyper_params']['learning_rate']),
-            'first_layer_neurons': trial.suggest_int('first_layer_neurons', DataConfig['hyper_params']['first_layer_neurons']['min'], DataConfig['hyper_params']['first_layer_neurons']['max'], step=DataConfig['hyper_params']['first_layer_neurons']['step']),
-            'second_layer_neurons': trial.suggest_int('second_layer_neurons', DataConfig['hyper_params']['second_layer_neurons']['min'], DataConfig['hyper_params']['second_layer_neurons']['max'], step=DataConfig['hyper_params']['second_layer_neurons']['step']),
-            'third_layer_neurons': trial.suggest_int('third_layer_neurons', DataConfig['hyper_params']['third_layer_neurons']['min'], DataConfig['hyper_params']['third_layer_neurons']['max'], step=DataConfig['hyper_params']['third_layer_neurons']['step']),
-            'activation': trial.suggest_categorical('activation', DataConfig['hyper_params']['activation']),
-            'solver': trial.suggest_categorical('solver', DataConfig['hyper_params']['solver']),            
-            'batch_size': trial.suggest_int('batch_size', DataConfig['hyper_params']['batch_size']['min'], DataConfig['hyper_params']['batch_size']['max'], step=DataConfig['hyper_params']['batch_size']['step'])}
+                        'eta': trial.suggest_float('eta ', DataConfig['hyper_params']['eta']['min'], DataConfig['hyper_params']['eta']['max']),
+                        'gamma': trial.suggest_float('gamma ', DataConfig['hyper_params']['gamma']['min'], DataConfig['hyper_params']['gamma']['max']),
+                        'max_depth': trial.suggest_int('max_depth', DataConfig['hyper_params']['max_depth']['min'], DataConfig['hyper_params']['max_depth']['max'], step=DataConfig['hyper_params']['max_depth']['step']),
+                        'min_child_weight': trial.suggest_int('min_child_weight', DataConfig['hyper_params']['min_child_weight']['min'], DataConfig['hyper_params']['min_child_weight']['max'], step=DataConfig['hyper_params']['min_child_weight']['step']),
+                        'subsample': trial.suggest_float('subsample ', DataConfig['hyper_params']['subsample']['min'], DataConfig['hyper_params']['subsample']['max'], step=DataConfig['hyper_params']['subsample']['step']),
+                        'colsample_bytree': trial.suggest_float('colsample_bytree ', DataConfig['hyper_params']['colsample_bytree']['min'], DataConfig['hyper_params']['colsample_bytree']['max'], step=DataConfig['hyper_params']['colsample_bytree']['step']),
+                        'lambda': trial.suggest_float('lambda ', DataConfig['hyper_params']['lambda']['min'], DataConfig['hyper_params']['lambda']['max']),
+                        'alpha': trial.suggest_float('alpha ', DataConfig['hyper_params']['alpha']['min'], DataConfig['hyper_params']['alpha']['max']),
+                        }
         
-        if self.method == "MLPRegressor": 
-            model_ = MLPRegressor(
-                        hidden_layer_sizes=(hyper_params['first_layer_neurons'], 
-                                            hyper_params['second_layer_neurons'],
-                                            hyper_params['third_layer_neurons'],
-                                            ),
-                       learning_rate_init=hyper_params['learning_rate_init'],
-                       learning_rate = hyper_params['learning_rate'],
-                       activation=hyper_params['activation'],
-                       solver = hyper_params['solver'],
-                       batch_size=hyper_params['batch_size'],
-                       early_stopping= True, 
-                       validation_fraction=0.3,
-                       random_state=1)
+        training_params = {'num_boost_round': trial.suggest_int('num_boost_round', DataConfig['hyper_params']['num_boost_round']['min'], DataConfig['hyper_params']['num_boost_round']['max'], step=DataConfig['hyper_params']['num_boost_round']['step']),
+                          'early_stopping_rounds': trial.suggest_int('early_stopping_rounds', DataConfig['hyper_params']['early_stopping_rounds']['min'], DataConfig['hyper_params']['early_stopping_rounds']['max'], step=DataConfig['hyper_params']['early_stopping_rounds']['step'])
+                          }
+                    
+        if self.method == "XGBoostRegressor":
+            hyper_params['objective'] = "reg:squarederror"
             
-        elif self.method == "MLPClassifier": 
-            model_ = MLPClassifier(
-                                   hidden_layer_sizes=(hyper_params['first_layer_neurons'], 
-                                                       hyper_params['second_layer_neurons']),
-                                   learning_rate_init=hyper_params['learning_rate_init'],
-                                   learning_rate = hyper_params['learning_rate'],
-                                   activation=hyper_params['activation'],
-                                   solver = hyper_params['solver'],
-                                   batch_size=hyper_params['batch_size'],
-                                   early_stopping= True, 
-                                   validation_fraction=0.3,
-                                   random_state=1)
-        
-        model_.fit(train_data['features'], train_data['target'])
+        elif self.method == "XGBoostClassifier":
+            hyper_params['objective'] = "binary:logistic"
+
+        dtrain = xgb.DMatrix(train_data['features'], label=train_data['target'])
+        deval = xgb.DMatrix(val_data['features'], label = val_data['target'])
+        vallist = [(dtrain, 'train'), (deval, 'eval')]
+       
+        model_ = xgb.train(hyper_params, dtrain, evals=vallist,
+                           callbacks = None, verbose_eval=False, **training_params)
         
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)
         
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
-            
-        if self.method == "MLPRegressor":
-            loss_ = mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False)
-        elif self.method == "MLPClassifier":
-            loss_ =  balanced_accuracy_score(val_data['target'], model_.predict(val_data['features']))
+        
+        if self.method == "XGBoostRegressor":
+            loss_ = mean_squared_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), squared=False)
+        elif self.method == "XGBoostClassifier":
+            loss_ =  balanced_accuracy_score(val_data['target'], np.rint(model_.predict(xgb.DMatrix(val_data['features']))))
         return loss_ 
+    
+        return loss_
     
     def predict_clusters(self, 
                         save_cube:str) -> None:
@@ -258,35 +248,19 @@ class MLPmethod:
             Y_cluster = Y[:, cluster_, :].reshape(-1)
             mask_nan = (np.all(np.isfinite(X_cluster), axis=1)) & (np.isfinite(Y_cluster))
             if X_cluster[mask_nan, :].shape[0]>0:
-                y_hat = self.best_model.predict(X_cluster[mask_nan, :])
+                dpred =  xgb.DMatrix(X_cluster[mask_nan, :])
+                y_hat = self.best_model.predict(dpred)
                 preds = xr.Dataset()
                 
-                if self.method == "MLPClassifier": 
+                if self.method == "XGBoostClassifier": 
                     out_var = 'oldGrowth'
-                elif self.method == "MLPRegressor": 
+                elif self.method == "XGBoostRegressor": 
                     out_var = 'forestAge'
                 
-                preds["{out_var}_pred".format(out_var = out_var)] = xr.DataArray([self.denorm_target(y_hat) if self.method=='MLPRegressor' else y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-                preds["{out_var}_obs".format(out_var = out_var)] = xr.DataArray([self.denorm_target(Y_cluster[mask_nan]) if self.method=='MLPRegressor' else Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+                preds["{out_var}_pred".format(out_var = out_var)] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
+                preds["{out_var}_obs".format(out_var = out_var)] = xr.DataArray([Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
                 
                 save_cube.update_cube(preds.transpose('sample', 'cluster'), initialize=True)
    
-    def denorm_target(self, 
-                      x: np.array) -> np.array:
-        """
-        Returns de-normalized target. 
-        
-        The last dimension of `x` must match the length of `self.target_norm_stats`.
-        
-        Parameters:
-            x: np.array
-                The array to de-normalize.
-        
-        Returns:
-            np.array: The de-normalized array.
-        """
-        
-        return x * self.mldata.norm_stats[self.DataConfig['target'][0]]['std'] + self.mldata.norm_stats[self.DataConfig['target'][0]]['mean']
-                
-
+    
     
