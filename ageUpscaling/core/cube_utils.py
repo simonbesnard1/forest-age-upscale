@@ -231,11 +231,8 @@ class ComputeCube(ABC):
         """
         if da.__class__ is xr.Dataset:
             vars_to_proc = [da[_var] for _var in (set(da.variables) - set(da.coords))]
-            for da_var in vars_to_proc:
-                self._update_cube_DataArray(da_var)
-            
-            # futures = [self._update_cube_DataArray(da_var) for da_var in vars_to_proc]
-            # dask.compute(*futures, num_workers=len(vars_to_proc))
+            futures = [self._update_cube_DataArray(da_var) for da_var in vars_to_proc]
+            dask.compute(*futures, num_workers=len(vars_to_proc))
             
         elif da.__class__ is xr.DataArray:
             self._update_cube_DataArray(da).compute()
