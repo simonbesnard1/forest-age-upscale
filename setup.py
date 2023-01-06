@@ -48,7 +48,7 @@ setuptools.setup(
         "xarray==2022.3.0",
         "zarr==2.10.3",
         "netCDF4==1.6.0",
-        "dask==2022.11.0", 
+        "dask==2022.12.1", 
         "scikit-learn==1.1.3",
         "Boruta==0.3",
         "numpy==1.23.4",

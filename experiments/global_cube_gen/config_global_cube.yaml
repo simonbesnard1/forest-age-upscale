@@ -11,14 +11,15 @@ output_writer_params:
   chunksizes: 
     latitude: 1000
     longitude: 1000
-    time: 1
+    time: -1
     
 output_variables:
   - agb
+  - agb_se
   
-njobs: 1
+njobs: 2
 
-num_chunks: 100
+num_chunks: 25
 
 mem_limit_per_cpu: '15GB'
 
