@@ -101,15 +101,18 @@ class DataCube(ComputeCube):
                 self.init_variable(da, njobs= len((set(da.variables) - set(da.coords))))
             elif da.__class__ is xr.DataArray:
                 self.init_variable(da)
-            
+       
         if chunks is not None:
-            #TODO Need to fix this -  
-            client = Client(memory_limit= self.cube_config['mem_limit_per_cpu'])
-            futures = [self._update(da.sel(latitude = chunk['latitude'], 
-                                           longitude = chunk['longitude'])) 
-                       for chunk in chunks]
-            dask.compute(*futures, num_workers=self.cube_config['njobs'])
-            client.close()
+            # client = Client(memory_limit= self.cube_config['mem_limit_per_cpu'])
+            # futures = [self._update(da.sel(latitude = chunk['latitude'], 
+            #                               longitude = chunk['longitude']))
+            #           for chunk in chunks]
+            for chunk in chunks:
+                self._update(da.sel(latitude = chunk['latitude'], 
+                                    longitude = chunk['longitude'])).compute()
+                #dask.compute(*future, num_workers=self.cube_config['njobs'])
+            
+            #client.close()
 
         else:
             self._update(da).compute()
