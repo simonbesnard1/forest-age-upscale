@@ -52,32 +52,32 @@ class GlobalCube(DataCube):
         Dask library, with the number of workers specified.
     
         """
-        for file_ in  glob.glob(os.path.join(self.base_file_path, '*.nc')):
-            da = xr.open_dataset(file_)
-            if 'lon' in da.coords:
-                da = da.rename({'lon': 'longitude'})
-                da['longitude'] = self.cube['longitude']
-            if 'lat' in da.coords:
-                da = da.rename({'lat': 'latitude'})
-                da['latitude'] = self.cube['latitude']
+        da = xr.open_mfdataset(glob.glob(os.path.join(self.base_file_path, '*.nc')))
             
-            vars_to_proc = {}
-            for var_name in self.cube_config['output_variables']:
-                if var_name in da.variables:
-                    vars_to_proc[var_name] = var_name
+        if 'lon' in da.coords:
+            da = da.rename({'lon': 'longitude'})
+            da['longitude'] = self.cube['longitude']
+        if 'lat' in da.coords:
+            da = da.rename({'lat': 'latitude'})
+            da['latitude'] = self.cube['latitude']
+        
+        vars_to_proc = {}
+        for var_name in self.cube_config['output_variables']:
+            if var_name in da.variables:
+                vars_to_proc[var_name] = var_name
+                
+        if len(vars_to_proc) > 0:        
+            da = da[list(vars_to_proc)].transpose(*self.cube.dims)
                     
-            if len(vars_to_proc) > 0:        
-                da = da[list(vars_to_proc)].transpose(*self.cube.dims)
-                        
-                LatChunks = np.array_split(da.latitude.values, self.cube_config["num_chunks"])
-                LonChunks = np.array_split(da.longitude.values, self.cube_config["num_chunks"])
-                
-                to_proc = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                            "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-                           for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-                
-                self.update_cube(da, chunks=to_proc)
-                
+            LatChunks = np.array_split(da.latitude.values, self.cube_config["num_chunks"])
+            LonChunks = np.array_split(da.longitude.values, self.cube_config["num_chunks"])
+            
+            to_proc = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
+                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+                       for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
+            
+            self.update_cube(da, chunks=to_proc)
+            
                     
             
             

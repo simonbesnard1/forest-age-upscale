@@ -103,12 +103,15 @@ class DataCube(ComputeCube):
                 self.init_variable(da)
             
         if chunks is not None:
+            
             client = Client(memory_limit= self.cube_config['mem_limit_per_cpu'])
             futures = [self._update(da.sel(latitude = chunk['latitude'], 
                                            longitude = chunk['longitude'])) 
                        for chunk in chunks]
             dask.compute(*futures, num_workers=self.cube_config['njobs'])
             client.close()
+
+            
         else:
             self._update(da).compute()
          
