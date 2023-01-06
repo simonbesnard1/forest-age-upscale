@@ -111,7 +111,6 @@ class DataCube(ComputeCube):
             dask.compute(*futures, num_workers=self.cube_config['njobs'])
             client.close()
 
-            
         else:
             self._update(da).compute()
          
