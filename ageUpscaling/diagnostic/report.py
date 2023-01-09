@@ -65,7 +65,7 @@ class Report:
         obs_ = obs_[valid_values]
         
         obs_class = self.ds.oldGrowth_obs.values.reshape(-1)
-        pred_class = np.rint(self.ds.oldGrowth_pred.values.reshape(-1))
+        pred_class = self.ds.oldGrowth_pred.values.reshape(-1)
         valid_values = np.isfinite(pred_class) & np.isfinite(obs_class)
         pred_class = pred_class[valid_values]
         obs_class = obs_class[valid_values]        
