@@ -250,6 +250,11 @@ class XGBoost:
             if X_cluster[mask_nan, :].shape[0]>0:
                 dpred =  xgb.DMatrix(X_cluster[mask_nan, :])
                 y_hat = self.best_model.predict(dpred)
+                if self.method == "XGBoostRegressor":
+                    y_hat =  self.best_model.predict(dpred)
+                elif self.method == "XGBoostClassifier":
+                    y_hat =  np.rint(self.best_model.predict(dpred))
+                
                 preds = xr.Dataset()
                 
                 if self.method == "XGBoostClassifier": 

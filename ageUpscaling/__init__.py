@@ -5,7 +5,7 @@ __author_email__ = 'besnard.sim@gmail.com'
 __license__ = 'GNU GPLv3'
 __copyright__ = 'Copyright 2022 by GFZ-Potsdam'
 
-from . import methods, utils, core, dataloaders, fidc_cube, upscaling, transformers
+from . import methods, utils, core, dataloaders, fidc_cube, upscaling, transformers, diagnostic
 
 __all__ = [
     'methods',
@@ -15,5 +15,6 @@ __all__ = [
     "fidc_cube", 
     "global_cube",
     "upscaling",
-    "transformers"   
+    "transformers",
+    "diagnostic"   
 ]
