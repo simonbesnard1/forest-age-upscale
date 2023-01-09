@@ -1,4 +1,4 @@
-from .report import Report
+from ageUpscaling.diagnostic.report import Report
 
 __all__ = [
     'Report'
