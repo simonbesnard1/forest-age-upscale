@@ -59,6 +59,7 @@ class MLPmethod:
                        train_subset: dict[str, Any] = {},
                        valid_subset: dict[str, Any] = {},
                        test_subset: dict[str, Any] = {},
+                       normalize:bool= False,
                        **kwargs) -> MLDataModule:
         """Returns the data module for training the model.
 
@@ -91,7 +92,8 @@ class MLPmethod:
                               features,
                               train_subset, 
                               valid_subset, 
-                              test_subset)
+                              test_subset,
+                              normalize)
 
         return mlData
         
@@ -122,12 +124,12 @@ class MLPmethod:
 
         if feature_selection:
             mldata_feature_sel = self.get_datamodule(method= self.method,
-                                              DataConfig=self.DataConfig, 
-                                              target=self.DataConfig['target'],
-                                              features =  self.DataConfig['features'],
-                                              train_subset=train_subset,
-                                              valid_subset=valid_subset,
-                                              test_subset=test_subset)            
+                                                    DataConfig=self.DataConfig, 
+                                                    target=self.DataConfig['target'],
+                                                    features =  self.DataConfig['features'],
+                                                    train_subset=train_subset,
+                                                    valid_subset=valid_subset,
+                                                    test_subset=test_subset)            
             features_selected = FeatureSelection(method=self.method, 
                                                  feature_selection_method = feature_selection_method, 
                                                  features = self.DataConfig['features']).get_features(data = mldata_feature_sel.train_dataloader().get_xy())
@@ -140,7 +142,8 @@ class MLPmethod:
                                           features = self.final_features,
                                           train_subset=train_subset,
                                           valid_subset=valid_subset,
-                                          test_subset=test_subset)
+                                          test_subset=test_subset,
+                                          normalize= True)
           
         train_data = self.mldata.train_dataloader().get_xy()
         val_data = self.mldata.val_dataloader().get_xy()
@@ -158,7 +161,7 @@ class MLPmethod:
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
         with open(self.tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
-            self.best_model = pickle.load(fin)            
+            self.best_model = pickle.load(fin)
             
     def hp_search(self, 
                    trial: optuna.Trial,
@@ -190,39 +193,47 @@ class MLPmethod:
         hyper_params = {
             'learning_rate_init': trial.suggest_float('learning_rate_init ', DataConfig['hyper_params']['learning_rate_init']['min'], DataConfig['hyper_params']['learning_rate_init']['max'], step=DataConfig['hyper_params']['learning_rate_init']['step']),
             'learning_rate': trial.suggest_categorical('learning_rate', DataConfig['hyper_params']['learning_rate']),
+            'num_layers': trial.suggest_int('num_layers', DataConfig['hyper_params']['num_layers']['min'], DataConfig['hyper_params']['num_layers']['max'], step=DataConfig['hyper_params']['num_layers']['step']),
             'first_layer_neurons': trial.suggest_int('first_layer_neurons', DataConfig['hyper_params']['first_layer_neurons']['min'], DataConfig['hyper_params']['first_layer_neurons']['max'], step=DataConfig['hyper_params']['first_layer_neurons']['step']),
             'second_layer_neurons': trial.suggest_int('second_layer_neurons', DataConfig['hyper_params']['second_layer_neurons']['min'], DataConfig['hyper_params']['second_layer_neurons']['max'], step=DataConfig['hyper_params']['second_layer_neurons']['step']),
             'third_layer_neurons': trial.suggest_int('third_layer_neurons', DataConfig['hyper_params']['third_layer_neurons']['min'], DataConfig['hyper_params']['third_layer_neurons']['max'], step=DataConfig['hyper_params']['third_layer_neurons']['step']),
+            'fourth_layer_neurons': trial.suggest_int('fourth_layer_neurons', DataConfig['hyper_params']['fourth_layer_neurons']['min'], DataConfig['hyper_params']['fourth_layer_neurons']['max'], step=DataConfig['hyper_params']['fourth_layer_neurons']['step']),
             'activation': trial.suggest_categorical('activation', DataConfig['hyper_params']['activation']),
             'solver': trial.suggest_categorical('solver', DataConfig['hyper_params']['solver']),            
             'batch_size': trial.suggest_int('batch_size', DataConfig['hyper_params']['batch_size']['min'], DataConfig['hyper_params']['batch_size']['max'], step=DataConfig['hyper_params']['batch_size']['step'])}
         
         if self.method == "MLPRegressor": 
-            model_ = MLPRegressor(
-                        hidden_layer_sizes=(hyper_params['first_layer_neurons'], 
-                                            hyper_params['second_layer_neurons'],
-                                            hyper_params['third_layer_neurons'],
-                                            ),
-                       learning_rate_init=hyper_params['learning_rate_init'],
-                       learning_rate = hyper_params['learning_rate'],
-                       activation=hyper_params['activation'],
-                       solver = hyper_params['solver'],
-                       batch_size=hyper_params['batch_size'],
-                       early_stopping= True, 
-                       validation_fraction=0.3,
-                       random_state=1)
-            
-        elif self.method == "MLPClassifier": 
-            model_ = MLPClassifier(
-                                   hidden_layer_sizes=(hyper_params['first_layer_neurons'], 
-                                                       hyper_params['second_layer_neurons']),
+            model_ = MLPRegressor(hidden_layer_sizes=tuple([hyper_params['first_layer_neurons'], 
+                                                            hyper_params['second_layer_neurons'],
+                                                            hyper_params['third_layer_neurons'],
+                                                            hyper_params['fourth_layer_neurons']][0:hyper_params['num_layers']]),
                                    learning_rate_init=hyper_params['learning_rate_init'],
                                    learning_rate = hyper_params['learning_rate'],
                                    activation=hyper_params['activation'],
                                    solver = hyper_params['solver'],
                                    batch_size=hyper_params['batch_size'],
+                                   warm_start=True,
+                                   max_iter=10000, 
+                                   tol=0.01,
                                    early_stopping= True, 
-                                   validation_fraction=0.3,
+                                   validation_fraction=0.2,
+                                   random_state=1)
+            
+        elif self.method == "MLPClassifier": 
+            model_ = MLPClassifier(hidden_layer_sizes=tuple([hyper_params['first_layer_neurons'], 
+                                                            hyper_params['second_layer_neurons'],
+                                                            hyper_params['third_layer_neurons'],
+                                                            hyper_params['fourth_layer_neurons']][0:hyper_params['num_layers']]),
+                                   learning_rate_init=hyper_params['learning_rate_init'],
+                                   learning_rate = hyper_params['learning_rate'],
+                                   activation=hyper_params['activation'],
+                                   solver = hyper_params['solver'],
+                                   batch_size=hyper_params['batch_size'],
+                                   warm_start=True,
+                                   max_iter=10000, 
+                                   tol=0.01,
+                                   early_stopping= True, 
+                                   validation_fraction=0.2,
                                    random_state=1)
         
         model_.fit(train_data['features'], train_data['target'])

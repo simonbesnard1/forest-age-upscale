@@ -42,7 +42,8 @@ class MLData(ABC):
                  DataConfig: dict[str, Any] = {},
                  target: dict[str, Any] = {},
                  features: dict[str, Any] = {},     
-                 subset: dict[str, Any] = {}, 
+                 subset: dict[str, Any] = {},
+                 normalize:str = False,
                  norm_stats: dict[str, dict[str, float]] = {}):
     
         super().__init__()
@@ -51,6 +52,7 @@ class MLData(ABC):
         self.subset = subset
         self.target = target
         self.features = features 
+        self.normalize = normalize 
         self.norm_stats = norm_stats
         self.method = method
                 
@@ -75,7 +77,7 @@ class MLData(ABC):
 
         X = data[features]
         
-        if 'MLP' in method:
+        if 'MLP' in method and self.normalize:
             X = self.norm(X, self.norm_stats)
         
         return X.to_array().transpose('cluster','sample', 'variable').values
@@ -110,23 +112,17 @@ class MLData(ABC):
             Y[mask_old] = 1
             Y[mask_young] = 0    
         
-        elif method == 'MLPRegressor':
+        elif method == 'MLPRegressor' and self.normalize:
             Y = Y.where(Y<max_forest_age)
             Y = self.norm(Y, self.norm_stats).to_array().values
             
-        elif method == 'XGBoostRegressor':
+        else :
             Y = Y.where(Y<max_forest_age).to_array().values
         
         return Y
             
-    def get_xy(self,  
-               standardize:bool=True) -> dict:
+    def get_xy(self) -> dict:
         """Get features and target arrays from the dataset.
-    
-        Parameters
-        ----------
-        standardize : bool
-            Whether to standardize the features.
     
         Returns
         -------

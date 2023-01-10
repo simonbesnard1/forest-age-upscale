@@ -8,15 +8,16 @@ Created on Thu Nov 24 11:36:57 2022
 from ageUpscaling.core.study import Study
 
 #%% Initiate experiment
-DataConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/cross_validation/data_config_xgboost.yaml"
+DataConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/cross_validation/data_config_mlp.yaml"
 CubeConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/cross_validation/config_prediction_cube.yaml"
 study_ = Study(DataConfig_path = DataConfig_path,
                cube_config_path= CubeConfig_path,
                exp_name = 'subsetFIA',
-               algorithm  = 'XGBoost',
+               algorithm  = 'MLP',
                base_dir= '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/output/',
                n_jobs = 10)
 study_.cross_validation(n_folds=10, 
-                        valid_fraction=0.5, 
+                        valid_fraction=0.3, 
                         feature_selection=True, 
                         feature_selection_method= 'recursive')
+    

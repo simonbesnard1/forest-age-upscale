@@ -6,32 +6,37 @@ features:
 target:
   - age
 
-method:
-  - MLPRegressor
-  
 max_forest_age:
   - 300
 hyper_params:
   number_trials: 2
+  num_layers: 
+    min: 1
+    max: 4
+    step: 1
   learning_rate_init: 
     min: 0.0001
     max: 0.1
     step: 0.005
   learning_rate: ['constant', 'invscaling', 'adaptive']
   first_layer_neurons:
-    min: 10
-    max: 100
-    step: 10
+    min: 50
+    max: 500
+    step: 50
   second_layer_neurons:
-    min: 10
-    max: 100
-    step: 10
+    min: 50
+    max: 500
+    step: 50
   third_layer_neurons:
-    min: 10
-    max: 100
-    step: 10 
-  activation: ['identity', 'logistic', 'tanh', 'relu']
-  solver: ['lbfgs', 'sgd', 'adam']
+    min: 50
+    max: 500
+    step: 50
+  fourth_layer_neurons:
+    min: 50
+    max: 500
+    step: 50   
+  activation: ['tanh', 'relu']
+  solver: ['adam', 'sgd']
   batch_size:
     min: 16
     max: 64

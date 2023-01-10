@@ -43,6 +43,7 @@ class MLDataModule(MLData):
                  train_subset: dict[str, Any] = {},
                  valid_subset: dict[str, Any] = {},
                  test_subset: dict[str, Any] = {},
+                 normalize:bool= False,
                  norm_stats: dict[str, dict[str, float]] = {},
                  **kwargs) -> None:
         
@@ -55,6 +56,7 @@ class MLDataModule(MLData):
         self.train_subset = train_subset
         self.valid_subset = valid_subset
         self.test_subset = test_subset
+        self.normalize = normalize
         self.norm_stats = norm_stats
         self._kwargs = kwargs
         
@@ -77,7 +79,8 @@ class MLDataModule(MLData):
                             self.DataConfig, 
                             self.target, 
                             self.features, 
-                            self.train_subset, 
+                            self.train_subset,
+                            self.normalize,
                             self.norm_stats)        
             
         return train_data
@@ -94,6 +97,7 @@ class MLDataModule(MLData):
                             self.target, 
                             self.features, 
                             self.valid_subset, 
+                            self.normalize,
                             self.norm_stats)
             
         return valid_data  
@@ -110,6 +114,7 @@ class MLDataModule(MLData):
                            self.target, 
                            self.features, 
                            self.test_subset, 
+                           self.normalize,
                            self.norm_stats)
             
         return test_data

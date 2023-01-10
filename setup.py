@@ -47,6 +47,7 @@ setuptools.setup(
     install_requires=[
         "xarray==2022.3.0",
         "zarr==2.10.3",
+        "rioxarray==0.13.3",
         "netCDF4==1.6.0",
         "dask==2022.12.1", 
         "scikit-learn==1.1.3",
