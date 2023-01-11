@@ -165,7 +165,8 @@ class XGBoost:
                    train_data:dict,
                    val_data:dict,
                    DataConfig:dict,
-                   tune_dir:str) -> float:
+                   tune_dir:str,
+                   retrain_with_valid:bool= False) -> float:
         """Searches for the optimal hyperparameters for the machine learning model.
         
         Parameters
@@ -193,9 +194,10 @@ class XGBoost:
                         'max_depth': trial.suggest_int('max_depth', DataConfig['hyper_params']['max_depth']['min'], DataConfig['hyper_params']['max_depth']['max'], step=DataConfig['hyper_params']['max_depth']['step']),
                         'min_child_weight': trial.suggest_int('min_child_weight', DataConfig['hyper_params']['min_child_weight']['min'], DataConfig['hyper_params']['min_child_weight']['max'], step=DataConfig['hyper_params']['min_child_weight']['step']),
                         'subsample': trial.suggest_float('subsample ', DataConfig['hyper_params']['subsample']['min'], DataConfig['hyper_params']['subsample']['max'], step=DataConfig['hyper_params']['subsample']['step']),
-                        'colsample_bytree': trial.suggest_float('colsample_bytree ', DataConfig['hyper_params']['colsample_bytree']['min'], DataConfig['hyper_params']['colsample_bytree']['max'], step=DataConfig['hyper_params']['colsample_bytree']['step']),
+                        'colsample_bynode': trial.suggest_float('colsample_bynode ', DataConfig['hyper_params']['colsample_bynode']['min'], DataConfig['hyper_params']['colsample_bynode']['max'], step=DataConfig['hyper_params']['colsample_bynode']['step']),
                         'lambda': trial.suggest_float('lambda ', DataConfig['hyper_params']['lambda']['min'], DataConfig['hyper_params']['lambda']['max']),
                         'alpha': trial.suggest_float('alpha ', DataConfig['hyper_params']['alpha']['min'], DataConfig['hyper_params']['alpha']['max']),
+                        'tree_method': trial.suggest_categorical('tree_method', DataConfig['hyper_params']['tree_method']),
                         }
         
         training_params = {'num_boost_round': trial.suggest_int('num_boost_round', DataConfig['hyper_params']['num_boost_round']['min'], DataConfig['hyper_params']['num_boost_round']['max'], step=DataConfig['hyper_params']['num_boost_round']['step']),
@@ -215,6 +217,15 @@ class XGBoost:
         model_ = xgb.train(hyper_params, dtrain, evals=vallist,
                            callbacks = None, verbose_eval=False, **training_params)
         
+        self.best_ntree = model_.best_ntree_limit
+            
+        if retrain_with_valid:
+            print('Optimal number of trees: '+str(self.best_ntree)+ '. Refitting training and test data for current fold.')
+            
+            training_params['num_boost_round'] = self.best_ntree
+            training_params['early_stopping_rounds'] = None
+            model_ = xgb.train(hyper_params, dtrain, **training_params)
+
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)
         
