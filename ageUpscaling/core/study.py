@@ -68,7 +68,6 @@ class Study(ABC):
         self.algorithm = algorithm
         self.exp_name = exp_name
         
-        
         if study_dir is None:
             study_dir = self.version_dir(self.base_dir, self.exp_name, self.algorithm)
             os.makedirs(study_dir, exist_ok=False)

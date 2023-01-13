@@ -33,6 +33,7 @@ from sklearn.model_selection import train_test_split
 from ageUpscaling.core.cube import DataCube
 from ageUpscaling.transformers.spatial import interpolate_worlClim
 from ageUpscaling.methods.MLP import MLPmethod
+from ageUpscaling.methods.xgboost import XGBoost
 
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
@@ -51,8 +52,8 @@ class UpscaleAge(ABC):
     out_dir : str
         The study base directory.
         See `directory structure` for further details.
-    study_name : str = 'study_name'
-        The study name.
+    exp_name : str = 'exp_name'
+        The experiment name.
         See `directory structure` for further details.
     study_dir : Optional[str] = None
         The restore directory. If passed, an existing study is loaded.
@@ -65,7 +66,8 @@ class UpscaleAge(ABC):
                  DataConfig_path: str,
                  cube_config_path: str,            
                  base_dir: str,
-                 study_name: str = 'study_name',
+                 algorithm: str = 'MLP',
+                 exp_name: str = None,
                  study_dir: str = None,
                  n_jobs: int = 1,
                  **kwargs):
@@ -76,11 +78,12 @@ class UpscaleAge(ABC):
         with open(cube_config_path, 'r') as f:
             self.cube_config =  yml.safe_load(f)
         
+        self.algorithm = algorithm
         self.base_dir = base_dir
-        self.study_name = study_name
+        self.exp_name = exp_name
         
         if study_dir is None:
-            study_dir = self.version_dir(self.base_dir, self.study_name)
+            study_dir = self.version_dir(self.base_dir, self.exp_name, self.algorithm)
             os.makedirs(study_dir, exist_ok=False)
         else:
             if not os.path.exists(study_dir):
@@ -94,8 +97,9 @@ class UpscaleAge(ABC):
         self.cube_config['cube_location'] = os.path.join(self.study_dir, self.cube_config['cube_name'])
     
     def version_dir(self, 
-                    base_dir: str, 
-                    study_name: str) -> str:
+                    base_dir: str,
+                    exp_name:str,
+                    algorithm: str) -> str:
         """Creates a new version of a directory by appending the version number to the end of the directory name.
     
         If the directory already exists, it will be renamed to include the version number before the new directory is created.
@@ -104,7 +108,7 @@ class UpscaleAge(ABC):
         ----------
         base_dir : str
             The base directory where the new version of the study directory will be created.
-        study_name : str
+        algorithm : str
             The name of the study directory.
             
         Returns
@@ -113,18 +117,19 @@ class UpscaleAge(ABC):
             The full path to the new version of the study directory.
         """
         
-        return self.increment_dir_version(base_dir, study_name)
+        return self.increment_dir_version(base_dir,exp_name, algorithm)
     
     @staticmethod
     def increment_dir_version(base_dir: str,
-                              study_name:str) -> str:
+                              exp_name:str,
+                              algorithm:str) -> str:
         """Increments the version of a directory by appending the next available version number to the end of the directory name.
         
         Parameters
         ----------
         base_dir : str
             The base directory for the study.
-        study_name : str
+        algorithm : str
             The name of the study.
         
         Returns
@@ -132,7 +137,10 @@ class UpscaleAge(ABC):
         str
             The name of the new directory with the incremented version number.
         """
-        dir_list = [d for d in os.listdir(base_dir) if d.startswith(study_name)]
+        if not os.path.isdir(os.path.join(base_dir, exp_name, algorithm)):
+            os.makedirs(os.path.join(base_dir, exp_name, algorithm))
+        
+        dir_list = [d for d in os.listdir(os.path.join(base_dir, exp_name, algorithm)) if d.startswith("version")]
         
         dir_list.sort()
         
@@ -141,7 +149,7 @@ class UpscaleAge(ABC):
         else:
             last_dir = dir_list[-1]
             
-            study_name, version = last_dir.split("-")
+            _, version = last_dir.split("-")
             
             major, minor = version.split(".")
             major = int(major)
@@ -152,7 +160,7 @@ class UpscaleAge(ABC):
                 minor = 0
             version = f"{major}.{minor}"
         
-        return f"{base_dir}/{study_name}-{version}"
+        return f"{base_dir}/{exp_name}/{algorithm}/version-{version}"
     
     def _predict_func(self, 
                       IN) -> None:
@@ -167,11 +175,18 @@ class UpscaleAge(ABC):
         
         X_upscale_class = []
         for var_name in IN['params']["best_classifier"]['selected_features']:
-            X_upscale_class.append(self.norm(subset_cube[var_name], IN['params']["best_classifier"]['norm_stats'][var_name]))
+            if self.algorithm == "MLP":
+                X_upscale_class.append(self.norm(subset_cube[var_name], IN['params']['best_models']["Classifier"]['norm_stats'][var_name]))
+            elif self.algorithm == "XGBoost":
+                X_upscale_class.append(subset_cube[var_name])
+            
             
         X_upscale_reg = []
         for var_name in IN['params']["best_regressor"]['selected_features']:
-            X_upscale_reg.append(self.norm(subset_cube[var_name], IN['params']["best_regressor"]['norm_stats'][var_name]))
+            if self.algorithm == "MLP":
+                X_upscale_reg.append(self.norm(subset_cube[var_name], IN['params']['best_models']["Regressor"]['norm_stats'][var_name]))
+            elif self.algorithm == "XGBoost":
+                X_upscale_reg.append(subset_cube[var_name])
         
         X_upscale_reg_flattened = []
 
@@ -194,12 +209,15 @@ class UpscaleAge(ABC):
         mask = (np.all(np.isfinite(X_upscale_reg_flattened), axis=1)) & (np.all(np.isfinite(X_upscale_class_flattened), axis=1))
         
         if (X_upscale_class_flattened[mask].shape[0]>0):
-            pred_class = IN['params']["best_classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
+            pred_class = IN['params']['best_models']["Classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
             RF_pred_class[mask] = pred_class
             out_class = RF_pred_class.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
+            if self.algorithm == "MLP":
+                pred_reg= self.denorm_target(IN['params']['best_models']["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
+                                             IN['params']['best_models']["Regressor"]['norm_stats']['age'])
+            elif self.algorithm == "XGBoost":
+                pred_reg= IN['params']['best_models']["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask])
             
-            pred_reg= self.denorm_target(IN['params']["best_regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
-                                         IN['params']["best_regressor"]['norm_stats']['age'])
             pred_reg[pred_reg>=IN['params']["max_forest_age"][0]] = IN['params']["max_forest_age"][0] -1
             pred_reg[pred_reg<0] = 0
             RF_pred_reg[mask] = pred_reg            
@@ -219,7 +237,9 @@ class UpscaleAge(ABC):
         
     def model_tuning(self,
                      run_: int=1,
-                     method:str='MLPRegressor') -> None:
+                     task_:str='Regressor', 
+                     train_subset:dict ={},
+                     valid_subset:dict ={}) -> None:
         """Perform model tuning using cross-validation.
 
         Parameters
@@ -236,15 +256,16 @@ class UpscaleAge(ABC):
             with the best model found during the tuning process.
         """
         
-        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
-        np.random.shuffle(cluster_)
+        if self.algorithm == "MLP":
+            ml_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
+                                   DataConfig= self.DataConfig,
+                                   method=self.algorithm + task_)
+        elif self.algorithm == "XGBoost":
+            ml_method = XGBoost(tune_dir=os.path.join(self.study_dir, "tune"), 
+                                DataConfig= self.DataConfig,
+                                method=self.algorithm + task_)
         
-        train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
-        self.DataConfig['method'] = method
-        mlp_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune", method), 
-                               DataConfig= self.DataConfig, 
-                               method = method)
-        mlp_method.train(train_subset=train_subset,
+        ml_method.train(train_subset=train_subset,
                           valid_subset=valid_subset,
                           feature_selection= self.DataConfig['feature_selection'],
                           feature_selection_method=self.DataConfig['feature_selection_method'],
@@ -252,10 +273,10 @@ class UpscaleAge(ABC):
         if not os.path.exists(self.study_dir + '/save_model/'):
              os.makedirs(self.study_dir + '/save_model/')
              
-        with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = method, id_ = run_), "wb") as fout:
-            pickle.dump(mlp_method.best_model, fout)
+        with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = self.algorithm + task_, id_ = run_), "wb") as fout:
+            pickle.dump(ml_method.best_model, fout)
             
-        return {'best_model': mlp_method.best_model, 'selected_features': mlp_method.final_features, 'norm_stats' : mlp_method.mldata.norm_stats}
+        return {'best_model': ml_method.best_model, 'selected_features': ml_method.final_features, 'norm_stats' : ml_method.mldata.norm_stats}
     
     def ForwardRun(self,
                    tree_cover_tresholds:dict[str, Any] = {'000', '005', '010', '015', '020', '030'},
@@ -278,10 +299,16 @@ class UpscaleAge(ABC):
         
         pred_cube = DataCube(cube_config = self.cube_config)
         
+        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
+        np.random.shuffle(cluster_)
+        train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
+        
         for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):
             
-            best_regressor      = self.model_tuning(run_ = run_, method = 'MLPRegressor')
-            best_classifier     = self.model_tuning(run_ = run_, method = 'MLPClassifier')
+            best_models = []
+            for task_ in ["Regressor", "Classifier"]:
+                model_tuned      = self.model_tuning(run_ = run_, task_ = task_, train_subset=train_subset, valid_subset=valid_subset)
+                best_models.append({task_: model_tuned})            
             
             for tree_cover in tree_cover_tresholds:
                 
@@ -301,8 +328,7 @@ class UpscaleAge(ABC):
                 AllExtents = [{'latitude':slice(LatChunks[lat],LatChunks[lat+1]),
                                'longitude':slice(LonChunks[lon],LonChunks[lon+1])} for lat, lon in product(range(nLatChunks-1), range(nLonChunks-1))]
                 IN = [{"chuncks" : extent,
-                        "params":{"best_regressor": best_regressor, 
-                                  "best_classifier":best_classifier, 
+                        "params":{"best_models": best_models, 
                                   "feature_cubes": feature_cubes, 
                                   "pred_cube":pred_cube,
                                   "member": run_,
