@@ -280,8 +280,6 @@ class UpscaleAge(ABC):
     
     def ForwardRun(self,
                    tree_cover_tresholds:dict[str, Any] = {'000', '005', '010', '015', '020', '030'},
-                   nLatChunks:int=50,
-                   nLonChunks:int=50,
                    high_res_pred:bool =False) -> None:
         """Perform forward run of the model, which consists of generating high resolution maps of age using the trained model.
 
@@ -323,8 +321,8 @@ class UpscaleAge(ABC):
                 
                 feature_cubes    = {"agb_cube": agb_cube, "clim_cube": clim_cube}
                 
-                LatChunks = np.array_split(pred_cube.cube.latitude.values, nLatChunks)
-                LonChunks = np.array_split(pred_cube.cube.longitude.values, nLonChunks)
+                LatChunks = np.array_split(pred_cube.cube.latitude.values, self.cube_config["num_chunks"])
+                LonChunks = np.array_split(pred_cube.cube.longitude.values, self.cube_config["num_chunks"])
                 
                 AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
