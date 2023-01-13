@@ -273,7 +273,7 @@ class UpscaleAge(ABC):
         if not os.path.exists(self.study_dir + '/save_model/'):
              os.makedirs(self.study_dir + '/save_model/')
              
-        with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = self.algorithm + task_, id_ = run_), "wb") as fout:
+        with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = task_, id_ = run_), "wb") as fout:
             pickle.dump(ml_method.best_model, fout)
             
         return {'best_model': ml_method.best_model, 'selected_features': ml_method.final_features, 'norm_stats' : ml_method.mldata.norm_stats}
@@ -323,8 +323,8 @@ class UpscaleAge(ABC):
                 
                 feature_cubes    = {"agb_cube": agb_cube, "clim_cube": clim_cube}
                 
-                LatChunks = np.array_split(da.latitude.values, nLatChunks)
-                LonChunks = np.array_split(da.longitude.values, nLonChunks)
+                LatChunks = np.array_split(pred_cube.cube.latitude.values, nLatChunks)
+                LonChunks = np.array_split(pred_cube.cube.longitude.values, nLonChunks)
                 
                 AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
