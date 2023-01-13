@@ -323,10 +323,13 @@ class UpscaleAge(ABC):
                 
                 feature_cubes    = {"agb_cube": agb_cube, "clim_cube": clim_cube}
                 
-                LonChunks = np.linspace(self.cube_config['output_region'][0],self.cube_config['output_region'][1], nLonChunks)
-                LatChunks = np.linspace(self.cube_config['output_region'][2], self.cube_config['output_region'][3], nLatChunks)
-                AllExtents = [{'latitude':slice(LatChunks[lat],LatChunks[lat+1]),
-                               'longitude':slice(LonChunks[lon],LonChunks[lon+1])} for lat, lon in product(range(nLatChunks-1), range(nLonChunks-1))]
+                LatChunks = np.array_split(da.latitude.values, nLatChunks)
+                LonChunks = np.array_split(da.longitude.values, nLonChunks)
+                
+                AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
+                               "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+                           for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
+                
                 IN = [{"chuncks" : extent,
                         "params":{"best_models": best_models, 
                                   "feature_cubes": feature_cubes, 
