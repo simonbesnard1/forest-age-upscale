@@ -304,7 +304,7 @@ class UpscaleAge(ABC):
             Boolean indicating whether to perform high resolution prediction, default is False
         """
         
-        #self.pred_cube = DataCube(cube_config = self.cube_config)
+        self.pred_cube = DataCube(cube_config = self.cube_config)
         
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         np.random.shuffle(cluster_)
