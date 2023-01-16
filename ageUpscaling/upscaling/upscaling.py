@@ -167,7 +167,7 @@ class UpscaleAge(ABC):
                       IN) -> None:
         
         subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])
-        subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])
+        subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])[self.best_models['Classifier']['selected_features'] + self.best_models['Regressor']['selected_features']]
     
         if not self.cube_config["high_res_pred"]:
             subset_agb_cube    = subset_agb_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = self.tree_cover) : 'agb'})
@@ -213,7 +213,12 @@ class UpscaleAge(ABC):
         mask = (np.all(np.isfinite(X_upscale_reg_flattened), axis=1)) & (np.all(np.isfinite(X_upscale_class_flattened), axis=1))
         
         if (X_upscale_class_flattened[mask].shape[0]>0):
-            pred_class = self.best_models["Classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
+            if self.algorithm == "MLP":
+                pred_class = self.best_models["Classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
+            elif self.algorithm == "XGBoost":
+                dpred =  xgb.DMatrix(X_upscale_class_flattened[mask])
+                pred_class = self.best_models["Classifier"]['best_model'].predict(dpred)
+                            
             RF_pred_class[mask] = pred_class
             out_class = RF_pred_class.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
             if self.algorithm == "MLP":
@@ -239,7 +244,7 @@ class UpscaleAge(ABC):
                                  self.DataConfig['max_forest_age'][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= self.tree_cover))
             
             print(output_xr)
-            self.pred_cube.update_cube(output_xr).compute()
+            self.pred_cube.update_cube(output_xr)
         
     def model_tuning(self,
                      run_: int=1,
