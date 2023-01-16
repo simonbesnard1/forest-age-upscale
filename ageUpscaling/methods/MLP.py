@@ -18,7 +18,7 @@ from typing import Any
 import xarray as xr
 
 from sklearn.neural_network import MLPRegressor, MLPClassifier
-from sklearn.metrics import mean_squared_error, balanced_accuracy_score
+from sklearn.metrics import mean_squared_error, roc_auc_score
 
 import optuna
 
@@ -233,7 +233,7 @@ class MLPmethod:
                                    max_iter=10000, 
                                    tol=0.01,
                                    early_stopping= True, 
-                                   validation_fraction=0.2,
+                                   validation_fraction=0.3,
                                    random_state=1)
         
         model_.fit(train_data['features'], train_data['target'])
@@ -247,7 +247,7 @@ class MLPmethod:
         if self.method == "MLPRegressor":
             loss_ = mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False)
         elif self.method == "MLPClassifier":
-            loss_ =  balanced_accuracy_score(val_data['target'], model_.predict(val_data['features']))
+            loss_ =  roc_auc_score(val_data['target'], model_.predict(val_data['features']))
         return loss_ 
     
     def predict_clusters(self, 

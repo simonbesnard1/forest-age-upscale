@@ -18,7 +18,7 @@ from typing import Any
 import xarray as xr
 
 import xgboost as xgb
-from sklearn.metrics import mean_squared_error, balanced_accuracy_score
+from sklearn.metrics import mean_squared_error, roc_auc_score
 
 import optuna
 
@@ -206,23 +206,25 @@ class XGBoost:
                     
         if self.method == "XGBoostRegressor":
             hyper_params['objective'] = "reg:squarederror"
+            pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-rmse")
+
             
         elif self.method == "XGBoostClassifier":
             hyper_params['objective'] = "binary:logistic"
+            hyper_params['eval_metric'] = "auc"
+            
+            pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-auc")
 
         dtrain = xgb.DMatrix(train_data['features'], label=train_data['target'])
         deval = xgb.DMatrix(val_data['features'], label = val_data['target'])
         vallist = [(dtrain, 'train'), (deval, 'eval')]
-        pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "validation-loss")
-
+        
         model_ = xgb.train(hyper_params, dtrain, evals=vallist,
-                           callbacks = [pruning_callback], verbose_eval=False, **training_params)
+                           callbacks = [pruning_callback], verbose_eval=True, **training_params)
         
         self.best_ntree = model_.best_ntree_limit
             
         if retrain_with_valid:
-            print('Optimal number of trees: '+str(self.best_ntree)+ '. Refitting training and test data for current fold.')
-            
             training_params['num_boost_round'] = self.best_ntree
             training_params['early_stopping_rounds'] = None
             model_ = xgb.train(hyper_params, dtrain, **training_params)
@@ -233,12 +235,12 @@ class XGBoost:
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
         
-        # if self.method == "XGBoostRegressor":
-        #     loss_ = mean_squared_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), squared=False)
-        # elif self.method == "XGBoostClassifier":
-        #     loss_ =  balanced_accuracy_score(val_data['target'], np.rint(model_.predict(xgb.DMatrix(val_data['features']))))
+        if self.method == "XGBoostRegressor":
+            loss_ = mean_squared_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), squared=False)
+        elif self.method == "XGBoostClassifier":
+            loss_ =  roc_auc_score(val_data['target'], np.rint(model_.predict(xgb.DMatrix(val_data['features']))))
         
-        return model_.best_score
+        return loss_
     
     def predict_clusters(self, 
                         save_cube:str) -> None:
