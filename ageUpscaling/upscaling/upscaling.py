@@ -177,6 +177,7 @@ class UpscaleAge(ABC):
             subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
         
         subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
+        subset_agb_cube  = subset_agb_cube.agb.where(subset_agb_cube.agb >0).to_dataset()
         subset_cube      = xr.merge([subset_agb_cube, subset_clim_cube])
         
         X_upscale_class = []
@@ -244,7 +245,6 @@ class UpscaleAge(ABC):
                                  output_reg_xr, 
                                  self.DataConfig['max_forest_age'][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= self.tree_cover))
             
-            print(output_xr)
             self.pred_cube.update_cube(output_xr)
         
     def model_tuning(self,
@@ -317,7 +317,8 @@ class UpscaleAge(ABC):
             self.best_models = {}
             for task_ in ["Regressor", "Classifier"]:
                 model_tuned      = self.model_tuning(run_ = run_, task_ = task_, train_subset=train_subset, valid_subset=valid_subset)
-                self.best_models[task_] = model_tuned            
+                self.best_models[task_] = model_tuned      
+                
             for tree_cover in self.cube_config["tree_cover_tresholds"]:
                 
                 if (self.cube_config["high_res_pred"] and tree_cover != '000'):
@@ -328,20 +329,18 @@ class UpscaleAge(ABC):
                 LonChunks = np.array_split(self.pred_cube.cube.longitude.values, self.cube_config["num_chunks"])
                 
                 AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+                               "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                             for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
   
-                self._predict_func({"latitude":slice(51, 51),
-                                "longitude":slice(30, 31)}) 
-                # if(self.n_jobs > 1):
+                if(self.n_jobs > 1):
                     
-                #     p=mp.Pool(self.n_jobs, maxtasksperchild=1)
-                #     p.map(self._predict_func, 
-                #           AllExtents)
-                #     p.close()
-                #     p.join()
-                # else:
-                #     _ = map(self._predict_func, AllExtents)
+                    p=mp.Pool(self.n_jobs, maxtasksperchild=1)
+                    p.map(self._predict_func, 
+                          AllExtents)
+                    p.close()
+                    p.join()
+                else:
+                    _ = map(self._predict_func, AllExtents)
             
             shutil.rmtree(os.path.join(self.study_dir, "tune"))    
                             

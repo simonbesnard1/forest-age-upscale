@@ -12,7 +12,7 @@ target:
 max_forest_age:
   - 300
   
-feature_selection: yes
+feature_selection: no
 feature_selection_method: 'recursive'
 
 valid_fraction: 0.3
