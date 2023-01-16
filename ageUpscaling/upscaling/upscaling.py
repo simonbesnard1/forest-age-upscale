@@ -29,6 +29,7 @@ import zarr
 import dask.array as da
 
 from sklearn.model_selection import train_test_split
+import xgboost as xgb
 
 from ageUpscaling.core.cube import DataCube
 from ageUpscaling.transformers.spatial import interpolate_worlClim
@@ -219,7 +220,8 @@ class UpscaleAge(ABC):
                 pred_reg= self.denorm_target(self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
                                              self.best_models["Regressor"]['norm_stats']['age'])
             elif self.algorithm == "XGBoost":
-                pred_reg= self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask])
+                dpred =  xgb.DMatrix(X_upscale_reg_flattened[mask])
+                pred_reg= self.best_models["Regressor"]['best_model'].predict(dpred)
             
             pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
             pred_reg[pred_reg<0] = 0
@@ -310,9 +312,6 @@ class UpscaleAge(ABC):
             for task_ in ["Regressor", "Classifier"]:
                 model_tuned      = self.model_tuning(run_ = run_, task_ = task_, train_subset=train_subset, valid_subset=valid_subset)
                 self.best_models[task_] = model_tuned            
-            
-            print(self.best_models)
-            print(self.best_models["Regressor"])
             
             for tree_cover in self.cube_config["tree_cover_tresholds"]:
                 
