@@ -172,6 +172,7 @@ class UpscaleAge(ABC):
         
         subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
         subset_cube      = xr.merge([subset_agb_cube, subset_clim_cube])
+        print(subset_cube)
         
         X_upscale_class = []
         for var_name in IN['params']["best_classifier"]['selected_features']:
@@ -233,6 +234,7 @@ class UpscaleAge(ABC):
                                  output_reg_xr, 
                                  IN['params']["max_forest_age"][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= IN['params']["tree_cover"]))
             
+            print(output_xr)
             IN['params']["pred_cube"].update_cube(output_xr)
         
     def model_tuning(self,
@@ -337,6 +339,7 @@ class UpscaleAge(ABC):
                                   "tree_cover": tree_cover,
                                   "high_res_pred": high_res_pred}} for extent in AllExtents]
   
+                print(IN)
                 if(self.n_jobs > 1):
                     
                     p=mp.Pool(self.n_jobs, maxtasksperchild=1)
