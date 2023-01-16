@@ -150,9 +150,9 @@ class XGBoost:
         
         study = optuna.create_study(study_name = 'hpo_ForestAge', 
                                     #storage='sqlite:///' + self.tune_dir + '/trial_model/hp_trial.db',
-                                    pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
-                                                                                   reduction_factor=4, 
-                                                                                   min_early_stopping_rate=8),
+                                    # pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
+                                    #                                                reduction_factor=4, 
+                                    #                                                min_early_stopping_rate=8),
                                     direction=['minimize' if self.method == 'XGBoostRegressor' else 'maximize'][0])
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
@@ -213,9 +213,10 @@ class XGBoost:
         dtrain = xgb.DMatrix(train_data['features'], label=train_data['target'])
         deval = xgb.DMatrix(val_data['features'], label = val_data['target'])
         vallist = [(dtrain, 'train'), (deval, 'eval')]
-       
+        pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "validation-loss")
+
         model_ = xgb.train(hyper_params, dtrain, evals=vallist,
-                           callbacks = None, verbose_eval=False, **training_params)
+                           callbacks = [pruning_callback], verbose_eval=False, **training_params)
         
         self.best_ntree = model_.best_ntree_limit
             
@@ -232,13 +233,12 @@ class XGBoost:
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
         
-        if self.method == "XGBoostRegressor":
-            loss_ = mean_squared_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), squared=False)
-        elif self.method == "XGBoostClassifier":
-            loss_ =  balanced_accuracy_score(val_data['target'], np.rint(model_.predict(xgb.DMatrix(val_data['features']))))
-        return loss_ 
-    
-        return loss_
+        # if self.method == "XGBoostRegressor":
+        #     loss_ = mean_squared_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), squared=False)
+        # elif self.method == "XGBoostClassifier":
+        #     loss_ =  balanced_accuracy_score(val_data['target'], np.rint(model_.predict(xgb.DMatrix(val_data['features']))))
+        
+        return model_.best_score
     
     def predict_clusters(self, 
                         save_cube:str) -> None:
