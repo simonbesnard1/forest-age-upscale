@@ -1,29 +1,10 @@
-training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300.nc"
-global_cube: "/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/AgeUpscale"
+training_dataset: "/home/simon/gfz_hpc/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300_subsetFIA.nc"
+agb_cube: "/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/ESACCI_BIOMASS_100m"
+clim_cube: "/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/WorlClim_1km"
+
 features:
   - agb
   - AnnualMeanTemperature_WorlClim
-  - AnnualPrecipitation_WorlClim
-  - Isothermality_WorlClim
-  - MaxTemperatureofWarmestMonth_WorlClim
-  - MeanDiurnalRange_WorlClim
-  - MeanTemperatureofColdestQuarter_WorlClim
-  - MeanTemperatureofDriestQuarter_WorlClim
-  - MeanTemperatureofWarmestQuarter_WorlClim
-  - MeanTemperatureofWettestQuarter_WorlClim
-  - MinTemperatureofColdestMonth_WorlClim
-  - PrecipitationofColdestQuarter_WorlClim
-  - PrecipitationofDriestMonth_WorlClim
-  - PrecipitationofDriestQuarter_WorlClim
-  - PrecipitationofWarmestQuarter_WorlClim
-  - PrecipitationofWettestMonth_WorlClim
-  - PrecipitationofWettestQuarter_WorlClim
-  - PrecipitationSeasonality_WorlClim
-  - TemperatureAnnualRange_WorlClim
-  - TemperatureSeasonality_WorlClim
-  - AnnualSrad_WorlClim
-  - AnnualWind_WorlClim
-  - AnnualVapr_WorlClim
 
 target:
   - age
@@ -34,30 +15,45 @@ max_forest_age:
 feature_selection: yes
 feature_selection_method: 'recursive'
 
-valid_fraction: 0.5
-
+valid_fraction: 0.3
+  
 hyper_params:
   number_trials: 2
-  learning_rate_init: 
+  tree_method: ['hist']
+  eta: 
     min: 0.0001
-    max: 0.1
-    step: 0.005
-  learning_rate: ['constant', 'invscaling', 'adaptive']
-  first_layer_neurons:
+    max: 1
+  gamma: 
+     min: 1
+     max: 9
+  max_depth:
+    min: 1
+    max: 10
+    step: 1
+  min_child_weight:
+    min: 1
+    max: 15
+    step: 1
+  subsample:
+    min: 0.1
+    max: 1
+    step: 0.1
+  colsample_bynode:
+    min: 0.1
+    max: 1
+    step: 0.1
+  lambda:
+    min: 0.00000001
+    max: 1
+  alpha:
+    min: 0.00000001
+    max: 1
+  num_boost_round:
+    min: 50
+    max: 1000
+    step: 100
+  early_stopping_rounds:
     min: 10
-    max: 100
+    max: 10
     step: 10
-  second_layer_neurons:
-    min: 10
-    max: 100
-    step: 10
-  third_layer_neurons:
-    min: 10
-    max: 100
-    step: 10 
-  activation: ['identity', 'logistic', 'tanh', 'relu']
-  solver: ['lbfgs', 'sgd', 'adam']
-  batch_size:
-    min: 16
-    max: 64
-    step: 16
+  

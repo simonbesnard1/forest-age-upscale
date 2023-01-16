@@ -13,7 +13,8 @@ DataConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/
 CubeConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/forward_run/config_prediction_cube.yaml"
 upscale_init = UpscaleAge(DataConfig_path = DataConfig_path,
                            cube_config_path= CubeConfig_path,
-                           study_name  = 'test_upscale',
+                           algorithm = 'XGBoost',
+                           exp_name  = 'Age_upscale_100m',
                            base_dir= '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/output/',
                            n_jobs = 10)
-upscale_init.ForwardRun(tree_cover_tresholds = {'010'})
+upscale_init.ForwardRun()

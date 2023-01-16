@@ -167,7 +167,7 @@ class UpscaleAge(ABC):
                       IN) -> None:
         
         subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])
-        subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])[np.concatenate(self.best_models['Classifier']['selected_features'], self.best_models['Regressor']['selected_features'])]
+        subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])[self.best_models['Classifier']['selected_features'] + self.best_models['Regressor']['selected_features']]
     
         if not self.cube_config["high_res_pred"]:
             subset_agb_cube    = subset_agb_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = self.tree_cover) : 'agb'})
@@ -304,7 +304,7 @@ class UpscaleAge(ABC):
             Boolean indicating whether to perform high resolution prediction, default is False
         """
         
-        self.pred_cube = DataCube(cube_config = self.cube_config)
+        #self.pred_cube = DataCube(cube_config = self.cube_config)
         
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         np.random.shuffle(cluster_)
@@ -317,7 +317,6 @@ class UpscaleAge(ABC):
             for task_ in ["Regressor", "Classifier"]:
                 model_tuned      = self.model_tuning(run_ = run_, task_ = task_, train_subset=train_subset, valid_subset=valid_subset)
                 self.best_models[task_] = model_tuned            
-            print(self.best_models)
             for tree_cover in self.cube_config["tree_cover_tresholds"]:
                 
                 if (self.cube_config["high_res_pred"] and tree_cover != '000'):
@@ -328,10 +327,10 @@ class UpscaleAge(ABC):
                 LonChunks = np.array_split(self.pred_cube.cube.longitude.values, self.cube_config["num_chunks"])
                 
                 AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                               "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-                           for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
+                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+                            for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
   
-                #self._predict_func(AllExtents[1])
+                self._predict_func(AllExtents[1])
                 # if(self.n_jobs > 1):
                     
                 #     p=mp.Pool(self.n_jobs, maxtasksperchild=1)

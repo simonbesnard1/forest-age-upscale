@@ -79,7 +79,7 @@ class FeatureSelection(ABC):
             feat_selector = RFE(rf, n_features_to_select=max_features, step=1)
             feat_selector.fit(data['features'], data['target'])
             
-        var_selected = np.array(self.features)[feat_selector.support_]
+        var_selected = list(np.array(self.features)[feat_selector.support_])
             
         return var_selected
         

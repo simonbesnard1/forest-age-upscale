@@ -1,17 +1,25 @@
-cube_location: '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/output/AgeUpscale'
+cube_name: 'AgeUpscale_100m'
 
-spatial_resolution: 0.00833333
+spatial_resolution: 0.00088889
 temporal_resolution: 'Y'
 
 output_writer_params:
   dims:
+    latitude: [-60, 80]
+    longitude: [-180, 180]
+    time: ["2010-01-01", "2017-01-01", "2018-01-01"]
     members: 1
-    latitude: [-89.99583333, 89.99583333]
-    longitude: [-179.99583333, 179.99583333]
-  chunksizes:
+  chunksizes: 
+    latitude: 1000
+    longitude: 1000
+    time: -1
     members: -1 
-    latitude: 250
-    longitude: 250
+
+num_chunks: 10
+
+tree_cover_tresholds: ['000']
+
+high_res_pred: yes
     
 output_variables:
   - forest_age
@@ -38,9 +46,6 @@ output_metadata:
   # A textual description of the processing (or quality control) level of the data.
   processing_level: "L2"
 
-  # A place to acknowledge various type of support for the project that produced this data.
-  acknowledgment: "Data Cube produced based on data provided by MPI Biogeochemistry"
-
   # The name of the controlled vocabulary from which variable standard names are taken.
   standard_name_vocabulary: ""
 
@@ -53,7 +58,7 @@ output_metadata:
   # The data creator's name and email.
   creator:
     - name: "Simon Besnard"
-      email: "besnard@gfz-potsdam.de"
+    - email: "besnard@gfz-potsdam.de"
 
   #  date:
   #    # The date on which the data was created.
