@@ -311,6 +311,9 @@ class UpscaleAge(ABC):
                 model_tuned      = self.model_tuning(run_ = run_, task_ = task_, train_subset=train_subset, valid_subset=valid_subset)
                 self.best_models[task_] = model_tuned            
             
+            print(self.best_models)
+            print(self.best_models["Regressor"])
+            
             for tree_cover in self.cube_config["tree_cover_tresholds"]:
                 
                 if (self.cube_config["high_res_pred"] and tree_cover != '000'):
