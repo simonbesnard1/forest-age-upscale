@@ -237,7 +237,7 @@ class UpscaleAge(ABC):
                                  self.DataConfig['max_forest_age'][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= self.tree_cover))
             
             print(output_xr)
-            self.pred_cube.update_cube(output_xr)
+            self.pred_cube.update_cube(output_xr).compute()
         
     def model_tuning(self,
                      run_: int=1,
@@ -323,25 +323,17 @@ class UpscaleAge(ABC):
                 AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                            for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-                
-                # IN = [{"chuncks" : extent,
-                #         "params":{"best_models": best_models, 
-                #                   "feature_cubes": feature_cubes, 
-                #                   "pred_cube":pred_cube,
-                #                   "member": run_,
-                #                   "max_forest_age": self.DataConfig['max_forest_age'],
-                #                   "tree_cover": tree_cover,
-                #                   "high_res_pred": high_res_pred}} for extent in AllExtents]
   
-                if(self.n_jobs > 1):
+                self._predict_func(AllExtents[1])
+                # if(self.n_jobs > 1):
                     
-                    p=mp.Pool(self.n_jobs, maxtasksperchild=1)
-                    p.map(self._predict_func, 
-                          AllExtents)
-                    p.close()
-                    p.join()
-                else:
-                    _ = map(self._predict_func, AllExtents)
+                #     p=mp.Pool(self.n_jobs, maxtasksperchild=1)
+                #     p.map(self._predict_func, 
+                #           AllExtents)
+                #     p.close()
+                #     p.join()
+                # else:
+                #     _ = map(self._predict_func, AllExtents)
             
             shutil.rmtree(os.path.join(self.study_dir, "tune"))    
                             
