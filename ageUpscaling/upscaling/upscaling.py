@@ -317,7 +317,7 @@ class UpscaleAge(ABC):
             for task_ in ["Regressor", "Classifier"]:
                 model_tuned      = self.model_tuning(run_ = run_, task_ = task_, train_subset=train_subset, valid_subset=valid_subset)
                 self.best_models[task_] = model_tuned            
-            
+            print(self.best_models)
             for tree_cover in self.cube_config["tree_cover_tresholds"]:
                 
                 if (self.cube_config["high_res_pred"] and tree_cover != '000'):
@@ -331,8 +331,6 @@ class UpscaleAge(ABC):
                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                            for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
   
-                print(self.best_models['Classifier']['selected_features'])
-                print(self.best_models['Regressor']['selected_features'])
                 #self._predict_func(AllExtents[1])
                 # if(self.n_jobs > 1):
                     
