@@ -331,7 +331,9 @@ class UpscaleAge(ABC):
                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                            for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
   
-                self._predict_func(AllExtents[1])
+                print(self.best_models['Classifier']['selected_features'])
+                print(self.best_models['Regressor']['selected_features'])
+                #self._predict_func(AllExtents[1])
                 # if(self.n_jobs > 1):
                     
                 #     p=mp.Pool(self.n_jobs, maxtasksperchild=1)

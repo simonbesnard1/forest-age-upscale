@@ -220,7 +220,7 @@ class XGBoost:
         vallist = [(dtrain, 'train'), (deval, 'eval')]
         
         model_ = xgb.train(hyper_params, dtrain, evals=vallist,
-                           callbacks = [pruning_callback], verbose_eval=True, **training_params)
+                           callbacks = [pruning_callback], verbose_eval=False, **training_params)
         
         self.best_ntree = model_.best_ntree_limit
             
