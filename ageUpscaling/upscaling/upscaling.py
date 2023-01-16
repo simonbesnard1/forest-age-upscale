@@ -176,7 +176,6 @@ class UpscaleAge(ABC):
         
         subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
         subset_cube      = xr.merge([subset_agb_cube, subset_clim_cube])
-        print(subset_cube)
         
         X_upscale_class = []
         for var_name in self.best_models['Classifier']['selected_features']:
@@ -307,10 +306,10 @@ class UpscaleAge(ABC):
         for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):
             
             self.member = run_
-            self.best_models = []
+            self.best_models = {}
             for task_ in ["Regressor", "Classifier"]:
                 model_tuned      = self.model_tuning(run_ = run_, task_ = task_, train_subset=train_subset, valid_subset=valid_subset)
-                self.best_models.append({task_: model_tuned})            
+                self.best_models[task_] = model_tuned            
             
             for tree_cover in self.cube_config["tree_cover_tresholds"]:
                 
