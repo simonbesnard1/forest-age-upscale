@@ -14,7 +14,6 @@ import os
 import shutil
 from tqdm import tqdm
 import atexit
-from typing import Any
 from itertools import product
 from abc import ABC
 
