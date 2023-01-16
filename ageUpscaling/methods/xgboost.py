@@ -211,8 +211,7 @@ class XGBoost:
             
         elif self.method == "XGBoostClassifier":
             hyper_params['objective'] = "binary:logistic"
-            hyper_params['eval_metric'] = "auc"
-            
+            hyper_params['eval_metric'] = "auc"            
             pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-auc")
 
         dtrain = xgb.DMatrix(train_data['features'], label=train_data['target'])
