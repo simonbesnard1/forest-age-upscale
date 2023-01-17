@@ -332,7 +332,8 @@ class UpscaleAge(ABC):
                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                             for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
   
-                self._predict_func(AllExtents[1])
+                for extent in AllExtents:
+                    self._predict_func(extent)
                 # if(self.n_jobs > 1):
                     
                 #     p=mp.Pool(self.n_jobs, maxtasksperchild=1)
