@@ -92,6 +92,7 @@ class ExtrapolationIndex(ABC):
             average_distance = distance_sum / grid.best_params_["n_neighbors"]
             
             return average_distance
+            # calculate the mean change of the error δ with increasing distance D
 
         @staticmethod
         def calculate_epsilon(x_train, 
@@ -103,7 +104,6 @@ class ExtrapolationIndex(ABC):
             # calculate the mean error of f
             mean_error = np.mean(delta)
             
-            # calculate the mean change of the error δ with increasing distance D
             delta_diff = np.diff(delta)
             distance_diff = np.diff(x_train[:, -1])
             mean_delta_change = np.mean(delta_diff / distance_diff)
