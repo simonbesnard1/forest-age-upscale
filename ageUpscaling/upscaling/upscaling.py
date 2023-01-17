@@ -244,6 +244,7 @@ class UpscaleAge(ABC):
                                  output_reg_xr, 
                                  self.DataConfig['max_forest_age'][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= self.tree_cover))
             
+            print(output_xr)
             self.pred_cube.update_cube(output_xr)
         
     def model_tuning(self,
@@ -331,15 +332,16 @@ class UpscaleAge(ABC):
                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                             for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
   
-                if(self.n_jobs > 1):
+                self._predict_func(AllExtents[1])
+                # if(self.n_jobs > 1):
                     
-                    p=mp.Pool(self.n_jobs, maxtasksperchild=1)
-                    p.map(self._predict_func, 
-                          AllExtents)
-                    p.close()
-                    p.join()
-                else:
-                    _ = map(self._predict_func, AllExtents)
+                #     p=mp.Pool(self.n_jobs, maxtasksperchild=1)
+                #     p.map(self._predict_func, 
+                #           AllExtents)
+                #     p.close()
+                #     p.join()
+                # else:
+                #     _ = map(self._predict_func, AllExtents)
             
             shutil.rmtree(os.path.join(self.study_dir, "tune"))    
                             
