@@ -24,7 +24,6 @@ from sklearn.model_selection import GridSearchCV
 
 from ageUpscaling.core.cube import DataCube
 
-
 class ExtrapolationIndex(ABC):
     """ExtrapolationIndex abstract class used for calculating extrapolation index
 
@@ -131,7 +130,7 @@ class ExtrapolationIndex(ABC):
             
             return average_distance_weighted
         
-        def global_index(self):
+        def calculate_global_index(self):
             
             self.index_cube = DataCube(cube_config = self.cube_config)
 
