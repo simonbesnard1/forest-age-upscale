@@ -12,7 +12,7 @@
 """
 import os
 from abc import ABC
-import product
+from itertools import product
 
 import numpy as np
 import yaml as yml
@@ -20,7 +20,7 @@ import yaml as yml
 import multiprocessing as mp
 
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV,  KFold
 
 from ageUpscaling.core.cube import DataCube
 
@@ -65,40 +65,31 @@ class ExtrapolationIndex(ABC):
         
         @staticmethod
         def calculate_distance(x_train, 
-                               y_train, 
-                               x_test, 
-                               weights):
+                              y_train, 
+                              x_test, 
+                              weights, 
+                              metric='euclidean', 
+                              k_range = range(1, 31)):
             
-            k_range = list(range(1, 31))
-            param_grid = dict(n_neighbors=k_range)
-            knn = KNeighborsRegressor()
-            grid = GridSearchCV(knn, param_grid, cv=10, scoring='neg_mean_squared_error')
-            grid.fit(x_train, y_train)
-            distances, indices = grid.best_estimator_.kneighbors(x_test)
-        
-            # K = 3
-            
-            # # create and fit the nearest neighbor model
-            # neigh = NearestNeighbors(n_neighbors=K)
-            # neigh.fit(x_train)
-            
-            # # get the indices of the K nearest neighbors
-            # distances, indices = neigh.kneighbors([x_test])
-            
-            # calculate the average L1-distance
-            distance_sum = 0
-            for i in range(grid.best_params_["n_neighbors"]):
-                distance_sum += np.sum(weights * np.abs(x_train[indices[0][i]] - x_test))
-            average_distance = distance_sum / grid.best_params_["n_neighbors"]
-            
-            return average_distance
-            # calculate the mean change of the error δ with increasing distance D
+           param_grid = dict(n_neighbors=k_range)
+           knn = KNeighborsRegressor(metric=metric)
+           kf = KFold(n_splits=10)
+           grid = GridSearchCV(knn, param_grid, cv=kf, scoring='neg_mean_squared_error')
+           grid.fit(x_train, y_train)
+           distances, indices = grid.best_estimator_.kneighbors(x_test)
+           distance_sum = 0
+           for i in range(grid.best_params_["n_neighbors"]):
+               distance_sum += np.sum(weights * np.abs(x_test - x_train[indices[0][i]]))
+           average_distance = distance_sum / grid.best_params_["n_neighbors"]
+          
+           return average_distance
 
         @staticmethod
         def calculate_epsilon(x_train, 
                               y_pred, 
                               y_obs):
             
+            ##TODO currently not properly calculated
             delta = np.abs(y_pred - y_obs)
             
             # calculate the mean error of f
@@ -125,8 +116,9 @@ class ExtrapolationIndex(ABC):
              
             weights = calculate_weights(self.x_train, self.y_train)
             average_distance = calculate_distance(self.x_train, self.y_train, self.x_test, weights)
-            epsilon = calculate_epsilon(self.x_train, self.y_pred, self.y_train)
-            average_distance_weighted = average_distance * epsilon
+            #epsilon = calculate_epsilon(self.x_train, self.y_pred, self.y_train)
+            #average_distance_weighted = average_distance * epsilon
+            average_distance_weighted = average_distance
             
             return average_distance_weighted
         
