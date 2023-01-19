@@ -21,7 +21,8 @@ import numpy as np
 import yaml as yml
 import pickle
 
-import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
+
 
 import xarray as xr
 import zarr
@@ -168,7 +169,7 @@ class UpscaleAge(ABC):
         var_selected           = self.best_models['Classifier']['selected_features'] + self.best_models['Regressor']['selected_features']
         subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])
         subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])[[x for x in var_selected if "WorlClim" in x]]
-    
+       
         if not self.cube_config["high_res_pred"]:
             subset_agb_cube    = subset_agb_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = self.tree_cover) : 'agb'})
        
@@ -214,6 +215,7 @@ class UpscaleAge(ABC):
         mask = (np.all(np.isfinite(X_upscale_reg_flattened), axis=1)) & (np.all(np.isfinite(X_upscale_class_flattened), axis=1))
         
         if (X_upscale_class_flattened[mask].shape[0]>0):
+            
             if self.algorithm == "MLP":
                 pred_class = self.best_models["Classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
             elif self.algorithm == "XGBoost":
@@ -222,6 +224,7 @@ class UpscaleAge(ABC):
                             
             RF_pred_class[mask] = pred_class
             out_class = RF_pred_class.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
+            
             if self.algorithm == "MLP":
                 pred_reg= self.denorm_target(self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
                                              self.best_models["Regressor"]['norm_stats']['age'])
@@ -234,15 +237,15 @@ class UpscaleAge(ABC):
             RF_pred_reg[mask] = pred_reg            
             out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
             output_reg_xr = xr.DataArray(out_reg, 
-                                         coords={"latitude": subset_cube.latitude, 
-                                                 "longitude": subset_cube.longitude,
-                                                 "time": subset_cube.time,                                                          
-                                                 'members': [self.member]}, 
-                                         dims=["latitude", "longitude", "time", "members"])
+                                          coords={"latitude": subset_cube.latitude, 
+                                                  "longitude": subset_cube.longitude,
+                                                  "time": subset_cube.time,                                                          
+                                                  'members': [self.member]}, 
+                                          dims=["latitude", "longitude", "time", "members"])
             
             output_xr = xr.where(out_class == 0, 
-                                 output_reg_xr, 
-                                 self.DataConfig['max_forest_age'][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= self.tree_cover))
+                                  output_reg_xr, 
+                                  self.DataConfig['max_forest_age'][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= self.tree_cover))
             
             self.pred_cube.update_cube(output_xr)
         
@@ -286,8 +289,10 @@ class UpscaleAge(ABC):
              
         with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = task_, id_ = run_), "wb") as fout:
             pickle.dump(ml_method.best_model, fout)
-            
-        return {'best_model': ml_method.best_model, 'selected_features': ml_method.final_features, 'norm_stats' : ml_method.mldata.norm_stats}
+         
+        return {'best_model': ml_method.best_model, 
+                'selected_features': ml_method.final_features, 
+                'norm_stats' : ml_method.mldata.norm_stats}
     
     def ForwardRun(self) -> None:
         """Perform forward run of the model, which consists of generating high resolution maps of age using the trained model.
@@ -315,9 +320,12 @@ class UpscaleAge(ABC):
             self.member = run_
             self.best_models = {}
             for task_ in ["Regressor", "Classifier"]:
-                model_tuned      = self.model_tuning(run_ = run_, task_ = task_, train_subset=train_subset, valid_subset=valid_subset)
+                model_tuned      = self.model_tuning(run_ = run_, 
+                                                     task_ = task_, 
+                                                     train_subset=train_subset, 
+                                                     valid_subset=valid_subset)
                 self.best_models[task_] = model_tuned      
-                
+            
             for tree_cover in self.cube_config["tree_cover_tresholds"]:
                 
                 if (self.cube_config["high_res_pred"] and tree_cover != '000'):
@@ -328,18 +336,17 @@ class UpscaleAge(ABC):
                 LonChunks = np.array_split(self.pred_cube.cube.longitude.values, self.cube_config["num_chunks"])
                 
                 AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                               "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                             for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-  
-                if(self.n_jobs > 1):
-                    
-                    p=mp.Pool(self.n_jobs, maxtasksperchild=1)
-                    p.map(self._predict_func, 
-                          AllExtents)
-                    p.close()
-                    p.join()
+            
+                if (self.n_jobs > 1) & (self.algorithm == 'MLP'):
+                                        
+                    with ProcessPoolExecutor(max_workers=self.n_jobs) as executor:
+                        executor.map(self._predict_func, AllExtents)
+                        
                 else:
-                    _ = map(self._predict_func, AllExtents)
+                    for extent in AllExtents:
+                        self._predict_func(extent)
             
             shutil.rmtree(os.path.join(self.study_dir, "tune"))    
                             

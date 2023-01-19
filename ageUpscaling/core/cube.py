@@ -14,8 +14,7 @@ import os
 from typing import Union
 
 import xarray as xr
-from dask.distributed import Client
-import dask
+from concurrent.futures import ProcessPoolExecutor
 
 from ageUpscaling.core.cube_utils import ComputeCube
 
@@ -103,17 +102,16 @@ class DataCube(ComputeCube):
                 self.init_variable(da)
        
         if chunks is not None:
-            # client = Client(memory_limit= self.cube_config['mem_limit_per_cpu'])
-            # futures = [self._update(da.sel(latitude = chunk['latitude'], 
-            #                               longitude = chunk['longitude']))
-            #           for chunk in chunks]
-            for chunk in chunks:
-                self._update(da.sel(latitude = chunk['latitude'], 
-                                    longitude = chunk['longitude'])).compute()
-                #dask.compute(*future, num_workers=self.cube_config['njobs'])
+            futures = [self._update(da.sel(latitude = chunk['latitude'], 
+                                          longitude = chunk['longitude']))
+                      for chunk in chunks]
+            with ProcessPoolExecutor(max_workers=self.cube_config['njobs']) as executor:
+                executor.map(self._update, futures)
             
-            #client.close()
-
+            # for chunk in chunks:
+            #     self._update(da.sel(latitude = chunk['latitude'], 
+            #                         longitude = chunk['longitude'])).compute()
+                
         else:
             self._update(da).compute()
          

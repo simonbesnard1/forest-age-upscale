@@ -16,5 +16,5 @@ upscale_init = UpscaleAge(DataConfig_path = DataConfig_path,
                            algorithm = 'XGBoost',
                            exp_name  = 'Age_upscale_100m',
                            base_dir= '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/output/',
-                           n_jobs = 10)
+                           n_jobs = 1)
 upscale_init.ForwardRun()
