@@ -22,7 +22,8 @@ import yaml as yml
 import pickle
 
 from concurrent.futures import ProcessPoolExecutor
-
+from dask import delayed, compute
+import dask
 
 import xarray as xr
 import zarr
@@ -36,12 +37,22 @@ from ageUpscaling.transformers.spatial import interpolate_worlClim
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 
+from dask.distributed import Client
+
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
 def cleanup():
     if os.path.isdir('.zarrsync') and (len(os.listdir('.zarrsync')) == 0):
         shutil.rmtree('.zarrsync')
 atexit.register(cleanup)
+
+def dask_synchronous(func):
+    """Executes `func` with dask synchronous scheduler."""
+    def wrap(*args, **kwargs):
+        with dask.config.set(scheduler='synchronous'):
+            return func(*args, **kwargs)
+    return wrap
+
 
 class UpscaleAge(ABC):
     """Study abstract class used for cross validation, model training, prediction.
@@ -294,6 +305,7 @@ class UpscaleAge(ABC):
                 'selected_features': ml_method.final_features, 
                 'norm_stats' : ml_method.mldata.norm_stats}
     
+    @dask_synchronous
     def ForwardRun(self) -> None:
         """Perform forward run of the model, which consists of generating high resolution maps of age using the trained model.
 
@@ -339,11 +351,13 @@ class UpscaleAge(ABC):
                                 "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                             for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
             
-                if (self.n_jobs > 1) & (self.algorithm == 'MLP'):
-                                        
-                    with ProcessPoolExecutor(max_workers=self.n_jobs) as executor:
-                        executor.map(self._predict_func, AllExtents)
-                        
+                if (self.n_jobs > 1):
+                    client = Client(n_workers=self.n_jobs)                    
+                    results = [delayed(self._predict_func)(i) for i in AllExtents]
+                    _ = compute(*results, scheduler='processes', num_workers=self.n_jobs)
+                    # with ProcessPoolExecutor(max_workers=self.n_jobs) as executor:
+                    #     executor.map(self._predict_func, AllExtents)
+                    client.close()    
                 else:
                     for extent in AllExtents:
                         self._predict_func(extent)
