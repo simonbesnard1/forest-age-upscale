@@ -14,9 +14,11 @@ import os
 from typing import Union
 
 import xarray as xr
-from concurrent.futures import ProcessPoolExecutor
+#from concurrent.futures import ProcessPoolExecutor
 
 from ageUpscaling.core.cube_utils import ComputeCube
+
+import dask
 
 class DataCube(ComputeCube):
     """A class for handling the creation and updating of regularized cube zarr files.
@@ -100,12 +102,17 @@ class DataCube(ComputeCube):
                                njobs= len(self.cube_config['cube_variables'].keys()))
             
         if chunks is not None:
-            futures = [self._update(da.sel(latitude = chunk['latitude'], 
-                                          longitude = chunk['longitude']))
-                      for chunk in chunks]
-            with ProcessPoolExecutor(max_workers=self.cube_config['njobs']) as executor:
-                executor.map(self._update, futures)
             
+            with dask.config.set({'distributed.worker.memory.target': '1e9', 
+                                  'distributed.worker.threads': 2}):
+
+                futures = [self._update(da.sel(latitude = chunk['latitude'], 
+                                              longitude = chunk['longitude']))
+                          for chunk in chunks]
+                dask.compute(*futures, num_workers=self.cube_config['njobs'])
+            # with ProcessPoolExecutor(max_workers=self.cube_config['njobs']) as executor:
+            #         executor.map(self._update, futures)
+                
             # for chunk in chunks:
             #     self._update(da.sel(latitude = chunk['latitude'], 
             #                         longitude = chunk['longitude'])).compute()

@@ -1,7 +1,6 @@
-from ageUpscaling.utils import utilities, metrics
+from ageUpscaling.utils import metrics
 
 __all__ = [
-    'utilities',
     'metrics'
 ]
 
