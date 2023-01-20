@@ -13,9 +13,15 @@ output_writer_params:
     longitude: 1000
     time: -1
     
-output_variables:
-  - agb
-  - agb_se
+cube_variables:
+  agb:
+    dims: ['latitude', 'longitude', 'time']
+    attrs: {'long_name': 'Above-ground biomass standard_error', 'grid_mapping': 'crs', 'units': 'Mg/ha', 'valid_min': 0.0, 'valid_max': 10000.0}
+    dtype: float32
+  agb_se:
+    dims: ['latitude', 'longitude', 'time']
+    attrs: {'long_name': 'Above-ground biomass standard_error', 'grid_mapping': 'crs', 'units': 'Mg/ha', 'valid_min': 0.0, 'valid_max': 10000.0}
+    dtype: float32
   
 njobs: 2
 

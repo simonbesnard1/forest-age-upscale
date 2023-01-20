@@ -97,7 +97,7 @@ class ComputeCube(ABC):
 
         
     def init_variable(self, 
-                      dataset: Union[xr.DataArray, xr.Dataset], 
+                      cube_variables:dict, 
                       njobs:int = None) ->None:
         """Initializes all dataset variables in the SiteCube.
         
@@ -118,17 +118,13 @@ class ComputeCube(ABC):
         RuntimeError:
             If `dataset` is not an xr.Dataset, xr.DataArray, dictionary, or tuple.
         """
-        if dataset.__class__ is xr.DataArray:
-            self._init_zarr_variable( (dataset.name, dataset.dims, dataset.attrs, dataset.dtype) ).compute()
-        elif dataset.__class__ is xr.Dataset:
-            vars_to_proc = []
-            for _var in set(dataset.variables) - set(dataset.coords):
-                vars_to_proc.append( (_var, dataset[_var].dims, dataset[_var].attrs, dataset[_var].dtype) )
-            futures = [self._init_zarr_variable(da_var) for da_var in vars_to_proc]
-            dask.compute(*futures, num_workers= njobs)
-        else:
-            raise RuntimeError("dataset must be xr.Dataset, xr.DataArray")
         
+        vars_to_proc = []
+        for _var in cube_variables.keys():
+            vars_to_proc.append( (_var, cube_variables[_var]["dims"], cube_variables[_var]["attrs"], cube_variables[_var]['dtype']) )
+        futures = [self._init_zarr_variable(da_var) for da_var in vars_to_proc]
+        dask.compute(*futures, num_workers= njobs)
+    
         self.cube = xr.open_zarr(self.cube_location) 
     
     def new_cube(self) -> xr.Dataset:

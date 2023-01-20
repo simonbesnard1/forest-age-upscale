@@ -96,11 +96,9 @@ class DataCube(ComputeCube):
         
         if initialize:
             
-            if da.__class__ is xr.Dataset:
-                self.init_variable(da, njobs= len((set(da.variables) - set(da.coords))))
-            elif da.__class__ is xr.DataArray:
-                self.init_variable(da)
-       
+            self.init_variable(self.cube_config['cube_variables'], 
+                               njobs= len(self.cube_config['cube_variables'].keys()))
+            
         if chunks is not None:
             futures = [self._update(da.sel(latitude = chunk['latitude'], 
                                           longitude = chunk['longitude']))

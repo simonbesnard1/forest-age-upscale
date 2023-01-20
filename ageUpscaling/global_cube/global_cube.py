@@ -63,13 +63,12 @@ class GlobalCube(DataCube):
                 da['latitude'] = self.cube['latitude']
             
             vars_to_proc = {}
-            for var_name in self.cube_config['output_variables']:
+            for var_name in self.cube_config['cube_variables']:
                 if var_name in da.variables:
                     vars_to_proc[var_name] = var_name
-                    
+               
             if len(vars_to_proc) > 0:        
-                da = da[list(vars_to_proc)].transpose(*self.cube.dims)
-                        
+                da = da[vars_to_proc.keys()].transpose(*self.cube.dims)
                 LatChunks = np.array_split(da.latitude.values, self.cube_config["num_chunks"])
                 LonChunks = np.array_split(da.longitude.values, self.cube_config["num_chunks"])
                 
