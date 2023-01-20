@@ -258,7 +258,7 @@ class UpscaleAge(ABC):
                                   output_reg_xr, 
                                   self.DataConfig['max_forest_age'][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= self.tree_cover))
             
-            self.pred_cube.update_cube(output_xr)
+            self.pred_cube.update_cube(output_xr, initialize=False)
         
     def model_tuning(self,
                      run_: int=1,
@@ -322,6 +322,9 @@ class UpscaleAge(ABC):
         """
         
         self.pred_cube = DataCube(cube_config = self.cube_config)
+        self.pred_cube.init_variable(self.cube_config['cube_variables'], 
+                           njobs= len(self.cube_config['cube_variables'].keys()))
+        
         
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         np.random.shuffle(cluster_)
@@ -333,9 +336,9 @@ class UpscaleAge(ABC):
             self.best_models = {}
             for task_ in ["Regressor", "Classifier"]:
                 model_tuned      = self.model_tuning(run_ = run_, 
-                                                     task_ = task_, 
-                                                     train_subset=train_subset, 
-                                                     valid_subset=valid_subset)
+                                                      task_ = task_, 
+                                                      train_subset=train_subset, 
+                                                      valid_subset=valid_subset)
                 self.best_models[task_] = model_tuned      
             
             for tree_cover in self.cube_config["tree_cover_tresholds"]:

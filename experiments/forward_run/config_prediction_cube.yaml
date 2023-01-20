@@ -21,10 +21,10 @@ tree_cover_tresholds: ['000']
 
 high_res_pred: yes
 
-output_variables:
-  forest_age:
-    dims: ['latitude', 'longitude', 'time']
-    attrs: {'long_name': 'Above-ground biomass standard_error', 'grid_mapping': 'crs', 'units': 'Mg/ha', 'valid_min': 0.0, 'valid_max': 10000.0}
+cube_variables:
+  forest_age_TC000:
+    dims: ['latitude', 'longitude', 'time', 'members']
+    attrs: {'long_name': 'Forest age with no tree cover correction', 'grid_mapping': 'crs', 'units': 'years', 'valid_min': 0.0, 'valid_max': 300}
     dtype: float32
     
 output_metadata:
