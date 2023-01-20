@@ -75,7 +75,6 @@ class GlobalCube(DataCube):
                 to_proc = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
                             "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                            for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-                
                 self.update_cube(da, chunks=to_proc)
                 
                     

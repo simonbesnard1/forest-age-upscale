@@ -201,7 +201,6 @@ class ComputeCube(ABC):
         except Exception as e:
             raise RuntimeError("Failed to write variable to cube: " + str(da)) from e
       
-    @dask.delayed
     def _update(self, 
                 da:Union[xr.DataArray, xr.Dataset]) -> None:
         """Update the data cube with the provided data.

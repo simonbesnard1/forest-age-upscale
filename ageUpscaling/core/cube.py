@@ -15,10 +15,10 @@ from typing import Union
 
 import xarray as xr
 #from concurrent.futures import ProcessPoolExecutor
+import dask
 
 from ageUpscaling.core.cube_utils import ComputeCube
 
-import dask
 
 class DataCube(ComputeCube):
     """A class for handling the creation and updating of regularized cube zarr files.
@@ -102,14 +102,13 @@ class DataCube(ComputeCube):
                                njobs= len(self.cube_config['cube_variables'].keys()))
             
         if chunks is not None:
-            
-            with dask.config.set({'distributed.worker.memory.target': '1e9', 
+            with dask.config.set({'distributed.worker.memory.target': 1*1024*1024*1024, 
                                   'distributed.worker.threads': 2}):
 
                 futures = [self._update(da.sel(latitude = chunk['latitude'], 
                                               longitude = chunk['longitude']))
                           for chunk in chunks]
-                dask.compute(*futures, num_workers=self.cube_config['njobs'])
+                dask.compute(*futures, num_workers=2)
             # with ProcessPoolExecutor(max_workers=self.cube_config['njobs']) as executor:
             #         executor.map(self._update, futures)
                 
