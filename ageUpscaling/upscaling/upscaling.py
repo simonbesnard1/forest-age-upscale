@@ -355,7 +355,7 @@ class UpscaleAge(ABC):
                             for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
             
                 if (self.n_jobs > 1):
-                    with dask.config.set({'distributed.worker.memory.target': 5*1024*1024*1024, 
+                    with dask.config.set({'distributed.worker.memory.target': 4*1024*1024*1024, 
                                           'distributed.worker.threads': 2}):
 
                         futures = [self._predict_func(i) for i in AllExtents]
