@@ -21,8 +21,6 @@ import numpy as np
 import yaml as yml
 import pickle
 
-from concurrent.futures import ProcessPoolExecutor
-from dask import delayed, compute
 import dask
 
 import xarray as xr
@@ -37,21 +35,12 @@ from ageUpscaling.transformers.spatial import interpolate_worlClim
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 
-from dask.distributed import Client
-
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
 def cleanup():
     if os.path.isdir('.zarrsync') and (len(os.listdir('.zarrsync')) == 0):
         shutil.rmtree('.zarrsync')
 atexit.register(cleanup)
-
-def dask_synchronous(func):
-    """Executes `func` with dask synchronous scheduler."""
-    def wrap(*args, **kwargs):
-        with dask.config.set(scheduler='synchronous'):
-            return func(*args, **kwargs)
-    return wrap
 
 class UpscaleAge(ABC):
     """Study abstract class used for cross validation, model training, prediction.
@@ -305,7 +294,6 @@ class UpscaleAge(ABC):
                 'selected_features': ml_method.final_features, 
                 'norm_stats' : ml_method.mldata.norm_stats}
     
-    #@dask_synchronous
     def ForwardRun(self) -> None:
         """Perform forward run of the model, which consists of generating high resolution maps of age using the trained model.
 
