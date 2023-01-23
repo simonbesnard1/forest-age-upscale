@@ -35,8 +35,8 @@ hyper_params:
     min: 50
     max: 500
     step: 50   
-  activation: ['tanh', 'relu']
-  solver: ['adam', 'sgd']
+  activation: ['tanh']
+  solver: ['adam']
   batch_size:
     min: 16
     max: 64

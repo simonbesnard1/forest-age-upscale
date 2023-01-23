@@ -112,12 +112,12 @@ class MLData(ABC):
             Y[mask_old] = 1
             Y[mask_young] = 0    
         
-        elif method == 'MLPRegressor' and self.normalize:
-            Y = Y.where(Y<max_forest_age)
-            Y = self.norm(Y, self.norm_stats).to_array().values
+        # elif method == 'MLPRegressor' and self.normalize:
+        #     Y = Y.where(Y<max_forest_age)
+        #     Y = self.norm(Y, self.norm_stats).to_array().values
             
-        else :
-            Y = Y.where(Y<max_forest_age).to_array().values
+        # else :
+        Y = Y.where(Y<max_forest_age).to_array().values
         
         return Y
             
