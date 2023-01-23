@@ -117,6 +117,6 @@ class DataCube(ComputeCube):
             #                         longitude = chunk['longitude'])).compute()
                 
         else:
-            self._update(da).compute()
+            self._update(da)
          
 
