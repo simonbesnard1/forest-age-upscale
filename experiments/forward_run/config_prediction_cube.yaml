@@ -10,12 +10,12 @@ output_writer_params:
     time: ["2010-01-01", "2017-01-01", "2018-01-01"]
     members: 1
   chunksizes: 
-    latitude: 1000
-    longitude: 1000
+    latitude: 2000
+    longitude: 2000
     time: -1
     members: -1 
 
-num_chunks: 100
+num_chunks: 10
 
 tree_cover_tresholds: ['000']
 

@@ -116,8 +116,8 @@ class MLData(ABC):
         #     Y = Y.where(Y<max_forest_age)
         #     Y = self.norm(Y, self.norm_stats).to_array().values
             
-        # else :
-        Y = Y.where(Y<max_forest_age).to_array().values
+        else :
+            Y = Y.where(Y<max_forest_age).to_array().values
         
         return Y
             
