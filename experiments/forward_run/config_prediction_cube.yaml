@@ -15,7 +15,7 @@ output_writer_params:
     time: -1
     members: -1 
 
-num_chunks: 10
+num_chunks: 100
 
 tree_cover_tresholds: ['000']
 

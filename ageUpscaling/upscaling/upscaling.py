@@ -218,36 +218,35 @@ class UpscaleAge(ABC):
             
             if self.algorithm == "MLP":
                 pred_class = self.best_models["Classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
+                
             elif self.algorithm == "XGBoost":
                 dpred =  xgb.DMatrix(X_upscale_class_flattened[mask])
-                pred_class = self.best_models["Classifier"]['best_model'].predict(dpred)
+                pred_class = np.rint(self.best_models["Classifier"]['best_model'].predict(dpred))
                             
             RF_pred_class[mask] = pred_class
-            out_class = RF_pred_class.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
             
             if self.algorithm == "MLP":
-                pred_reg= self.denorm_target(self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
-                                             self.best_models["Regressor"]['norm_stats']['age'])
+                # pred_reg= self.denorm_target(self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
+                #                              self.best_models["Regressor"]['norm_stats']['age'])
+                pred_reg= self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask])
+                
             elif self.algorithm == "XGBoost":
                 dpred =  xgb.DMatrix(X_upscale_reg_flattened[mask])
                 pred_reg= self.best_models["Regressor"]['best_model'].predict(dpred)
             
             pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
             pred_reg[pred_reg<0] = 0
-            RF_pred_reg[mask] = pred_reg            
+            RF_pred_reg[mask] = pred_reg
+            RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]            
             out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
             output_reg_xr = xr.DataArray(out_reg, 
                                           coords={"latitude": subset_cube.latitude, 
                                                   "longitude": subset_cube.longitude,
                                                   "time": subset_cube.time,                                                          
                                                   'members': [self.member]}, 
-                                          dims=["latitude", "longitude", "time", "members"])
-            
-            output_xr = xr.where(out_class == 0, 
-                                  output_reg_xr, 
-                                  self.DataConfig['max_forest_age'][0]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= self.tree_cover))
-            
-            self.pred_cube.update_cube(output_xr, initialize=False)
+                                          dims=["latitude", "longitude", "time", "members"]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= self.tree_cover))
+                    
+            self.pred_cube.update_cube(output_reg_xr, initialize=False)
         
     def model_tuning(self,
                      run_: int=1,

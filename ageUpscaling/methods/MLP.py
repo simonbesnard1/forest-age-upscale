@@ -200,7 +200,10 @@ class MLPmethod:
             'fourth_layer_neurons': trial.suggest_int('fourth_layer_neurons', DataConfig['hyper_params']['fourth_layer_neurons']['min'], DataConfig['hyper_params']['fourth_layer_neurons']['max'], step=DataConfig['hyper_params']['fourth_layer_neurons']['step']),
             'activation': trial.suggest_categorical('activation', DataConfig['hyper_params']['activation']),
             'solver': trial.suggest_categorical('solver', DataConfig['hyper_params']['solver']),            
-            'batch_size': trial.suggest_int('batch_size', DataConfig['hyper_params']['batch_size']['min'], DataConfig['hyper_params']['batch_size']['max'], step=DataConfig['hyper_params']['batch_size']['step'])}
+            'batch_size': trial.suggest_int('batch_size', DataConfig['hyper_params']['batch_size']['min'], DataConfig['hyper_params']['batch_size']['max'], step=DataConfig['hyper_params']['batch_size']['step']),
+            'tol': trial.suggest_float('tol ', DataConfig['hyper_params']['tol']['min'], DataConfig['hyper_params']['tol']['max'], step=DataConfig['hyper_params']['tol']['step']),
+            
+            }
         
         if self.method == "MLPRegressor": 
             model_ = MLPRegressor(hidden_layer_sizes=tuple([hyper_params['first_layer_neurons'], 
@@ -213,10 +216,11 @@ class MLPmethod:
                                    solver = hyper_params['solver'],
                                    batch_size=hyper_params['batch_size'],
                                    warm_start=True,
-                                   max_iter=10000, 
-                                   tol=0.01,
-                                   early_stopping= True, 
-                                   validation_fraction=0.2,
+                                   max_iter=200, 
+                                   tol=hyper_params['tol'],
+                                   n_iter_no_change= 10,
+                                   #early_stopping= True, 
+                                   #validation_fraction=0.3,
                                    random_state=1)
             
         elif self.method == "MLPClassifier": 
@@ -230,10 +234,11 @@ class MLPmethod:
                                    solver = hyper_params['solver'],
                                    batch_size=hyper_params['batch_size'],
                                    warm_start=True,
-                                   max_iter=10000, 
-                                   tol=0.01,
-                                   early_stopping= True, 
-                                   validation_fraction=0.3,
+                                   max_iter=200, 
+                                   tol=hyper_params['tol'],
+                                   n_iter_no_change= 10,
+                                   #early_stopping= True, 
+                                   #validation_fraction=0.3,
                                    random_state=1)
         
         model_.fit(train_data['features'], train_data['target'])
