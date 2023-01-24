@@ -60,17 +60,17 @@ class GlobalCube(DataCube):
                 da = da.rename({'band': 'time', 'x': 'longitude', 'y': 'latitude'})
                 da['time'] = [np.datetime64(os.path.basename(f_).split('_')[2] + '-01-01')]
                 da = da.to_dataset(name = 'agb')
-                print(da)
             else:
                 da = xr.open_dataset(f_)
                 
             if 'lon' in da.coords:
                 da = da.rename({'lon': 'longitude'})
-                da['longitude'] = self.cube['longitude']
+                
             if 'lat' in da.coords:
                 da = da.rename({'lat': 'latitude'})
-                da['latitude'] = self.cube['latitude']
-            
+                
+            da['longitude'] = self.cube['longitude']
+            da['latitude'] = self.cube['latitude']
             vars_to_proc = {}
             for var_name in self.cube_config['cube_variables']:
                 if var_name in da.variables:
