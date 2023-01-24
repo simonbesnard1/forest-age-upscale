@@ -16,6 +16,7 @@ import os
 import glob
 import numpy as np
 from itertools import product
+import rioxarray as rio
 
 from ageUpscaling.core.cube import DataCube
 
@@ -52,8 +53,16 @@ class GlobalCube(DataCube):
         Dask library, with the number of workers specified.
     
         """
-        for f_ in glob.glob(os.path.join(self.base_file_path, '*.nc')):
-            da = xr.open_dataset(f_)
+        for f_ in glob.glob(os.path.join(self.base_file_path, '*.nc')) + glob.glob(os.path.join(self.base_file_path, '*.tif')):
+            
+            if (os.path.basename(f_).split('.')[-1] == 'tif'):
+                da = rio.open_rasterio(f_)
+                da = da.rename({'band': 'time', 'x': 'longitude', 'y': 'latitude'})
+                da['time'] = [np.datetime64(os.path.basename(f_).split('_')[2] + '-01-01')]
+                da = da.to_dataset(name = 'agb')
+                print(da)
+            else:
+                da = xr.open_dataset(f_)
                 
             if 'lon' in da.coords:
                 da = da.rename({'lon': 'longitude'})
