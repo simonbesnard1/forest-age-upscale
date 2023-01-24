@@ -239,6 +239,7 @@ class UpscaleAge(ABC):
             RF_pred_reg[mask] = pred_reg
             RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]            
             out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
+            print(np.nanmean(out_reg))
             output_reg_xr = xr.DataArray(out_reg, 
                                           coords={"latitude": subset_cube.latitude, 
                                                   "longitude": subset_cube.longitude,
@@ -342,7 +343,7 @@ class UpscaleAge(ABC):
                             for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
             
                 if (self.n_jobs > 1):
-                    with dask.config.set({'distributed.worker.memory.target': 20*1024*1024*1024, 
+                    with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
                                           'distributed.worker.threads': 2}):
 
                         futures = [self._predict_func(i) for i in AllExtents]
