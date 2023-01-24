@@ -85,7 +85,7 @@ class Report:
             plotMat.append(v)
         
         fig, ax = plt.subplots(2, 2, figsize=(12, 9), gridspec_kw={'wspace': 0.35, 'hspace': 0.35})
-        im = ax[0,0].pcolor(plotMat, edgecolors='k', linestyle= 'dashed', linewidths=0.2, cmap='hot_r', vmin=np.min(plotMat), vmax=1.0)    
+        im = ax[0,0].pcolor(plotMat, edgecolors='k', linestyle= 'dashed', linewidths=0.2, cmap='hot_r', vmin=np.min(plotMat)-0.05, vmax=np.max(plotMat))    
         ax[0,0].set_yticks(np.arange(2) + 0.5, minor=False)
         ax[0,0].set_xticks(np.arange(3) + 0.5, minor=False)
         xticklabels = ['Precision', 'Recall', 'F1-score']
