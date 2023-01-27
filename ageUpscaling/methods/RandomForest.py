@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 @author: sbesnard
-@File    :   xgboost.py
+@File    :   RF.py
 @Time    :   Mon Sep 26 10:47:17 2022
 @Author  :   Simon Besnard
 @Version :   1.0
 @Contact :   besnard.sim@gmail.com
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for training Xgboost model
+@Desc    :   A method class for training RF model
 """
 import os
 import numpy as np
@@ -17,7 +17,9 @@ from typing import Any
 
 import xarray as xr
 
-import xgboost as xgb
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestClassifier
+
 from sklearn.metrics import mean_squared_error, roc_auc_score
 
 import optuna
@@ -25,8 +27,8 @@ import optuna
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
 from ageUpscaling.methods.feature_selection import FeatureSelection
 
-class XGBoost:
-    """A method class for training and evaluating an XGBoost model.
+class RandomForest:
+    """A method class for training and evaluating an RandomForest model.
     
     Parameters
     ----------
@@ -34,14 +36,14 @@ class XGBoost:
         Directory to save the model experiment. If not provided, the model experiment will not be saved.
     DataConfig : dict, default is None
         Dictionary containing the data configuration.
-    method : str, default is 'XGBoostRegressor'
-        String defining the type of XGBoost model to use. Can be 'XGBoostRegressor' for a regression model or 'XGBoostClassifier' for a classification model.
+    method : str, default is 'RandomForestRegressor'
+        String defining the type of RF model to use. Can be 'RandomForestRegressor' for a regression model or 'RandomForestClassifier' for a classification model.
     """
     
     def __init__(self,
                  tune_dir: str=None,
                  DataConfig:dict=None,
-                 method:str = 'XGBoostRegressor') -> None:
+                 method:str = 'RandomForestRegressor') -> None:
 
         self.tune_dir = tune_dir
         
@@ -52,7 +54,7 @@ class XGBoost:
         self.method = method
         
     def get_datamodule(self, 
-                       method:str = 'XGBoostRegressor',
+                       method:str = 'RandomForestRegressor',
                        DataConfig: dict[str, Any] = {},
                        target: dict[str, Any] = {},
                        features: dict[str, Any] = {},
@@ -63,8 +65,8 @@ class XGBoost:
         """Returns the data module for training the model.
 
         Parameters:
-            method: str, default is 'XGBoostRegressor'
-                The type of model to use for training ('XGBoostRegressor' or 'XGBoostClassifier').
+            method: str, default is 'RandomForestRegressor'
+                The type of model to use for training ('RandomForestRegressor' or 'RandomForestClassifier').
             DataConfig: dict[str, Any]
                 The data configuration.
             target: dict[str, Any]
@@ -103,7 +105,7 @@ class XGBoost:
               feature_selection_method:str="recursive", 
               n_jobs:int=10) -> None:
         
-        """Trains an XGBoost model using the specified training and validation datasets.
+        """Trains an RF model using the specified training and validation datasets.
 
         Parameters:
             train_subset: dict
@@ -153,7 +155,7 @@ class XGBoost:
                                     # pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
                                     #                                                reduction_factor=4, 
                                     #                                                min_early_stopping_rate=8),
-                                    direction=['minimize' if self.method == 'XGBoostRegressor' else 'maximize'][0])
+                                    direction=['minimize' if self.method == 'RandomForestRegressor' else 'maximize'][0])
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
@@ -188,55 +190,29 @@ class XGBoost:
             The loss of the model.
         """
         
-        hyper_params = {
-                        'eta': trial.suggest_float('eta ', DataConfig['hyper_params']['eta']['min'], DataConfig['hyper_params']['eta']['max']),
-                        'gamma': trial.suggest_float('gamma ', DataConfig['hyper_params']['gamma']['min'], DataConfig['hyper_params']['gamma']['max']),
-                        'max_depth': trial.suggest_int('max_depth', DataConfig['hyper_params']['max_depth']['min'], DataConfig['hyper_params']['max_depth']['max'], step=DataConfig['hyper_params']['max_depth']['step']),
-                        'min_child_weight': trial.suggest_int('min_child_weight', DataConfig['hyper_params']['min_child_weight']['min'], DataConfig['hyper_params']['min_child_weight']['max'], step=DataConfig['hyper_params']['min_child_weight']['step']),
-                        'subsample': trial.suggest_float('subsample ', DataConfig['hyper_params']['subsample']['min'], DataConfig['hyper_params']['subsample']['max'], step=DataConfig['hyper_params']['subsample']['step']),
-                        'colsample_bynode': trial.suggest_float('colsample_bynode ', DataConfig['hyper_params']['colsample_bynode']['min'], DataConfig['hyper_params']['colsample_bynode']['max'], step=DataConfig['hyper_params']['colsample_bynode']['step']),
-                        'lambda': trial.suggest_float('lambda ', DataConfig['hyper_params']['lambda']['min'], DataConfig['hyper_params']['lambda']['max']),
-                        'alpha': trial.suggest_float('alpha ', DataConfig['hyper_params']['alpha']['min'], DataConfig['hyper_params']['alpha']['max']),
-                        'tree_method': trial.suggest_categorical('tree_method', DataConfig['hyper_params']['tree_method']),
-                        }
-        
-        training_params = {'num_boost_round': trial.suggest_int('num_boost_round', DataConfig['hyper_params']['num_boost_round']['min'], DataConfig['hyper_params']['num_boost_round']['max'], step=DataConfig['hyper_params']['num_boost_round']['step'])}
-        training_params['early_stopping_rounds'] = 10
-        
-        if self.method == "XGBoostRegressor":
-            hyper_params['objective'] = "reg:squarederror"
-            #pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-rmse")
-
+        hyper_params = {"n_estimators": trial.suggest_int('n_estimators', DataConfig['hyper_params']['n_estimators']['min'], DataConfig['hyper_params']['n_estimators']['max'], step=DataConfig['hyper_params']['n_estimators']['step']),
+                        "max_depth": trial.suggest_int('max_depth', DataConfig['hyper_params']['max_depth']['min'], DataConfig['hyper_params']['max_depth']['max'], step=DataConfig['hyper_params']['max_depth']['step']),
+                        "min_samples_split": trial.suggest_int('min_samples_split', DataConfig['hyper_params']['min_samples_split']['min'], DataConfig['hyper_params']['min_samples_split']['max'], step=DataConfig['hyper_params']['min_samples_split']['step']),
+                        "min_samples_leaf": trial.suggest_int('min_samples_leaf', DataConfig['hyper_params']['min_samples_leaf']['min'], DataConfig['hyper_params']['min_samples_leaf']['max'], step=DataConfig['hyper_params']['min_samples_leaf']['step'])}
+                                        
+        if self.method == "RandomForestRegressor":
+            model_ = RandomForestRegressor(**hyper_params)
             
-        elif self.method == "XGBoostClassifier":
-            hyper_params['objective'] = "binary:logistic"
-            hyper_params['eval_metric'] = "auc"            
-            #pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-auc")
-
-        dtrain = xgb.DMatrix(train_data['features'], label=train_data['target'])
-        deval = xgb.DMatrix(val_data['features'], label = val_data['target'])
-        vallist = [(dtrain, 'train'), (deval, 'eval')]
+        elif self.method == "RandomForestClassifier":
+          model_ = RandomForestClassifier(**hyper_params)
+          
+        model_.fit(train_data['features'], train_data['target'])
         
-        model_ = xgb.train(hyper_params, dtrain, evals=vallist,
-                           verbose_eval=False, **training_params)
-        
-        self.best_ntree = model_.best_ntree_limit
-            
-        if retrain_with_valid:
-            training_params['num_boost_round'] = self.best_ntree
-            training_params['early_stopping_rounds'] = None
-            model_ = xgb.train(hyper_params, dtrain, **training_params)
-
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)
         
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
         
-        if self.method == "XGBoostRegressor":
-            loss_ = mean_squared_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), squared=False)
-        elif self.method == "XGBoostClassifier":
-            loss_ =  roc_auc_score(val_data['target'], np.rint(model_.predict(xgb.DMatrix(val_data['features']))))
+        if self.method == "RandomForestRegressor":
+            loss_ = mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False)
+        elif self.method == "RandomForestClassifier":
+            loss_ =  roc_auc_score(val_data['target'], np.rint(model_.predict(val_data['features'])))
         
         return loss_
     
@@ -259,17 +235,12 @@ class XGBoost:
             Y_cluster = Y[:, cluster_, :].reshape(-1)
             mask_nan = (np.all(np.isfinite(X_cluster), axis=1)) & (np.isfinite(Y_cluster))
             if X_cluster[mask_nan, :].shape[0]>0:
-                dpred =  xgb.DMatrix(X_cluster[mask_nan, :])
-                if self.method == "XGBoostRegressor":
-                    y_hat =  self.best_model.predict(dpred)
-                elif self.method == "XGBoostClassifier":
-                    y_hat =  np.rint(self.best_model.predict(dpred))
-                
+                y_hat = self.best_model.predict(X_cluster[mask_nan, :])
                 preds = xr.Dataset()
                 
-                if self.method == "XGBoostClassifier": 
+                if self.method == "RandomForestClassifier": 
                     out_var = 'oldGrowth'
-                elif self.method == "XGBoostRegressor": 
+                elif self.method == "RandomForestRegressor": 
                     out_var = 'forestAge'
                 
                 preds["{out_var}_pred".format(out_var = out_var)] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})

@@ -23,6 +23,7 @@ import shutil
 from ageUpscaling.core.cube import DataCube
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
+from ageUpscaling.methods.RandomForest import RandomForest
 
 
 class Study(ABC):
@@ -192,6 +193,10 @@ class Study(ABC):
                     ml_method = XGBoost(tune_dir=os.path.join(self.study_dir, "tune"), 
                                         DataConfig= self.DataConfig,
                                         method=self.algorithm + task_)
+                elif self.algorithm == "RandomForest":
+                    ml_method = RandomForest(tune_dir=os.path.join(self.study_dir, "tune"), 
+                                             DataConfig= self.DataConfig,
+                                             method=self.algorithm + task_)
                     
                 ml_method.train(train_subset=train_subset,
                                   valid_subset=valid_subset, 
@@ -199,7 +204,7 @@ class Study(ABC):
                                   feature_selection= feature_selection,
                                   feature_selection_method=feature_selection_method,
                                   n_jobs = self.n_jobs)
-                ml_method.predict_clusters(save_cube = pred_cube)                       
+                #ml_method.predict_clusters(save_cube = pred_cube)                       
                 shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
     
