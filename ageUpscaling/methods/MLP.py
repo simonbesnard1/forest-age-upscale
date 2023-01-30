@@ -201,8 +201,7 @@ class MLPmethod:
             'activation': trial.suggest_categorical('activation', DataConfig['hyper_params']['activation']),
             'solver': trial.suggest_categorical('solver', DataConfig['hyper_params']['solver']),            
             'batch_size': trial.suggest_int('batch_size', DataConfig['hyper_params']['batch_size']['min'], DataConfig['hyper_params']['batch_size']['max'], step=DataConfig['hyper_params']['batch_size']['step']),
-            'tol': trial.suggest_float('tol ', DataConfig['hyper_params']['tol']['min'], DataConfig['hyper_params']['tol']['max'], step=DataConfig['hyper_params']['tol']['step']),
-            
+            'tol': trial.suggest_float('tol ', DataConfig['hyper_params']['tol']['min'], DataConfig['hyper_params']['tol']['max'], step=DataConfig['hyper_params']['tol']['step']),            
             }
         
         if self.method == "MLPRegressor": 
@@ -219,8 +218,8 @@ class MLPmethod:
                                    max_iter=200, 
                                    tol=hyper_params['tol'],
                                    n_iter_no_change= 10,
-                                   #early_stopping= True, 
-                                   #validation_fraction=0.3,
+                                   early_stopping= True, 
+                                   validation_fraction=0.3,
                                    random_state=1)
             
         elif self.method == "MLPClassifier": 
@@ -237,8 +236,8 @@ class MLPmethod:
                                    max_iter=200, 
                                    tol=hyper_params['tol'],
                                    n_iter_no_change= 10,
-                                   #early_stopping= True, 
-                                   #validation_fraction=0.3,
+                                   early_stopping= True, 
+                                   validation_fraction=0.3,
                                    random_state=1)
         
         model_.fit(train_data['features'], train_data['target'])
