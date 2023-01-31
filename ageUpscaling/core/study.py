@@ -204,7 +204,7 @@ class Study(ABC):
                                   feature_selection= feature_selection,
                                   feature_selection_method=feature_selection_method,
                                   n_jobs = self.n_jobs)
-                #ml_method.predict_clusters(save_cube = pred_cube)                       
+                ml_method.predict_clusters(save_cube = pred_cube)                       
                 shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
     
