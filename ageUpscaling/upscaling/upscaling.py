@@ -239,7 +239,6 @@ class UpscaleAge(ABC):
             RF_pred_reg[mask] = pred_reg
             RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]            
             out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
-            print(np.nanmean(out_reg))
             output_reg_xr = xr.DataArray(out_reg, 
                                           coords={"latitude": subset_cube.latitude, 
                                                   "longitude": subset_cube.longitude,
