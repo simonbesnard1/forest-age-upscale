@@ -148,48 +148,45 @@ class RandomForest:
         train_data = self.mldata.train_dataloader().get_xy()
         val_data = self.mldata.val_dataloader().get_xy()
         
-        # Number of trees in random forest
-        n_estimators = [int(x) for x in np.linspace(start = 100, stop = 500, num = 5)]
-        # Number of features to consider at every split
-        max_features = ['auto', 'sqrt']
-        # Maximum number of levels in tree
-        max_depth = [int(x) for x in np.linspace(10, 110, num = 6)]
-        max_depth.append(None)
-        # Minimum number of samples required to split a node
-        min_samples_split = [2, 5, 10]
-        # Minimum number of samples required at each leaf node
-        min_samples_leaf = [1, 2, 4]
-        # Method of selecting samples for training each tree
-        bootstrap = [True, False]
-        # Create the random grid
-        random_grid = {'n_estimators': n_estimators,
-                        'max_features': max_features,
-                        'max_depth': max_depth,
-                        'min_samples_split': min_samples_split,
-                        'min_samples_leaf': min_samples_leaf,
-                        'bootstrap': bootstrap}
-        model = RandomForestRegressor()  
-        gridsearch = RandomizedSearchCV(estimator = model, param_distributions = random_grid, 
-                                        n_iter = 5, verbose=0, random_state=42, n_jobs = 1)
-        gridsearch.fit(train_data['features'], train_data['target'])
+        # # Number of trees in random forest
+        # n_estimators = [int(x) for x in np.linspace(start = 100, stop = 500, num = 5)]
+        # # Maximum number of levels in tree
+        # max_depth = [int(x) for x in np.linspace(10, 110, num = 6)]
+        # max_depth.append(None)
+        # # Minimum number of samples required to split a node
+        # min_samples_split = [2, 5, 10]
+        # # Minimum number of samples required at each leaf node
+        # min_samples_leaf = [1, 2, 4]
+        # # Method of selecting samples for training each tree
+        # bootstrap = [True, False]
+        # # Create the random grid
+        # random_grid = {'n_estimators': n_estimators,                        
+        #                 'max_depth': max_depth,
+        #                 'min_samples_split': min_samples_split,
+        #                 'min_samples_leaf': min_samples_leaf,
+        #                 'bootstrap': bootstrap}
+        # model = RandomForestRegressor()  
+        # gridsearch = RandomizedSearchCV(estimator = model, param_distributions = random_grid, 
+        #                                 n_iter = 5, verbose=0, random_state=42, n_jobs = 1)
+        # gridsearch.fit(train_data['features'], train_data['target'])
     
-        #Retrieve best model and best parameters
-        self.best_model = gridsearch.best_estimator_
+        # #Retrieve best model and best parameters
+        # self.best_model = gridsearch.best_estimator_
                     
-        # if not os.path.exists(self.tune_dir + '/trial_model/'):
-        #     os.makedirs(self.tune_dir + '/trial_model/')
+        if not os.path.exists(self.tune_dir + '/trial_model/'):
+            os.makedirs(self.tune_dir + '/trial_model/')
         
-        # study = optuna.create_study(study_name = 'hpo_ForestAge', 
-        #                             #storage='sqlite:///' + self.tune_dir + '/trial_model/hp_trial.db',
-        #                             # pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
-        #                             #                                                reduction_factor=4, 
-        #                             #                                                min_early_stopping_rate=8),
-        #                             direction=['minimize' if self.method == 'RandomForestRegressor' else 'maximize'][0])
-        # study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
-        #                n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
+        study = optuna.create_study(study_name = 'hpo_ForestAge', 
+                                    #storage='sqlite:///' + self.tune_dir + '/trial_model/hp_trial.db',
+                                    # pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
+                                    #                                                reduction_factor=4, 
+                                    #                                                min_early_stopping_rate=8),
+                                    direction=['minimize' if self.method == 'RandomForestRegressor' else 'maximize'][0])
+        study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
+                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
-        # with open(self.tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
-        #     self.best_model = pickle.load(fin)            
+        with open(self.tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
+            self.best_model = pickle.load(fin)            
             
     def hp_search(self, 
                    trial: optuna.Trial,
