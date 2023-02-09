@@ -170,7 +170,7 @@ class RandomForest:
         elif self.method == "RandomForestClassifier":
             model = RandomForestClassifier()
         gridsearch = RandomizedSearchCV(estimator = model, param_distributions = random_grid, 
-                                        n_iter = 5, verbose=0, random_state=42, n_jobs = 1)
+                                        n_iter = 50, verbose=0, random_state=42, n_jobs = 1)
         gridsearch.fit(train_data['features'], train_data['target'])
     
         #Retrieve best model and best parameters
