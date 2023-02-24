@@ -24,7 +24,7 @@ from ageUpscaling.core.cube import DataCube
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 from ageUpscaling.methods.RandomForest import RandomForest
-
+from ageUpscaling.methods.autoML import TPOT
 
 class Study(ABC):
     """Study abstract class for cross validation, model training, prediction.
@@ -197,6 +197,10 @@ class Study(ABC):
                     ml_method = RandomForest(tune_dir=os.path.join(self.study_dir, "tune"), 
                                              DataConfig= self.DataConfig,
                                              method=self.algorithm + task_)
+                elif self.algorithm == "TPOT":
+                    ml_method = TPOT(tune_dir=os.path.join(self.study_dir, "tune"), 
+                                     DataConfig= self.DataConfig,
+                                     method=self.algorithm + task_)
                     
                 ml_method.train(train_subset=train_subset,
                                   valid_subset=valid_subset, 

@@ -1,0 +1,11 @@
+training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300.nc"
+features:
+  - agb
+  - AnnualMeanTemperature_WorlClim
+
+target:
+  - age
+  
+max_forest_age:
+  - 300
+ 
