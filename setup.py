@@ -49,7 +49,7 @@ setuptools.setup(
         "zarr==2.10.3",
         "rioxarray==0.13.3",
         "netCDF4==1.6.2",
-        "dask==2022.12.1", 
+        "dask==2022.11.0", 
         "scikit-learn==1.1.3",
         "Boruta==0.3",
         "numpy==1.23.4",
