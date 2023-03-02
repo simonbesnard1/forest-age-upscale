@@ -25,11 +25,13 @@ import xarray as xr
 import zarr
 
 from sklearn.neighbors import KNeighborsRegressor
-from xgboost.sklearn import XGBRegressor
+from sklearn.model_selection import train_test_split
 import shap
 from sklearn.model_selection import GridSearchCV,  KFold
 
 from ageUpscaling.core.cube import DataCube
+from ageUpscaling.methods.xgboost import XGBoost
+
 
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
@@ -59,9 +61,9 @@ class ExtrapolationIndex(ABC):
 
     """
     def __init__(self,
-                 DataConfig_path: str,
-                 cube_config_path: str,            
-                 base_dir: str,
+                 DataConfig_path: str=None,
+                 cube_config_path: str=None,            
+                 base_dir: str=None,
                  n_jobs: int = 1,
                  **kwargs):
 
@@ -70,7 +72,7 @@ class ExtrapolationIndex(ABC):
         
         with open(cube_config_path, 'r') as f:
             self.cube_config =  yml.safe_load(f)
-        
+            
         self.base_dir = base_dir
         self.n_jobs = n_jobs
         self.cube_config['cube_location'] = os.path.join(self.base_dir, self.cube_config['cube_name'])
@@ -127,18 +129,22 @@ class ExtrapolationIndex(ABC):
     def calculate_weights(self,
                           X, Y):
         
-        X = X.to_array().transpose('cluster','sample', 'variable').values.reshape(-1, len(self.DataConfig['features']))
-        Y = Y.to_array().values.reshape(-1)
-        Y[Y<1] = 1 ## set min age to 1
-        mask_nan = (np.all(np.isfinite(X), axis=1)) & (np.isfinite(Y))
-        X, Y = X[mask_nan, :], Y[mask_nan]    
+        cluster_ = np.load(self.DataConfig['xval_index_path'])        
+        train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
+        self.DataConfig['features_selected'] = self.DataConfig['features'] 
+        ml_method = XGBoost(tune_dir=os.path.join(self.base_dir, "tune"), 
+                            DataConfig= self.DataConfig,
+                            method="XGBoostRegressor")
+    
+        ml_method.train(train_subset=train_subset,
+                        valid_subset=valid_subset,
+                        n_jobs = self.n_jobs)
         
-        model = XGBRegressor()
-        model.fit(X, Y)
-        explainer = shap.TreeExplainer(model)
+        explainer = shap.TreeExplainer(ml_method.best_model)
+        X = ml_method.mldata.train_dataloader().get_xy()['features']
         shap_values = explainer.shap_values(X)
         
-        weights = [{self.DataConfig['features'][i]: np.mean((np.abs(shap_values[:, i]) - np.min(np.abs(shap_values[:, i]))) / (np.max(np.abs(shap_values[:, i])) - np.min(np.abs(shap_values[:, i])))) for i in  np.arange(len(self.DataConfig['features']))}]
+        weights = [{self.DataConfig['features'][i]: np.median((np.abs(shap_values[:, i]) - np.min(np.abs(shap_values[:, i]))) / (np.max(np.abs(shap_values[:, i])) - np.min(np.abs(shap_values[:, i])))) for i in  np.arange(len(self.DataConfig['features']))}]
         
         return weights
    
@@ -206,6 +212,8 @@ class ExtrapolationIndex(ABC):
         self.y_train = xr.open_dataset(self.DataConfig['training_dataset'])[self.DataConfig['target']]
         
         weights = self.calculate_weights(self.x_train, self.y_train)
+        
+        shutil.rmtree(os.path.join(self.base_dir, "tune"))  
         
         for tree_cover in self.cube_config["tree_cover_tresholds"]:
             self.tree_cover = tree_cover

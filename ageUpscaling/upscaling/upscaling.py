@@ -274,10 +274,10 @@ class UpscaleAge(ABC):
         """
         if feature_selection:
             self.DataConfig['features_selected'] = FeatureSelection(method=task_, 
-                                                           feature_selection_method = feature_selection_method, 
-                                                           features = self.DataConfig['features'],
-                                                           data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features()
-        
+                                                                   feature_selection_method = feature_selection_method, 
+                                                                   features = self.DataConfig['features'],
+                                                                   data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features()
+                
         else: 
             self.DataConfig['features_selected'] = self.DataConfig['features'].copy()
             
