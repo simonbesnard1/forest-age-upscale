@@ -20,7 +20,6 @@ from tpot import TPOTRegressor
 from tpot import TPOTClassifier
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
-from ageUpscaling.methods.feature_selection import FeatureSelection
 
 class TPOT:
     """A method class for training and evaluating an autoML models.
@@ -95,9 +94,7 @@ class TPOT:
     def train(self,  
               train_subset:dict={},
               valid_subset:dict={}, 
-              test_subset:dict={},
-              feature_selection:bool= False,
-              feature_selection_method:str="recursive", 
+              test_subset:dict={}, 
               n_jobs:int=10) -> None:
         
         """Trains an RF model using the specified training and validation datasets.
@@ -117,20 +114,6 @@ class TPOT:
                 Number of jobs to use when fitting the model.
         """
 
-        if feature_selection:
-            mldata_feature_sel = self.get_datamodule(method= self.method,
-                                              DataConfig=self.DataConfig, 
-                                              target=self.DataConfig['target'],
-                                              features =  self.DataConfig['features_selected'],
-                                              train_subset=train_subset,
-                                              valid_subset=valid_subset,
-                                              test_subset=test_subset)            
-            features_selected = FeatureSelection(method=self.method, 
-                                                 feature_selection_method = feature_selection_method, 
-                                                 features = self.DataConfig['features_selected']).get_features(data = mldata_feature_sel.train_dataloader().get_xy())
-        
-        self.final_features = [features_selected if feature_selection else self.DataConfig['features_selected']][0]
-        
         self.mldata = self.get_datamodule(method= self.method,
                                           DataConfig=self.DataConfig, 
                                           target=self.DataConfig['target'],
@@ -142,9 +125,9 @@ class TPOT:
         train_data = self.mldata.train_dataloader().get_xy()
         
         if self.method == "TPOTRegressor":
-            model = TPOTRegressor(n_jobs=n_jobs)
+            model = TPOTRegressor(n_jobs=n_jobs, early_stop=15, max_eval_time_mins=10)
         elif self.method == "TPOTClassifier":
-            model = TPOTClassifier(n_jobs=n_jobs)
+            model = TPOTClassifier(n_jobs=n_jobs, early_stop=15, max_eval_time_mins=10)
         
         model.fit(train_data['features'], train_data['target'])
 
