@@ -59,14 +59,12 @@ class MLDataModule(MLData):
         self.normalize = normalize
         self.norm_stats = norm_stats
         self._kwargs = kwargs
-        
-        if len(self.norm_stats) == 0:
 
-            for var in  self.target + self.features:
-                data = xr.open_dataset(self.DataConfig['training_dataset']).sel(cluster = train_subset)[var]
-                data_mean = data.mean().compute().item()
-                data_std = data.std().compute().item()
-                self.norm_stats[var] = {'mean': data_mean, 'std': data_std}
+        for var in  self.target + self.features:
+            data = xr.open_dataset(self.DataConfig['training_dataset']).sel(cluster = train_subset)[var]
+            data_mean = data.mean().compute().item()
+            data_std = data.std().compute().item()
+            self.norm_stats[var] = {'mean': data_mean, 'std': data_std}
 
     def train_dataloader(self) -> MLData:
         """Returns a dataloader for the training set.

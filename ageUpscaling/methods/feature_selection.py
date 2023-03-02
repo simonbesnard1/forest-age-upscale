@@ -48,7 +48,7 @@ class FeatureSelection(ABC):
         
     def get_features(self,
                      max_forest_age:int= 300,
-                     max_features:int=2,
+                     max_features:int=3,
                      max_depth:int=5,
                      n_jobs:int=1)-> np.array:
         """Selects the most important features from the input data using the specified feature selection method.
