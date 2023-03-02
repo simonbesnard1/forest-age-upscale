@@ -96,6 +96,7 @@ class UpscaleAge(ABC):
         self.feature_selection= self.DataConfig["feature_selection"]
         self.feature_selection_method= self.DataConfig["feature_selection_method"]      
         self.cube_config['cube_location'] = os.path.join(self.study_dir, self.cube_config['cube_name'])
+        self.xval_index_path = self.DataConfig["xval_index_path"]
     
     def version_dir(self, 
                     base_dir: str,
@@ -323,8 +324,7 @@ class UpscaleAge(ABC):
         self.pred_cube.init_variable(self.cube_config['cube_variables'], 
                                      njobs= len(self.cube_config['cube_variables'].keys()))
         
-        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
-        np.random.shuffle(cluster_)
+        cluster_ = np.load(self.xval_index_path)        
         train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
         
         for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):

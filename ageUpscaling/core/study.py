@@ -149,6 +149,7 @@ class Study(ABC):
     
     def cross_validation(self, 
                          n_folds:int=10, 
+                         xval_index_path:str = None,
                          valid_fraction:float=0.3,
                          feature_selection:bool=False,
                          feature_selection_method:str=None) -> None:
@@ -176,8 +177,7 @@ class Study(ABC):
         - If `feature_selection` is True, `feature_selection_method` must be specified.
         """
         pred_cube = DataCube(cube_config = self.cube_config)
-        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
-        np.random.shuffle(cluster_)
+        cluster_ = np.load(xval_index_path)
         kf = KFold(n_splits=n_folds)
         
         for task_ in ["Regressor", "Classifier"]:
