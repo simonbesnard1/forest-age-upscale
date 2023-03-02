@@ -38,7 +38,6 @@ def cleanup():
         shutil.rmtree('.zarrsync')
 atexit.register(cleanup)
 
-
 class ExtrapolationIndex(ABC):
     """ExtrapolationIndex abstract class used for calculating extrapolation index
 
@@ -76,7 +75,6 @@ class ExtrapolationIndex(ABC):
         self.n_jobs = n_jobs
         self.cube_config['cube_location'] = os.path.join(self.base_dir, self.cube_config['cube_name'])
         
-        
     def calculate_distance(self,
                            x_train, 
                           y_train, 
@@ -100,7 +98,7 @@ class ExtrapolationIndex(ABC):
         distance_sum = 0
        
         for i in range(grid.best_params_["n_neighbors"]):
-            distance_sum += np.sum(list(weights[0].values()) * np.abs(x_test - X[indices[0][i]]))
+            distance_sum += np.sum(list(weights[0].values()) * np.abs(x_test - X[indices[0][i]]), axis=1)
         average_distance = distance_sum / grid.best_params_["n_neighbors"]
        
         return average_distance
