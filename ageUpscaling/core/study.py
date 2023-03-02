@@ -183,11 +183,13 @@ class Study(ABC):
         for task_ in ["Regressor", "Classifier"]:
             
             if feature_selection:
-                self.DataConfig['features'] = FeatureSelection(method=task_, 
-                                                               feature_selection_method = feature_selection_method, 
-                                                               features = self.DataConfig['features'],
-                                                               data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features()
-            
+                self.DataConfig['features_selected'] = FeatureSelection(method=task_, 
+                                                                        feature_selection_method = feature_selection_method, 
+                                                                        features = self.DataConfig['features'],
+                                                                        data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features()
+            else:
+                self.DataConfig['features_selected'] = self.DataConfig['features'].copy()
+                
             for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
                 train_subset, test_subset = cluster_[train_index], cluster_[test_index]
                 train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)

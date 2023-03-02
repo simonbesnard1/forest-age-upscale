@@ -118,7 +118,7 @@ class RandomForest:
         self.mldata = self.get_datamodule(method= self.method,
                                           DataConfig=self.DataConfig, 
                                           target=self.DataConfig['target'],
-                                          features = self.DataConfig['features'],
+                                          features = self.DataConfig['features_selected'],
                                           train_subset=train_subset,
                                           valid_subset=valid_subset,
                                           test_subset=test_subset)
@@ -204,13 +204,13 @@ class RandomForest:
                 Path to the output netCDF file where the predictions will be saved.
         """
         
-        X = self.mldata.test_dataloader().get_x(method= self.method, features= self.DataConfig['features'])
+        X = self.mldata.test_dataloader().get_x(method= self.method, features= self.DataConfig['features_selected'])
         Y = self.mldata.test_dataloader().get_y(target= self.DataConfig['target'], 
                                                method= self.method, 
                                                max_forest_age= self.DataConfig['max_forest_age'])
 
         for cluster_ in np.arange(len(self.mldata.test_subset)):
-            X_cluster = X[cluster_, : , :].reshape(-1, len(self.DataConfig['features']))
+            X_cluster = X[cluster_, : , :].reshape(-1, len(self.DataConfig['features_selected']))
             Y_cluster = Y[:, cluster_, :].reshape(-1)
             mask_nan = (np.all(np.isfinite(X_cluster), axis=1)) & (np.isfinite(Y_cluster))
             if X_cluster[mask_nan, :].shape[0]>0:

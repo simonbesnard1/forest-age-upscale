@@ -34,6 +34,7 @@ from ageUpscaling.core.cube import DataCube
 from ageUpscaling.transformers.spatial import interpolate_worlClim
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
+from ageUpscaling.methods.feature_selection import FeatureSelection
 
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
 
@@ -250,7 +251,9 @@ class UpscaleAge(ABC):
         
     def model_tuning(self,
                      run_: int=1,
-                     task_:str='Regressor', 
+                     task_:str='Regressor',
+                     feature_selection:bool=True,
+                     feature_selection_method:str = 'recursive',                     
                      train_subset:dict ={},
                      valid_subset:dict ={}) -> None:
         """Perform model tuning using cross-validation.
@@ -268,8 +271,17 @@ class UpscaleAge(ABC):
             The function does not return any values, but it updates the `self.best_model` attribute
             with the best model found during the tuning process.
         """
+        if feature_selection:
+            self.DataConfig['features_selected'] = FeatureSelection(method=task_, 
+                                                           feature_selection_method = feature_selection_method, 
+                                                           features = self.DataConfig['features'],
+                                                           data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features()
         
+        else: 
+            self.DataConfig['features_selected'] = self.DataConfig['features'].copy()
+            
         if self.algorithm == "MLP":
+            
             ml_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
                                    DataConfig= self.DataConfig,
                                    method=self.algorithm + task_)
@@ -279,10 +291,9 @@ class UpscaleAge(ABC):
                                 method=self.algorithm + task_)
         
         ml_method.train(train_subset=train_subset,
-                          valid_subset=valid_subset,
-                          feature_selection= self.DataConfig['feature_selection'],
-                          feature_selection_method=self.DataConfig['feature_selection_method'],
-                          n_jobs = self.n_jobs)
+                        valid_subset=valid_subset,
+                        n_jobs = self.n_jobs)
+        
         if not os.path.exists(self.study_dir + '/save_model/'):
              os.makedirs(self.study_dir + '/save_model/')
              
@@ -290,7 +301,7 @@ class UpscaleAge(ABC):
             pickle.dump(ml_method.best_model, fout)
          
         return {'best_model': ml_method.best_model, 
-                'selected_features': ml_method.final_features, 
+                'selected_features': self.DataConfig['features_selected'], 
                 'norm_stats' : ml_method.mldata.norm_stats}
     
     def ForwardRun(self) -> None:
@@ -310,8 +321,7 @@ class UpscaleAge(ABC):
         
         self.pred_cube = DataCube(cube_config = self.cube_config)
         self.pred_cube.init_variable(self.cube_config['cube_variables'], 
-                           njobs= len(self.cube_config['cube_variables'].keys()))
-        
+                                     njobs= len(self.cube_config['cube_variables'].keys()))
         
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         np.random.shuffle(cluster_)
@@ -323,9 +333,9 @@ class UpscaleAge(ABC):
             self.best_models = {}
             for task_ in ["Regressor", "Classifier"]:
                 model_tuned      = self.model_tuning(run_ = run_, 
-                                                      task_ = task_, 
-                                                      train_subset=train_subset, 
-                                                      valid_subset=valid_subset)
+                                                     task_ = task_, 
+                                                     train_subset=train_subset, 
+                                                     valid_subset=valid_subset)
                 self.best_models[task_] = model_tuned      
             
             for tree_cover in self.cube_config["tree_cover_tresholds"]:
@@ -338,7 +348,7 @@ class UpscaleAge(ABC):
                 LonChunks = np.array_split(self.pred_cube.cube.longitude.values, self.cube_config["num_chunks"])
                 
                 AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+                               "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                             for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
             
                 if (self.n_jobs > 1):
