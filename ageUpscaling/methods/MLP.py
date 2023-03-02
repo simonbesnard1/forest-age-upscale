@@ -23,6 +23,7 @@ from sklearn.metrics import mean_squared_error, roc_auc_score
 import optuna
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
+from ageUpscaling.utils.metrics import mef_gufunc
 
 class MLPmethod:
     """A method class for training and evaluating an MLP model.
@@ -228,7 +229,8 @@ class MLPmethod:
             raise optuna.exceptions.TrialPruned()
             
         if self.method == "MLPRegressor":
-            loss_ = mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False)
+            loss_ =   mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False) / (np.max(val_data['target']) - np.min(val_data['target']))
+            loss_ =+ 1 - mef_gufunc(val_data['target'], model_.predict(val_data['features']))
         elif self.method == "MLPClassifier":
             loss_ =  roc_auc_score(val_data['target'], model_.predict(val_data['features']))
         return loss_ 

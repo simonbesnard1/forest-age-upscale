@@ -3,8 +3,26 @@ features:
   - agb
   - AnnualMeanTemperature_WorlClim
   - AnnualPrecipitation_WorlClim
+  - AnnualSrad_WorlClim
+  - AnnualVapr_WorlClim
+  - AnnualWind_WorlClim
   - Isothermality_WorlClim
   - MaxTemperatureofWarmestMonth_WorlClim
+  - MeanDiurnalRange_WorlClim
+  - MeanTemperatureofColdestQuarter_WorlClim
+  - MeanTemperatureofDriestQuarter_WorlClim
+  - MeanTemperatureofWarmestQuarter_WorlClim
+  - MeanTemperatureofWettestQuarter_WorlClim
+  - MinTemperatureofColdestMonth_WorlClim
+  - PrecipitationSeasonality_WorlClim
+  - PrecipitationofColdestQuarter_WorlClim
+  - PrecipitationofDriestMonth_WorlClim
+  - PrecipitationofDriestQuarter_WorlClim
+  - PrecipitationofWarmestQuarter_WorlClim
+  - PrecipitationofWettestMonth_WorlClim
+  - PrecipitationofWettestQuarter_WorlClim
+  - TemperatureAnnualRange_WorlClim
+  - TemperatureSeasonality_WorlClim
 
 target:
   - age
@@ -13,7 +31,7 @@ max_forest_age:
   - 300
   
 hyper_params:
-  number_trials: 2
+  number_trials: 10
   tree_method: ['hist']
   eta: 
     min: 0.0001

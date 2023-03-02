@@ -6,6 +6,7 @@ Created on Thu Nov 24 11:36:57 2022
 @author: simon
 """
 from ageUpscaling.core.study import Study
+from ageUpscaling.diagnostic.report import Report
 
 #%% Initiate experiment
 DataConfig_path= "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/experiments/cross_validation/data_config_xgboost.yaml"
@@ -19,6 +20,9 @@ study_ = Study(DataConfig_path = DataConfig_path,
 study_.cross_validation(n_folds=10, 
                         xval_index_path= '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/xval_index_subsetFIA.npy',
                         valid_fraction=0.3, 
-                        feature_selection=True, 
+                        feature_selection=False, 
                         feature_selection_method= 'recursive')
     
+#%% Generate report
+report_ = Report(study_dir= study_.study_dir)
+report_.generate_diagnostic(diagnostic_type =  {'cross-validation'})
