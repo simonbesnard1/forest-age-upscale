@@ -23,7 +23,6 @@ from sklearn.metrics import mean_squared_error, roc_auc_score
 import optuna
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
-from ageUpscaling.methods.feature_selection import FeatureSelection
 
 class XGBoost:
     """A method class for training and evaluating an XGBoost model.
@@ -99,8 +98,6 @@ class XGBoost:
               train_subset:dict={},
               valid_subset:dict={}, 
               test_subset:dict={},
-              feature_selection:bool= False,
-              feature_selection_method:str="recursive", 
               n_jobs:int=10) -> None:
         
         """Trains an XGBoost model using the specified training and validation datasets.
@@ -112,32 +109,14 @@ class XGBoost:
                 Dictionary containing the validation dataset.
             test_subset: dict
                 Dictionary containing the test dataset.
-            feature_selection: bool, optional
-                If True, performs feature selection on the training data before training the model.
-            feature_selection_method: str, optional
-                Method to use for feature selection. Must be one of "boruta" or "recursive".
             n_jobs: int, optional
                 Number of jobs to use when fitting the model.
         """
 
-        if feature_selection:
-            mldata_feature_sel = self.get_datamodule(method= self.method,
-                                              DataConfig=self.DataConfig, 
-                                              target=self.DataConfig['target'],
-                                              features =  self.DataConfig['features'],
-                                              train_subset=train_subset,
-                                              valid_subset=valid_subset,
-                                              test_subset=test_subset)            
-            features_selected = FeatureSelection(method=self.method, 
-                                                 feature_selection_method = feature_selection_method, 
-                                                 features = self.DataConfig['features']).get_features(data = mldata_feature_sel.train_dataloader().get_xy())
-        
-        self.final_features = [features_selected if feature_selection else self.DataConfig['features']][0]
-        
         self.mldata = self.get_datamodule(method= self.method,
                                           DataConfig=self.DataConfig, 
                                           target=self.DataConfig['target'],
-                                          features = self.final_features,
+                                          features = self.DataConfig['features'],
                                           train_subset=train_subset,
                                           valid_subset=valid_subset,
                                           test_subset=test_subset)
@@ -249,13 +228,13 @@ class XGBoost:
                 Path to the output netCDF file where the predictions will be saved.
         """
         
-        X = self.mldata.test_dataloader().get_x(method= self.method, features= self.final_features)
+        X = self.mldata.test_dataloader().get_x(method= self.method, features = self.DataConfig['features'])
         Y = self.mldata.test_dataloader().get_y(target= self.DataConfig['target'], 
                                                method= self.method, 
                                                max_forest_age= self.DataConfig['max_forest_age'])
 
         for cluster_ in np.arange(len(self.mldata.test_subset)):
-            X_cluster = X[cluster_, : , :].reshape(-1, len(self.final_features))
+            X_cluster = X[cluster_, : , :].reshape(-1, len(self.DataConfig['features']))
             Y_cluster = Y[:, cluster_, :].reshape(-1)
             mask_nan = (np.all(np.isfinite(X_cluster), axis=1)) & (np.isfinite(Y_cluster))
             if X_cluster[mask_nan, :].shape[0]>0:

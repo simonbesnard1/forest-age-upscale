@@ -19,14 +19,12 @@ import xarray as xr
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import RandomizedSearchCV
 
 from sklearn.metrics import mean_squared_error, roc_auc_score
 
 import optuna
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
-from ageUpscaling.methods.feature_selection import FeatureSelection
 
 class RandomForest:
     """A method class for training and evaluating an RandomForest model.
@@ -102,8 +100,6 @@ class RandomForest:
               train_subset:dict={},
               valid_subset:dict={}, 
               test_subset:dict={},
-              feature_selection:bool= False,
-              feature_selection_method:str="recursive", 
               n_jobs:int=10) -> None:
         
         """Trains an RF model using the specified training and validation datasets.
@@ -115,81 +111,35 @@ class RandomForest:
                 Dictionary containing the validation dataset.
             test_subset: dict
                 Dictionary containing the test dataset.
-            feature_selection: bool, optional
-                If True, performs feature selection on the training data before training the model.
-            feature_selection_method: str, optional
-                Method to use for feature selection. Must be one of "boruta" or "recursive".
             n_jobs: int, optional
                 Number of jobs to use when fitting the model.
         """
 
-        if feature_selection:
-            mldata_feature_sel = self.get_datamodule(method= self.method,
-                                              DataConfig=self.DataConfig, 
-                                              target=self.DataConfig['target'],
-                                              features =  self.DataConfig['features'],
-                                              train_subset=train_subset,
-                                              valid_subset=valid_subset,
-                                              test_subset=test_subset)            
-            features_selected = FeatureSelection(method=self.method, 
-                                                 feature_selection_method = feature_selection_method, 
-                                                 features = self.DataConfig['features']).get_features(data = mldata_feature_sel.train_dataloader().get_xy())
-        
-        self.final_features = [features_selected if feature_selection else self.DataConfig['features']][0]
-        
         self.mldata = self.get_datamodule(method= self.method,
                                           DataConfig=self.DataConfig, 
                                           target=self.DataConfig['target'],
-                                          features = self.final_features,
+                                          features = self.DataConfig['features'],
                                           train_subset=train_subset,
                                           valid_subset=valid_subset,
                                           test_subset=test_subset)
           
         train_data = self.mldata.train_dataloader().get_xy()
         val_data = self.mldata.val_dataloader().get_xy()
-        
-        # Number of trees in random forest
-        n_estimators = [int(x) for x in np.linspace(start = 100, stop = 500, num = 5)]
-        # Maximum number of levels in tree
-        max_depth = [int(x) for x in np.linspace(10, 110, num = 6)]
-        max_depth.append(None)
-        # Minimum number of samples required to split a node
-        min_samples_split = [2, 5, 10]
-        # Minimum number of samples required at each leaf node
-        min_samples_leaf = [1, 2, 4]
-        # Method of selecting samples for training each tree
-        bootstrap = [True, False]
-        # Create the random grid
-        random_grid = {'n_estimators': n_estimators,                        
-                        'max_depth': max_depth,
-                        'min_samples_split': min_samples_split,
-                        'min_samples_leaf': min_samples_leaf,
-                        'bootstrap': bootstrap}
-        if self.method == "RandomForestRegressor":
-            model = RandomForestRegressor()
-        elif self.method == "RandomForestClassifier":
-            model = RandomForestClassifier()
-        gridsearch = RandomizedSearchCV(estimator = model, param_distributions = random_grid, 
-                                        n_iter = 50, verbose=0, random_state=42, n_jobs = 1)
-        gridsearch.fit(train_data['features'], train_data['target'])
-    
-        #Retrieve best model and best parameters
-        self.best_model = gridsearch.best_estimator_
                     
-        # if not os.path.exists(self.tune_dir + '/trial_model/'):
-        #     os.makedirs(self.tune_dir + '/trial_model/')
+        if not os.path.exists(self.tune_dir + '/trial_model/'):
+            os.makedirs(self.tune_dir + '/trial_model/')
         
-        # study = optuna.create_study(study_name = 'hpo_ForestAge', 
-        #                             #storage='sqlite:///' + self.tune_dir + '/trial_model/hp_trial.db',
-        #                             # pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
-        #                             #                                                reduction_factor=4, 
-        #                             #                                                min_early_stopping_rate=8),
-        #                             direction=['minimize' if self.method == 'RandomForestRegressor' else 'maximize'][0])
-        # study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
-        #                 n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
+        study = optuna.create_study(study_name = 'hpo_ForestAge', 
+                                    #storage='sqlite:///' + self.tune_dir + '/trial_model/hp_trial.db',
+                                    # pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
+                                    #                                                reduction_factor=4, 
+                                    #                                                min_early_stopping_rate=8),
+                                    direction=['minimize' if self.method == 'RandomForestRegressor' else 'maximize'][0])
+        study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
+                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
-        # with open(self.tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
-        #     self.best_model = pickle.load(fin)            
+        with open(self.tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
+            self.best_model = pickle.load(fin)            
             
     def hp_search(self, 
                    trial: optuna.Trial,
@@ -254,13 +204,13 @@ class RandomForest:
                 Path to the output netCDF file where the predictions will be saved.
         """
         
-        X = self.mldata.test_dataloader().get_x(method= self.method, features= self.final_features)
+        X = self.mldata.test_dataloader().get_x(method= self.method, features= self.DataConfig['features'])
         Y = self.mldata.test_dataloader().get_y(target= self.DataConfig['target'], 
                                                method= self.method, 
                                                max_forest_age= self.DataConfig['max_forest_age'])
 
         for cluster_ in np.arange(len(self.mldata.test_subset)):
-            X_cluster = X[cluster_, : , :].reshape(-1, len(self.final_features))
+            X_cluster = X[cluster_, : , :].reshape(-1, len(self.DataConfig['features']))
             Y_cluster = Y[:, cluster_, :].reshape(-1)
             mask_nan = (np.all(np.isfinite(X_cluster), axis=1)) & (np.isfinite(Y_cluster))
             if X_cluster[mask_nan, :].shape[0]>0:

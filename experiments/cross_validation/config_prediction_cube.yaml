@@ -3,17 +3,29 @@ temporal_resolution: 'static'
 
 output_writer_params:
   dims:
-    sample: 3895
-    cluster: 142
+    sample: 65845
+    cluster: 144
   chunksizes: 
     sample: -1
     cluster: -1
 
-output_variables:
-  - forestAge_pred
-  - forestAge_obs
-  - oldGrowth_pred
-  - oldGrowth_obs
+cube_variables:
+  forestAge_pred:
+    dims: ['sample', 'cluster']
+    attrs: {'long_name': 'Forest age predicted', 'units': 'years', 'valid_min': 0.0, 'valid_max': 299}
+    dtype: float32
+  forestAge_obs:
+    dims: ['sample', 'cluster']
+    attrs: {'long_name': 'Forest age observed', 'units': 'years', 'valid_min': 0.0, 'valid_max': 299}
+    dtype: float32
+  oldGrowth_pred:
+    dims: ['sample', 'cluster']
+    attrs: {'long_name': 'old-growth predicted - 0: non-old growth 1: old-growth', 'units': 'adimensional', 'valid_min': 0.0, 'valid_max': 1}
+    dtype: int
+  oldGrowth_obs:
+    dims: ['sample', 'cluster']
+    attrs: {'long_name': 'old-growth observed - 0: non-old growth 1: old-growth', 'units': 'adimensional', 'valid_min': 0.0, 'valid_max': 1}
+    dtype: int
   
 njobs: 4
 

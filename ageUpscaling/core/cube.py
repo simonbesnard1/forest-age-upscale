@@ -109,12 +109,6 @@ class DataCube(ComputeCube):
                                               longitude = chunk['longitude']))
                           for chunk in chunks]
                 dask.compute(*futures, num_workers=2)
-            # with ProcessPoolExecutor(max_workers=self.cube_config['njobs']) as executor:
-            #         executor.map(self._update, futures)
-                
-            # for chunk in chunks:
-            #     self._update(da.sel(latitude = chunk['latitude'], 
-            #                         longitude = chunk['longitude'])).compute()
                 
         else:
             self._update(da)

@@ -2,6 +2,9 @@ training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale
 features:
   - agb
   - AnnualMeanTemperature_WorlClim
+  - AnnualPrecipitation_WorlClim
+  - Isothermality_WorlClim
+  - MaxTemperatureofWarmestMonth_WorlClim
 
 target:
   - age

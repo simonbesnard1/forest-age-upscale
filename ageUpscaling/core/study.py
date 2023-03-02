@@ -25,6 +25,7 @@ from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 from ageUpscaling.methods.RandomForest import RandomForest
 from ageUpscaling.methods.autoML import TPOT
+from ageUpscaling.methods.feature_selection import FeatureSelection
 
 class Study(ABC):
     """Study abstract class for cross validation, model training, prediction.
@@ -174,17 +175,23 @@ class Study(ABC):
         -----
         - If `feature_selection` is True, `feature_selection_method` must be specified.
         """
-        
         pred_cube = DataCube(cube_config = self.cube_config)
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         np.random.shuffle(cluster_)
         kf = KFold(n_splits=n_folds)
         
-        for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
-            train_subset, test_subset = cluster_[train_index], cluster_[test_index]
-            train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
+        for task_ in ["Regressor", "Classifier"]:
             
-            for task_ in ["Regressor", "Classifier"]:
+            if feature_selection:
+                self.DataConfig['features'] = FeatureSelection(method=task_, 
+                                                               feature_selection_method = feature_selection_method, 
+                                                               features = self.DataConfig['features'],
+                                                               data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features()
+            
+            for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
+                train_subset, test_subset = cluster_[train_index], cluster_[test_index]
+                train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
+                
                 if self.algorithm == "MLP":
                     ml_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
                                            DataConfig= self.DataConfig,
@@ -204,9 +211,7 @@ class Study(ABC):
                     
                 ml_method.train(train_subset=train_subset,
                                   valid_subset=valid_subset, 
-                                  test_subset=test_subset, 
-                                  feature_selection= feature_selection,
-                                  feature_selection_method=feature_selection_method,
+                                  test_subset=test_subset,
                                   n_jobs = self.n_jobs)
                 ml_method.predict_clusters(save_cube = pred_cube)                       
                 shutil.rmtree(os.path.join(self.study_dir, "tune"))
