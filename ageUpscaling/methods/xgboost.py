@@ -196,15 +196,17 @@ class XGBoost:
         deval = xgb.DMatrix(val_data['features'], label = val_data['target'])
         vallist = [(dtrain, 'train'), (deval, 'eval')]
         
-        model_ = xgb.train(hyper_params, dtrain, evals=vallist,
-                           verbose_eval=False, **training_params)
+        # model_ = xgb.train(hyper_params, dtrain, evals=vallist,
+        #                    verbose_eval=False, **training_params)
+        
+        model_ = xgb.train(hyper_params, dtrain, verbose_eval=False)
         
         self.best_ntree = model_.best_ntree_limit
             
-        if retrain_with_valid:
-            training_params['num_boost_round'] = self.best_ntree
-            training_params['early_stopping_rounds'] = None
-            model_ = xgb.train(hyper_params, dtrain, **training_params)
+        # if retrain_with_valid:
+        #     training_params['num_boost_round'] = self.best_ntree
+        #     training_params['early_stopping_rounds'] = None
+        #     model_ = xgb.train(hyper_params, dtrain, **training_params)
 
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)

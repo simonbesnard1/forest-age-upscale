@@ -192,7 +192,7 @@ class Study(ABC):
                 
             for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
                 train_subset, test_subset = cluster_[train_index], cluster_[test_index]
-                train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
+                train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=False)
                 
                 if self.algorithm == "MLP":
                     ml_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
