@@ -182,7 +182,7 @@ class XGBoost:
                         }
         
         training_params = {'num_boost_round': trial.suggest_int('num_boost_round', DataConfig['hyper_params']['num_boost_round']['min'], DataConfig['hyper_params']['num_boost_round']['max'], step=DataConfig['hyper_params']['num_boost_round']['step'])}
-        training_params['early_stopping_rounds'] = 10
+        training_params['early_stopping_rounds'] = 1000
         
         if self.method == "XGBoostRegressor":
             hyper_params['objective'] = "reg:squarederror"

@@ -133,9 +133,9 @@ class MLPmethod:
         
         study = optuna.create_study(study_name = 'hpo_ForestAge', 
                                     #storage='sqlite:///' + self.tune_dir + '/trial_model/hp_trial.db',
-                                    pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
-                                                                                   reduction_factor=4, 
-                                                                                   min_early_stopping_rate=8),
+                                    # pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
+                                    #                                                reduction_factor=4, 
+                                    #                                                min_early_stopping_rate=8),
                                     direction=['minimize' if self.method == 'MLPRegressor' else 'maximize'][0])
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
@@ -195,9 +195,9 @@ class MLPmethod:
                                    solver = hyper_params['solver'],
                                    batch_size=hyper_params['batch_size'],
                                    warm_start=True,
-                                   max_iter=200, 
+                                   max_iter=500, 
                                    tol=hyper_params['tol'],
-                                   n_iter_no_change= 10,
+                                   n_iter_no_change= 100,
                                    early_stopping= True, 
                                    validation_fraction=0.3,
                                    random_state=1)
@@ -213,9 +213,9 @@ class MLPmethod:
                                    solver = hyper_params['solver'],
                                    batch_size=hyper_params['batch_size'],
                                    warm_start=True,
-                                   max_iter=200, 
+                                   max_iter=500, 
                                    tol=hyper_params['tol'],
-                                   n_iter_no_change= 10,
+                                   n_iter_no_change= 100,
                                    early_stopping= True, 
                                    validation_fraction=0.3,
                                    random_state=1)
