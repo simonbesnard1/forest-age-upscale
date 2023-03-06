@@ -216,7 +216,7 @@ class XGBoost:
         
         if self.method == "XGBoostRegressor":
             loss_ =   mean_squared_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), squared=False) / (np.max(val_data['target']) - np.min(val_data['target']))
-            loss_ =+ 1 - mef_gufunc(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])))
+            loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])))
         elif self.method == "XGBoostClassifier":
             loss_ =  roc_auc_score(val_data['target'], np.rint(model_.predict(xgb.DMatrix(val_data['features']))))
         
