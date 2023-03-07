@@ -9,5 +9,5 @@ from ageUpscaling.fidc_cube.csv_to_fidcCube import ImportAndSave
 
 #%% Run data cubing
 fidc_prov = ImportAndSave(input_csv= '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300.csv' ,
-                          out_file='/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300.nc')
+                          out_file='/home/simon/gfz_hpc/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300_subsetFIA.nc')
 data_ = fidc_prov.compute_cube(variables= 'default')

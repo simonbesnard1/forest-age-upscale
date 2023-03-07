@@ -18,6 +18,8 @@ import xarray as xr
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import cartopy
+import cartopy.crs as ccrs
 
 from sklearn.metrics import classification_report
 
@@ -48,7 +50,6 @@ class Report:
         
         self.study_dir = study_dir
                 
-        self.ds = xr.open_zarr(os.path.join(study_dir, 'model_output'))
         self.report_dir = os.path.join(study_dir, 'report')
         
         if not os.path.exists(self.report_dir):
@@ -56,16 +57,18 @@ class Report:
         
     def xval_diagnostic(self):
         
-        obs_ = self.ds.forestAge_obs.values.reshape(-1)
-        pred_ = self.ds.forestAge_pred.values.reshape(-1)
+        ds = xr.open_zarr(os.path.join(self.study_dir, 'model_output'))
+        
+        obs_ = ds.forestAge_obs.values.reshape(-1)
+        pred_ = ds.forestAge_pred.values.reshape(-1)
         pred_[pred_>299] = 299
         pred_[pred_<0] = 0
         valid_values = np.isfinite(pred_) & np.isfinite(obs_)
         pred_ = pred_[valid_values]
         obs_ = obs_[valid_values]
         
-        obs_class = self.ds.oldGrowth_obs.values.reshape(-1)
-        pred_class = self.ds.oldGrowth_pred.values.reshape(-1)
+        obs_class = ds.oldGrowth_obs.values.reshape(-1)
+        pred_class = ds.oldGrowth_pred.values.reshape(-1)
         valid_values = np.isfinite(pred_class) & np.isfinite(obs_class)
         pred_class = pred_class[valid_values]
         obs_class = obs_class[valid_values]        
@@ -139,10 +142,90 @@ class Report:
         fig.delaxes(ax[1,1])
         plt.savefig(os.path.join(self.report_dir, 'xval_diagnostic.png'), dpi=300)        
         plt.close("all")
+        
+    def EI_diagnostic(self):
+        
+        ds = xr.open_zarr(os.path.join(self.study_dir, 'ExtrapolationIndex_1km')).isel(time=0)
+        
+        fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(10,7),
+                      subplot_kw={'projection': ccrs.PlateCarree()})
+        
+        dat_= ds.sel(latitude = slice(15, -30), longitude = slice(-90, -30)).Extrapolation_Index
+        dat_.attrs['long_name'] = 'Extrapolation index [-]'
+        dat_.plot.imshow(ax=ax[0,0], cmap= "gist_earth_r", vmin=0, vmax =300,
+                         cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
+        ax[0,0].coastlines()
+        ax[0,0].gridlines()
+        ax[0,0].add_feature(cartopy.feature.LAND, facecolor='0.7')
+        ax[0,0].set_title("Amazon basin")
+        ax[0,0].text(0.05, 1.2, "A", transform=ax[0,0].transAxes,
+                fontsize=16, fontweight='bold', va='top')
+        
+        dat_= ds.sel(latitude = slice(15, -20), longitude = slice(-10, 35)).Extrapolation_Index
+        dat_.attrs['long_name'] = 'Extrapolation index [-]'
+        dat_.plot.imshow(ax=ax[0,1], cmap= "gist_earth_r", vmin=0, vmax =30,
+                             cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
+        ax[0,1].coastlines()
+        ax[0,1].gridlines()
+        ax[0,1].add_feature(cartopy.feature.LAND, facecolor='0.7')
+        ax[0,1].set_title("Congo basin")
+        ax[0,1].text(0.05, 1.2, "B", transform=ax[0,1].transAxes,
+                fontsize=16, fontweight='bold', va='top')
+        
+        dat_= ds.sel(latitude = slice(80, 30), longitude = slice(-20, 50)).Extrapolation_Index
+        dat_.attrs['long_name'] = 'Extrapolation index [-]'
+        dat_.plot.imshow(ax=ax[1,0], cmap= "gist_earth_r", vmin=0, vmax =30,
+                             cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
+        ax[1,0].coastlines()
+        ax[1,0].gridlines()
+        ax[1,0].add_feature(cartopy.feature.LAND, facecolor='0.7')
+        ax[1,0].set_title("Europe")
+        ax[1,0].text(0.05, 1.2, "C", transform=ax[1,0].transAxes,
+                fontsize=16, fontweight='bold', va='top')
+        
+        
+        dat_= ds.sel(latitude = slice(90, 30), longitude = slice(70, 180)).Extrapolation_Index
+        dat_.attrs['long_name'] = 'Extrapolation index [-]'
+        dat_.plot.imshow(ax=ax[1,1], cmap= "gist_earth_r", vmin=0, vmax =30,
+                             cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
+        ax[1,1].coastlines()
+        ax[1,1].gridlines()
+        ax[1,1].add_feature(cartopy.feature.LAND, facecolor='0.7')
+        ax[1,1].set_title("Siberia")
+        ax[1,1].text(0.05, 1.2, "D", transform=ax[1,1].transAxes,
+                fontsize=16, fontweight='bold', va='top')
+        
+        dat_= ds.sel(latitude = slice(75, 10), longitude = slice(-170, -50)).Extrapolation_Index
+        dat_.attrs['long_name'] = 'Extrapolation index [-]'
+        dat_.plot.imshow(ax=ax[2,0], cmap= "gist_earth_r", vmin=0, vmax =30,
+                             cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
+        ax[2,0].coastlines()
+        ax[2,0].gridlines()
+        ax[2,0].add_feature(cartopy.feature.LAND, facecolor='0.7')
+        ax[2,0].set_title("North America")
+        ax[2,0].text(0.05, 1.2, "E", transform=ax[2,0].transAxes,
+                fontsize=16, fontweight='bold', va='top')
+        
+        dat_= ds.sel(latitude = slice(50, -15), longitude = slice(90, 160)).Extrapolation_Index
+        dat_.attrs['long_name'] = 'Extrapolation index [-]'
+        dat_.plot.imshow(ax=ax[2,1], cmap= "gist_earth_r", vmin=0, vmax =30,
+                             cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
+        ax[2,1].coastlines()
+        ax[2,1].gridlines()
+        ax[2,1].add_feature(cartopy.feature.LAND, facecolor='0.7')
+        ax[2,1].set_title("Southeast Asia")
+        ax[2,1].text(0.05, 1.2, "F", transform=ax[2,1].transAxes,
+                fontsize=16, fontweight='bold', va='top')
+        plt.savefig(os.path.join(self.report_dir, 'EI_diagnostic.png'), dpi=300)        
+        plt.close("all")
 
     def generate_diagnostic(self,
                             diagnostic_type: dict = {'cross-validation'}):
         if 'cross-validation' in diagnostic_type:
             print('Computing cross-validation diagnostic')
             self.xval_diagnostic()
+        elif 'extrapolation-index' in diagnostic_type:
+            print('Computing extrapolation-index diagnostic')
+            self.EI_diagnostic()
+        
         

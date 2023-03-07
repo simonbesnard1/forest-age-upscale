@@ -20,7 +20,7 @@ from abc import ABC
 
 DEFAULT_VARS = {"age",
                 "agb",
-                'tree_height',
+                #'tree_height',
                 "AnnualMeanTemperature_WorlClim" ,
                 "MeanDiurnalRange_WorlClim",
                 "TemperatureSeasonality_WorlClim",
@@ -47,7 +47,7 @@ DEFAULT_VARS = {"age",
 DEFAULT_LONG_NAMES = {
         "age"  : "forest age at plot level",
         "agb"  : "above-ground biomass",
-        'tree_height': 'tree_height',
+        #'tree_height': 'tree_height',
         "AnnualMeanTemperature_WorlClim" : "Annual Mean Temperature - worldclim dataset",
         "MeanDiurnalRange_WorlClim" : " Mean Diurnal Range (Mean of monthly (max temp - min temp)) - worldclim dataset",
         "TemperatureSeasonality_WorlClim" : "Temperature Seasonality (standard deviation *100) - worldclim dataset",
@@ -73,10 +73,10 @@ DEFAULT_LONG_NAMES = {
 
 DEFAULT_UNITS = {"age"  : "years",
         "agb"  : "Mg ha-1",
-        'tree_height': 'meters',        
+        #'tree_height': 'meters',        
         "AnnualMeanTemperature_WorlClim" : "deg C",
         "MeanDiurnalRange_WorlClim" : "deg C",
-        "TemperatureSeasonality_WorlClim" : "deg C",
+        "TemperatureSeasonality_WorlClim" : "deg C", 
         "MaxTemperatureofWarmestMonth_WorlClim" : "deg C",
         "MinTemperatureofColdestMonth_WorlClim" : "deg C",
         "TemperatureAnnualRange_WorlClim" :  "deg C",
@@ -93,9 +93,9 @@ DEFAULT_UNITS = {"age"  : "years",
         "PrecipitationofDriestQuarter_WorlClim" : "mm",
         "PrecipitationofWarmestQuarter_WorlClim" : "mm", 
         "PrecipitationofColdestQuarter_WorlClim" : "mm",
-        "AnnualSrad_WorlClim" : "W m-2",
+        "AnnualSrad_WorlClim" : "kJ m-2 d-1",
         "AnnualWind_WorlClim" : "m s-1",        
-        "AnnualVapr_WorlClim" : "hPa"}
+        "AnnualVapr_WorlClim" : "kPa"}
 
 class ImportAndSave(ABC):
     """Abstract class for importing FIDC formatted CSV files and saving them in a specified format.
@@ -145,6 +145,8 @@ class ImportAndSave(ABC):
             ds = {}
             for _var in var_names:
                 ds[_var] = (('cluster', 'sample'), [df_[_var].values[siteMask]])
+                
+                	
             ds = xr.Dataset(data_vars=ds, coords=coords)  
             ds = ds.assign_coords(latitude  =  np.unique(df_['latitude_origin'].values[siteMask]),
                                   longitude = np.unique(df_['longitude_origin'].values[siteMask]))
@@ -154,6 +156,12 @@ class ImportAndSave(ABC):
         for _var in DEFAULT_LONG_NAMES.keys():
             plot_ds[_var] = plot_ds[_var].assign_attrs(long_name=DEFAULT_LONG_NAMES[_var],
                                                        units=DEFAULT_UNITS[_var])
+            if _var == "AnnualVapr_WorlClim":
+            	plot_ds[_var] = plot_ds[_var] / 10
+            elif _var == "AnnualSrad_WorlClim" :     
+                plot_ds[_var] = plot_ds[_var] / (0.001 * 11.574)
+            elif _var == "TemperatureSeasonality_WorlClim": 
+               plot_ds[_var] = plot_ds[_var] * 100
         plot_ds = plot_ds.assign_attrs(title = "Training dataset for stand age upscaling",
                                         created_by='Simon Besnard',
                                         contact = 'besnard@gfz-potsdam.de',
