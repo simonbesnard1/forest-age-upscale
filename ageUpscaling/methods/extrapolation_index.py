@@ -77,13 +77,11 @@ class ExtrapolationIndex(ABC):
         self.n_jobs = n_jobs
         self.cube_config['cube_location'] = os.path.join(self.base_dir, self.cube_config['cube_name'])
         
-    def calculate_distance(self,
-                           x_train, 
-                          y_train, 
-                          x_test, 
-                          weights, 
-                          metric='euclidean', 
-                          k_range = range(1, 31)):
+    def trainKNN(self,
+                 x_train, 
+                 y_train, 
+                 metric='euclidean', 
+                 k_range = range(1, 31)):
         
         X = x_train.to_array().transpose('cluster','sample', 'variable').values.reshape(-1, len(self.DataConfig['features']))
         Y = y_train.to_array().values.reshape(-1)
@@ -95,12 +93,21 @@ class ExtrapolationIndex(ABC):
         kf = KFold(n_splits=10)
         grid = GridSearchCV(knn, param_grid, cv=kf, scoring='neg_mean_squared_error')
         grid.fit(X, Y)
+        
+        return X, grid
+    
+    def calculate_distance(self,
+                           grid,
+                           x_train, 
+                           x_test, 
+                           weights):
+        
         distances, indices = grid.best_estimator_.kneighbors(x_test)
         
         distance_sum = 0
        
         for i in range(grid.best_params_["n_neighbors"]):
-            distance_sum += np.sum(list(weights[0].values()) * np.abs(x_test - X[indices[0][i]]), axis=1)
+            distance_sum += np.sum(list(weights[0].values()) * np.abs(x_test - x_train[indices[0][i]]), axis=1)
         average_distance = distance_sum / grid.best_params_["n_neighbors"]
        
         return average_distance
@@ -150,6 +157,8 @@ class ExtrapolationIndex(ABC):
    
     def calculate_index(self, 
                         IN,
+                        grid,
+                        X,
                         weights) -> None:
         
         subset_agb_cube  = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])
@@ -180,7 +189,7 @@ class ExtrapolationIndex(ABC):
         
         if (X_upscale_reg_flattened[mask].shape[0]>0):
             
-            average_distance = self.calculate_distance(self.x_train, self.y_train, X_upscale_reg_flattened[mask], weights)
+            average_distance = self.calculate_distance(grid, X, X_upscale_reg_flattened[mask], weights)
             #epsilon = calculate_epsilon(self.x_train, self.y_pred, self.y_train)
             #average_distance_weighted = average_distance * epsilon
             
@@ -212,6 +221,7 @@ class ExtrapolationIndex(ABC):
         self.y_train = xr.open_dataset(self.DataConfig['training_dataset'])[self.DataConfig['target']]
         
         weights = self.calculate_weights(self.x_train, self.y_train)
+        X, grid = self.trainKNN(self.x_train, self.y_train)
         
         shutil.rmtree(os.path.join(self.base_dir, "tune"))  
         
@@ -221,7 +231,7 @@ class ExtrapolationIndex(ABC):
                 with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
                                       'distributed.worker.threads': 2}):
 
-                    futures = [self.calculate_index(i, weights) for i in AllExtents]
+                    futures = [self.calculate_index(i, grid, X, weights) for i in AllExtents]
                     dask.compute(*futures, num_workers=self.n_jobs)    
             else:
                 for extent in AllExtents:
