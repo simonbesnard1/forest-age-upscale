@@ -93,9 +93,9 @@ DEFAULT_UNITS = {"age"  : "years",
         "PrecipitationofDriestQuarter_WorlClim" : "mm",
         "PrecipitationofWarmestQuarter_WorlClim" : "mm", 
         "PrecipitationofColdestQuarter_WorlClim" : "mm",
-        "AnnualSrad_WorlClim" : "kJ m-2 d-1",
+        "AnnualSrad_WorlClim" : "W m-2",
         "AnnualWind_WorlClim" : "m s-1",        
-        "AnnualVapr_WorlClim" : "kPa"}
+        "AnnualVapr_WorlClim" : "hPa"}
 
 class ImportAndSave(ABC):
     """Abstract class for importing FIDC formatted CSV files and saving them in a specified format.
@@ -156,12 +156,7 @@ class ImportAndSave(ABC):
         for _var in DEFAULT_LONG_NAMES.keys():
             plot_ds[_var] = plot_ds[_var].assign_attrs(long_name=DEFAULT_LONG_NAMES[_var],
                                                        units=DEFAULT_UNITS[_var])
-            if _var == "AnnualVapr_WorlClim":
-            	plot_ds[_var] = plot_ds[_var] / 10
-            elif _var == "AnnualSrad_WorlClim" :     
-                plot_ds[_var] = plot_ds[_var] / (0.001 * 11.574)
-            elif _var == "TemperatureSeasonality_WorlClim": 
-               plot_ds[_var] = plot_ds[_var] * 100
+            
         plot_ds = plot_ds.assign_attrs(title = "Training dataset for stand age upscaling",
                                         created_by='Simon Besnard',
                                         contact = 'besnard@gfz-potsdam.de',
