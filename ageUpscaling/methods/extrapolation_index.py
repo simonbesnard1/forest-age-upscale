@@ -94,15 +94,17 @@ class ExtrapolationIndex(ABC):
         grid = GridSearchCV(knn, param_grid, cv=kf, scoring='neg_mean_squared_error')
         grid.fit(X, Y)
         
-        return X, grid
+        distances, indices = grid.best_estimator_.kneighbors(X)
+        
+        return X, grid, distances, indices
     
     def calculate_distance(self,
                            grid,
+                           distances, 
+                           indices,
                            x_train, 
                            x_test, 
                            weights):
-        
-        distances, indices = grid.best_estimator_.kneighbors(x_test)
         
         distance_sum = 0
        
@@ -158,6 +160,8 @@ class ExtrapolationIndex(ABC):
     def calculate_index(self, 
                         IN,
                         grid,
+                        distances, 
+                        indices,
                         X,
                         weights) -> None:
         
@@ -189,7 +193,7 @@ class ExtrapolationIndex(ABC):
         
         if (X_upscale_reg_flattened[mask].shape[0]>0):
             
-            average_distance = self.calculate_distance(grid, X, X_upscale_reg_flattened[mask], weights)
+            average_distance = self.calculate_distance(grid, distances, indices, X, X_upscale_reg_flattened[mask], weights)
             #epsilon = calculate_epsilon(self.x_train, self.y_pred, self.y_train)
             #average_distance_weighted = average_distance * epsilon
             
@@ -221,7 +225,7 @@ class ExtrapolationIndex(ABC):
         self.y_train = xr.open_dataset(self.DataConfig['training_dataset'])[self.DataConfig['target']]
         
         weights = self.calculate_weights(self.x_train, self.y_train)
-        X, grid = self.trainKNN(self.x_train, self.y_train)
+        X, grid, distances, indices = self.trainKNN(self.x_train, self.y_train)
         
         shutil.rmtree(os.path.join(self.base_dir, "tune"))  
         
@@ -231,7 +235,7 @@ class ExtrapolationIndex(ABC):
                 with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
                                       'distributed.worker.threads': 2}):
 
-                    futures = [self.calculate_index(i, grid, X, weights) for i in AllExtents]
+                    futures = [self.calculate_index(i, grid,distances, indices, X, weights) for i in AllExtents]
                     dask.compute(*futures, num_workers=self.n_jobs)    
             else:
                 for extent in AllExtents:
