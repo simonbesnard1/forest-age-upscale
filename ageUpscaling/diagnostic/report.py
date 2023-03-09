@@ -216,7 +216,7 @@ class Report:
         
         dat_= ds.sel(latitude = slice(15, -30), longitude = slice(-90, -30)).forest_age_TC020
         dat_.attrs['long_name'] = 'Forest Age [years]'
-        dat_.plot.imshow(ax=ax[0,0], cmap= "gist_earth_r", vmin=0, vmax =250,
+        dat_.plot.imshow(ax=ax[0,0], cmap= "gist_earth_r", vmin=0, vmax =150,
                          cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
         ax[0,0].coastlines()
         ax[0,0].gridlines()
@@ -225,7 +225,7 @@ class Report:
         
         dat_= ds.sel(latitude = slice(15, -20), longitude = slice(-10, 35)).forest_age_TC020
         dat_.attrs['long_name'] = 'Forest Age [years]'
-        dat_.plot.imshow(ax=ax[0,1], cmap= "gist_earth_r", vmin=0, vmax =250,
+        dat_.plot.imshow(ax=ax[0,1], cmap= "gist_earth_r", vmin=0, vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
         ax[0,1].coastlines()
         ax[0,1].gridlines()
@@ -234,7 +234,7 @@ class Report:
         
         dat_= ds.sel(latitude = slice(80, 30), longitude = slice(-20, 50)).forest_age_TC020
         dat_.attrs['long_name'] = 'Forest Age [years]'
-        dat_.plot.imshow(ax=ax[1,0], cmap= "gist_earth_r", vmin=0, vmax =250,
+        dat_.plot.imshow(ax=ax[1,0], cmap= "gist_earth_r", vmin=0, vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
         ax[1,0].coastlines()
         ax[1,0].gridlines()
@@ -243,7 +243,7 @@ class Report:
         
         dat_= ds.sel(latitude = slice(90, 30), longitude = slice(70, 180)).forest_age_TC020
         dat_.attrs['long_name'] = 'Forest Age [years]'
-        dat_.plot.imshow(ax=ax[1,1], cmap= "gist_earth_r", vmin=0, vmax =250,
+        dat_.plot.imshow(ax=ax[1,1], cmap= "gist_earth_r", vmin=0, vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
         ax[1,1].coastlines()
         ax[1,1].gridlines()
@@ -252,7 +252,7 @@ class Report:
        
         dat_= ds.sel(latitude = slice(75, 10), longitude = slice(-170, -50)).forest_age_TC020
         dat_.attrs['long_name'] = 'Forest Age [years]'
-        dat_.plot.imshow(ax=ax[2,0], cmap= "gist_earth_r", vmin=0,vmax =250,
+        dat_.plot.imshow(ax=ax[2,0], cmap= "gist_earth_r", vmin=0,vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
         ax[2,0].coastlines()
         ax[2,0].gridlines()
@@ -261,7 +261,7 @@ class Report:
         
         dat_= ds.sel(latitude = slice(50, -15), longitude = slice(90, 160)).forest_age_TC020
         dat_.attrs['long_name'] = 'Forest Age [years]'
-        dat_.plot.imshow(ax=ax[2,1], cmap= "gist_earth_r", vmin=0, vmax =250,
+        dat_.plot.imshow(ax=ax[2,1], cmap= "gist_earth_r", vmin=0, vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
         ax[2,1].coastlines()
         ax[2,1].gridlines()
