@@ -20,8 +20,8 @@ study_ = Study(DataConfig_path = DataConfig_path,
 study_.cross_validation(n_folds=10, 
                         xval_index_path= '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/xval_index_subsetFIA.npy',
                         valid_fraction=0.3, 
-                        feature_selection=False, 
-                        feature_selection_method= 'recursive')
+                        feature_selection=True, 
+                        feature_selection_method= 'boruta')
     
 #%% Generate report
 report_ = Report(study_dir= study_.study_dir)

@@ -190,6 +190,7 @@ class Study(ABC):
             else:
                 self.DataConfig['features_selected'] = self.DataConfig['features'].copy()
                 
+            print(self.DataConfig['features_selected'])
             for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
                 train_subset, test_subset = cluster_[train_index], cluster_[test_index]
                 train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=False)

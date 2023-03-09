@@ -179,12 +179,12 @@ class UpscaleAge(ABC):
             subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
         
         subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
-        #subset_agb_cube  = subset_agb_cube.agb.where(subset_agb_cube.agb >0).to_dataset()
+        subset_agb_cube  = subset_agb_cube.agb.where(subset_agb_cube.agb >0).to_dataset()
         subset_cube      = xr.merge([subset_agb_cube, subset_clim_cube])
         
         print(self.best_models['Classifier']['selected_features'])
         print(self.best_models['Regressor']['selected_features'])
-
+        
         X_upscale_class = []
         for var_name in self.best_models['Classifier']['selected_features']:
             if self.algorithm == "MLP":
@@ -336,7 +336,9 @@ class UpscaleAge(ABC):
             self.best_models = {}
             for task_ in ["Regressor", "Classifier"]:
                 model_tuned      = self.model_tuning(run_ = run_, 
-                                                     task_ = task_, 
+                                                     task_ = task_,
+                                                     feature_selection= self.DataConfig['feature_selection'],
+                                                     feature_selection_method = self.DataConfig['feature_selection_method'],     
                                                      train_subset=train_subset, 
                                                      valid_subset=valid_subset)
                 self.best_models[task_] = model_tuned      
