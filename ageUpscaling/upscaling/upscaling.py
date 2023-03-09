@@ -182,9 +182,6 @@ class UpscaleAge(ABC):
         subset_agb_cube  = subset_agb_cube.agb.where(subset_agb_cube.agb >0).to_dataset()
         subset_cube      = xr.merge([subset_agb_cube, subset_clim_cube])
         
-        print(self.best_models['Classifier']['selected_features'])
-        print(self.best_models['Regressor']['selected_features'])
-        
         X_upscale_class = []
         for var_name in self.best_models['Classifier']['selected_features']:
             if self.algorithm == "MLP":
