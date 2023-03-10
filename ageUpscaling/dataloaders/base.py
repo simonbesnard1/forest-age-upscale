@@ -140,11 +140,11 @@ class MLData(ABC):
         
         self.x, self.y = self.x[mask_nan, :], self.y[mask_nan]    
         if 'Regressor' in self.method: 
-            self.y=self.y.astype('float32')
+            self.y=self.y.astype('float16')
         elif 'Classifier' in self.method: 
             self.y=self.y.astype('int8')
         
-        return {'features' : self.x.astype('float32'), "target": self.y, 'norm_stats': self.norm_stats}
+        return {'features' : self.x.astype('float16'), "target": self.y, 'norm_stats': self.norm_stats}
     
     def norm(self, 
              x: xr.Dataset, 

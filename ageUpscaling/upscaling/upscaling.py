@@ -169,8 +169,8 @@ class UpscaleAge(ABC):
                       IN) -> None:
         
         var_selected           = self.best_models['Classifier']['selected_features'] + self.best_models['Regressor']['selected_features']
-        subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude']).astype('float32')
-        subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])[[x for x in var_selected if "WorlClim" in x]].astype('float32')
+        subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude']).astype('float16')
+        subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])[[x for x in var_selected if "WorlClim" in x]].astype('float16')
        
         if not self.cube_config["high_res_pred"]:
             subset_agb_cube    = subset_agb_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = self.tree_cover) : 'agb'})
