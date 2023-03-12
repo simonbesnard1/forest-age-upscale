@@ -70,7 +70,8 @@ class UpscaleAge(ABC):
                  algorithm: str = 'MLP',
                  exp_name: str = None,
                  study_dir: str = None,
-                 n_jobs: int = 1,
+                 n_jobs_training: int = 1,
+                 n_jobs_upscaling: int = 1,
                  **kwargs):
 
         with open(DataConfig_path, 'r') as f:
@@ -91,7 +92,8 @@ class UpscaleAge(ABC):
                 raise ValueError(f'restore path does not exist:\n{study_dir}')
 
         self.study_dir = study_dir
-        self.n_jobs = n_jobs
+        self.n_jobs_training = n_jobs_training
+        self.n_jobs_upscaling = n_jobs_upscaling        
         self.valid_fraction= self.DataConfig["valid_fraction"]
         self.feature_selection= self.DataConfig["feature_selection"]
         self.feature_selection_method= self.DataConfig["feature_selection_method"]      
@@ -169,86 +171,91 @@ class UpscaleAge(ABC):
                       IN) -> None:
         
         var_selected           = self.best_models['Classifier']['selected_features'] + self.best_models['Regressor']['selected_features']
-        subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude']).astype('float16')
-        subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])[[x for x in var_selected if "WorlClim" in x]].astype('float16')
-       
-        if not self.cube_config["high_res_pred"]:
-            subset_agb_cube    = subset_agb_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = self.tree_cover) : 'agb'})
-       
-        if self.cube_config["high_res_pred"]:    
-            subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
+        subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(IN).astype('float16')
+        subset_agb_cube        = subset_agb_cube.agb.where(subset_agb_cube.agb >0).to_dataset()
         
-        subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
-        subset_agb_cube  = subset_agb_cube.agb.where(subset_agb_cube.agb >0).to_dataset()
-        subset_cube      = xr.merge([subset_agb_cube, subset_clim_cube])
-        
-        X_upscale_class = []
-        for var_name in self.best_models['Classifier']['selected_features']:
-            if self.algorithm == "MLP":
-                X_upscale_class.append(self.norm(subset_cube[var_name], self.best_models['Classifier']['norm_stats'][var_name]))
-            elif self.algorithm == "XGBoost":
-                X_upscale_class.append(subset_cube[var_name])
+        if not np.isnan(subset_agb_cube.to_array().values).all():
             
-        X_upscale_reg = []
-        for var_name in self.best_models['Regressor']['selected_features']:
-            if self.algorithm == "MLP":
-                X_upscale_reg.append(self.norm(subset_cube[var_name], self.best_models['Regressor']['norm_stats'][var_name]))
-            elif self.algorithm == "XGBoost":
-                X_upscale_reg.append(subset_cube[var_name])
-        
-        X_upscale_reg_flattened = []
-
-        for arr in X_upscale_reg:
-            data = arr.data.flatten()
-            X_upscale_reg_flattened.append(data)
+            subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(IN)[[x for x in var_selected if "WorlClim" in x]].astype('float16')
+           
+            if not self.cube_config["high_res_pred"]:
+                subset_agb_cube    = subset_agb_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = self.tree_cover) : 'agb'})
+           
+            if self.cube_config["high_res_pred"]:    
+                subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
             
-        X_upscale_class_flattened = []
-
-        for arr in X_upscale_class:
-            data = arr.data.flatten()
-            X_upscale_class_flattened.append(data)
+            subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
+            subset_cube      = xr.merge([subset_agb_cube, subset_clim_cube])
+            
+            X_upscale_class = []
+            for var_name in self.best_models['Classifier']['selected_features']:
+                if self.algorithm == "MLP":
+                    X_upscale_class.append(self.norm(subset_cube[var_name], self.best_models['Classifier']['norm_stats'][var_name]))
+                elif self.algorithm == "XGBoost":
+                    X_upscale_class.append(subset_cube[var_name])
+                
+            X_upscale_reg = []
+            for var_name in self.best_models['Regressor']['selected_features']:
+                if self.algorithm == "MLP":
+                    X_upscale_reg.append(self.norm(subset_cube[var_name], self.best_models['Regressor']['norm_stats'][var_name]))
+                elif self.algorithm == "XGBoost":
+                    X_upscale_reg.append(subset_cube[var_name])
+            
+            X_upscale_reg_flattened = []
     
-        X_upscale_reg_flattened = da.array(X_upscale_reg_flattened).transpose().compute()
-        X_upscale_class_flattened = da.array(X_upscale_class_flattened).transpose().compute()
-        
-        RF_pred_class = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
-        RF_pred_reg = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
-        
-        mask = (np.all(np.isfinite(X_upscale_reg_flattened), axis=1)) & (np.all(np.isfinite(X_upscale_class_flattened), axis=1))
-        
-        if (X_upscale_class_flattened[mask].shape[0]>0):
-            
-            if self.algorithm == "MLP":
-                pred_class = self.best_models["Classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
+            for arr in X_upscale_reg:
+                data = arr.data.flatten()
+                X_upscale_reg_flattened.append(data)
                 
-            elif self.algorithm == "XGBoost":
-                dpred =  xgb.DMatrix(X_upscale_class_flattened[mask])
-                pred_class = np.rint(self.best_models["Classifier"]['best_model'].predict(dpred))
-                            
-            RF_pred_class[mask] = pred_class
+            X_upscale_class_flattened = []
+    
+            for arr in X_upscale_class:
+                data = arr.data.flatten()
+                X_upscale_class_flattened.append(data)
+        
+            X_upscale_reg_flattened = da.array(X_upscale_reg_flattened).transpose().compute()
+            X_upscale_class_flattened = da.array(X_upscale_class_flattened).transpose().compute()
             
-            if self.algorithm == "MLP":
-                # pred_reg= self.denorm_target(self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
-                #                              self.best_models["Regressor"]['norm_stats']['age'])
-                pred_reg= self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask])
+            print(f"Size of dataset: {X_upscale_reg_flattened.nbytes / 1e9:.2f} GB")
+            
+            RF_pred_class = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
+            RF_pred_reg = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
+            
+            mask = (np.all(np.isfinite(X_upscale_reg_flattened), axis=1)) & (np.all(np.isfinite(X_upscale_class_flattened), axis=1))
+            
+            if (X_upscale_class_flattened[mask].shape[0]>0):
                 
-            elif self.algorithm == "XGBoost":
-                dpred =  xgb.DMatrix(X_upscale_reg_flattened[mask])
-                pred_reg= self.best_models["Regressor"]['best_model'].predict(dpred)
-            
-            pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
-            pred_reg[pred_reg<0] = 0
-            RF_pred_reg[mask] = pred_reg
-            RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]            
-            out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
-            output_reg_xr = xr.DataArray(out_reg, 
-                                          coords={"latitude": subset_cube.latitude, 
-                                                  "longitude": subset_cube.longitude,
-                                                  "time": subset_cube.time,                                                          
-                                                  'members': [self.member]}, 
-                                          dims=["latitude", "longitude", "time", "members"]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= self.tree_cover))
+                if self.algorithm == "MLP":
+                    pred_class = self.best_models["Classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
                     
-            self.pred_cube.update_cube(output_reg_xr, initialize=False)
+                elif self.algorithm == "XGBoost":
+                    dpred =  xgb.DMatrix(X_upscale_class_flattened[mask])
+                    pred_class = np.rint(self.best_models["Classifier"]['best_model'].predict(dpred))
+                                
+                RF_pred_class[mask] = pred_class
+                
+                if self.algorithm == "MLP":
+                    # pred_reg= self.denorm_target(self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
+                    #                              self.best_models["Regressor"]['norm_stats']['age'])
+                    pred_reg= self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask])
+                    
+                elif self.algorithm == "XGBoost":
+                    dpred =  xgb.DMatrix(X_upscale_reg_flattened[mask])
+                    pred_reg= self.best_models["Regressor"]['best_model'].predict(dpred)
+                
+                pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
+                pred_reg[pred_reg<0] = 0
+                RF_pred_reg[mask] = pred_reg
+                RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]            
+                out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
+                output_reg_xr = xr.DataArray(out_reg, 
+                                              coords={"latitude": subset_cube.latitude, 
+                                                      "longitude": subset_cube.longitude,
+                                                      "time": subset_cube.time,                                                          
+                                                      'members': [self.member]}, 
+                                              dims=["latitude", "longitude", "time", "members"]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= self.tree_cover))
+                        
+                self.pred_cube.update_cube(output_reg_xr, initialize=False)
         
     def model_tuning(self,
                      run_: int=1,
@@ -293,7 +300,7 @@ class UpscaleAge(ABC):
         
         ml_method.train(train_subset=train_subset,
                         valid_subset=valid_subset,
-                        n_jobs = self.n_jobs)
+                        n_jobs = self.n_jobs_training)
         
         if not os.path.exists(self.study_dir + '/save_model/'):
              os.makedirs(self.study_dir + '/save_model/')
@@ -353,12 +360,12 @@ class UpscaleAge(ABC):
                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                             for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
             
-                if (self.n_jobs > 1):
+                if (self.n_jobs_upscaling > 1):
                     with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
                                           'distributed.worker.threads': 2}):
 
                         futures = [self._predict_func(i) for i in AllExtents]
-                        dask.compute(*futures, num_workers=self.n_jobs)    
+                        dask.compute(*futures, num_workers=self.n_jobs_upscaling)    
                 else:
                     for extent in AllExtents:
                         self._predict_func(extent).compute()
