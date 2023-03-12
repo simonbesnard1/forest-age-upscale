@@ -34,6 +34,8 @@ from ageUpscaling.core.cube import DataCube
 from ageUpscaling.transformers.spatial import interpolate_worlClim
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
+from ageUpscaling.methods.RandomForest import RandomForest
+from ageUpscaling.methods.autoML import TPOT
 from ageUpscaling.methods.feature_selection import FeatureSelection
 
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')
@@ -191,14 +193,14 @@ class UpscaleAge(ABC):
             for var_name in self.best_models['Classifier']['selected_features']:
                 if self.algorithm == "MLP":
                     X_upscale_class.append(self.norm(subset_cube[var_name], self.best_models['Classifier']['norm_stats'][var_name]))
-                elif self.algorithm == "XGBoost":
+                else:
                     X_upscale_class.append(subset_cube[var_name])
                 
             X_upscale_reg = []
             for var_name in self.best_models['Regressor']['selected_features']:
                 if self.algorithm == "MLP":
                     X_upscale_reg.append(self.norm(subset_cube[var_name], self.best_models['Regressor']['norm_stats'][var_name]))
-                elif self.algorithm == "XGBoost":
+                else:
                     X_upscale_reg.append(subset_cube[var_name])
             
             X_upscale_reg_flattened = []
@@ -225,23 +227,23 @@ class UpscaleAge(ABC):
             
             if (X_upscale_class_flattened[mask].shape[0]>0):
                 
-                if self.algorithm == "MLP":
-                    pred_class = self.best_models["Classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
-                    
-                elif self.algorithm == "XGBoost":
+                if self.algorithm == "XGBoost":
                     dpred =  xgb.DMatrix(X_upscale_class_flattened[mask])
                     pred_class = np.rint(self.best_models["Classifier"]['best_model'].predict(dpred))
-                                
+                
+                else:
+                    pred_class = self.best_models["Classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
+                    
                 RF_pred_class[mask] = pred_class
                 
-                if self.algorithm == "MLP":
+                if self.algorithm == "XGBoost":
+                    dpred =  xgb.DMatrix(X_upscale_reg_flattened[mask])
+                    pred_reg= self.best_models["Regressor"]['best_model'].predict(dpred)
+                
+                else:
                     # pred_reg= self.denorm_target(self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
                     #                              self.best_models["Regressor"]['norm_stats']['age'])
                     pred_reg= self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask])
-                    
-                elif self.algorithm == "XGBoost":
-                    dpred =  xgb.DMatrix(X_upscale_reg_flattened[mask])
-                    pred_reg= self.best_models["Regressor"]['best_model'].predict(dpred)
                 
                 pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
                 pred_reg[pred_reg<0] = 0
@@ -297,6 +299,14 @@ class UpscaleAge(ABC):
             ml_method = XGBoost(tune_dir=os.path.join(self.study_dir, "tune"), 
                                 DataConfig= self.DataConfig,
                                 method=self.algorithm + task_)
+        elif self.algorithm == "RandomForest":
+            ml_method = RandomForest(tune_dir=os.path.join(self.study_dir, "tune"), 
+                                     DataConfig= self.DataConfig,
+                                     method=self.algorithm + task_)
+        elif self.algorithm == "TPOT":
+            ml_method = TPOT(tune_dir=os.path.join(self.study_dir, "tune"), 
+                             DataConfig= self.DataConfig,
+                             method=self.algorithm + task_)
         
         ml_method.train(train_subset=train_subset,
                         valid_subset=valid_subset,
