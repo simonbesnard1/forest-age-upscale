@@ -218,8 +218,6 @@ class UpscaleAge(ABC):
             X_upscale_reg_flattened = da.array(X_upscale_reg_flattened).transpose().compute()
             X_upscale_class_flattened = da.array(X_upscale_class_flattened).transpose().compute()
             
-            print(f"Size of dataset: {X_upscale_reg_flattened.nbytes / 1e9:.2f} GB")
-            
             RF_pred_class = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
             RF_pred_reg = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
             
