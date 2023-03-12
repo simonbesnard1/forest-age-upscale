@@ -174,14 +174,14 @@ class UpscaleAge(ABC):
         
         var_selected           = self.best_models['Classifier']['selected_features'] + self.best_models['Regressor']['selected_features']
         subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(IN).astype('float16')
+        if not self.cube_config["high_res_pred"]:
+            subset_agb_cube    = subset_agb_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = self.tree_cover) : 'agb'})
+       
         subset_agb_cube        = subset_agb_cube.agb.where(subset_agb_cube.agb >0).to_dataset()
         
         if not np.isnan(subset_agb_cube.to_array().values).all():
             
             subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(IN)[[x for x in var_selected if "WorlClim" in x]].astype('float16')
-           
-            if not self.cube_config["high_res_pred"]:
-                subset_agb_cube    = subset_agb_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = self.tree_cover) : 'agb'})
            
             if self.cube_config["high_res_pred"]:    
                 subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
