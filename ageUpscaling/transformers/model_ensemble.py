@@ -53,32 +53,29 @@ class ModelEnsemble(ABC):
 
     """
     def __init__(self,
-                 DataConfig_path: str=None,
                  cube_config_path: str=None,            
-                 base_dir: str=None,
+                 study_dir: str=None,
                  n_jobs: int = 1,
                  **kwargs):
 
-        with open(DataConfig_path, 'r') as f:
-            self.DataConfig =  yml.safe_load(f)
-        
         with open(cube_config_path, 'r') as f:
             self.cube_config =  yml.safe_load(f)
             
-        self.base_dir = base_dir
+        self.study_dir = study_dir
         self.n_jobs = n_jobs
-        self.cube_config['cube_location'] = os.path.join(self.base_dir, self.cube_config['cube_name'])
+        self.cube_config['cube_location'] = os.path.join(self.study_dir, self.cube_config['cube_name'])
     
     def calculate_ensemble(self, 
                         IN) -> None:
         
-        subset_age_cube  = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])
+        subset_age_cube  = xr.open_zarr(self.cube_config['cube_location'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])
         
-        output_mean = subset_age_cube.mean(dim = 'members').to_dataset(name = 'forest_age_mean')
-        output_std = subset_age_cube.std(dim = 'members').to_dataset(name = 'forest_age_std')
-        output_ = xr.merge([output_mean, output_std])
-        self.age_cube.update_cube(output_, initialize=False)
-    
+        for var_ in list(subset_age_cube.keys()):
+            output_mean = subset_age_cube[var_].mean(dim = 'members').to_dataset(name = var_ + '_mean')
+            output_std = subset_age_cube[var_].std(dim = 'members').to_dataset(name = var_ + '_std')
+            output_ = xr.merge([output_mean, output_std])
+            self.age_cube.update_cube(output_, initialize=False)
+        
     def calculate_global_index(self) -> None:
         
         self.age_cube = DataCube(cube_config = self.cube_config)
@@ -91,17 +88,15 @@ class ModelEnsemble(ABC):
         AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-       
-        for tree_cover in self.cube_config["tree_cover_tresholds"]:
-            self.tree_cover = tree_cover
-            if (self.n_jobs > 1):
-                with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
-                                      'distributed.worker.threads': 2}):
+   
+        if (self.n_jobs > 1):
+            with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
+                                  'distributed.worker.threads': 2}):
 
-                    futures = [self.calculate_ensemble(i) for i in AllExtents]
-                    dask.compute(*futures, num_workers=self.n_jobs)    
-            else:
-                for extent in AllExtents:
-                    self.calculate_index(extent).compute()
-            
+                futures = [self.calculate_ensemble(i) for i in AllExtents]
+                dask.compute(*futures, num_workers=self.n_jobs)    
+        else:
+            for extent in AllExtents:
+                self.calculate_index(extent).compute()
+        
             
