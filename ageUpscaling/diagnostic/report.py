@@ -62,7 +62,7 @@ class Report:
         obs_ = ds.forestAge_obs.values.reshape(-1)
         pred_ = ds.forestAge_pred.values.reshape(-1)
         pred_[pred_>299] = 299
-        pred_[pred_<0] = 0
+        pred_[pred_<1] = 1
         valid_values = np.isfinite(pred_) & np.isfinite(obs_)
         pred_ = pred_[valid_values]
         obs_ = obs_[valid_values]
@@ -147,12 +147,12 @@ class Report:
         
         ds = xr.open_zarr(os.path.join(self.study_dir, 'ExtrapolationIndex_1km')).isel(time=0)
         
-        fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(10,7),
+        fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(10,7), constrained_layout = True,
                       subplot_kw={'projection': ccrs.PlateCarree()})
         
         dat_= ds.sel(latitude = slice(15, -30), longitude = slice(-90, -30)).Extrapolation_Index
         dat_.attrs['long_name'] = 'Extrapolation index'
-        dat_.plot.imshow(ax=ax[0,0], cmap= "gist_earth_r", vmin=0, vmax =100,
+        dat_.plot.imshow(ax=ax[0,0], cmap= "gist_earth_r", vmin=0, vmax =300,
                          cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
         ax[0,0].coastlines()
         ax[0,0].gridlines()
@@ -161,7 +161,7 @@ class Report:
         
         dat_= ds.sel(latitude = slice(15, -20), longitude = slice(-10, 35)).Extrapolation_Index
         dat_.attrs['long_name'] = 'Extrapolation index'
-        dat_.plot.imshow(ax=ax[0,1], cmap= "gist_earth_r", vmin=0, vmax =100,
+        dat_.plot.imshow(ax=ax[0,1], cmap= "gist_earth_r", vmin=0, vmax =300,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
         ax[0,1].coastlines()
         ax[0,1].gridlines()
@@ -170,7 +170,7 @@ class Report:
         
         dat_= ds.sel(latitude = slice(80, 30), longitude = slice(-20, 50)).Extrapolation_Index
         dat_.attrs['long_name'] = 'Extrapolation index'
-        dat_.plot.imshow(ax=ax[1,0], cmap= "gist_earth_r", vmin=0, vmax =100,
+        dat_.plot.imshow(ax=ax[1,0], cmap= "gist_earth_r", vmin=0, vmax =300,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
         ax[1,0].coastlines()
         ax[1,0].gridlines()
@@ -179,7 +179,7 @@ class Report:
        
         dat_= ds.sel(latitude = slice(90, 30), longitude = slice(70, 180)).Extrapolation_Index
         dat_.attrs['long_name'] = 'Extrapolation index'
-        dat_.plot.imshow(ax=ax[1,1], cmap= "gist_earth_r", vmin=0, vmax =100,
+        dat_.plot.imshow(ax=ax[1,1], cmap= "gist_earth_r", vmin=0, vmax =300,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
         ax[1,1].coastlines()
         ax[1,1].gridlines()
@@ -188,7 +188,7 @@ class Report:
         
         dat_= ds.sel(latitude = slice(75, 10), longitude = slice(-170, -50)).Extrapolation_Index
         dat_.attrs['long_name'] = 'Extrapolation index [-]'
-        dat_.plot.imshow(ax=ax[2,0], cmap= "gist_earth_r", vmin=0, vmax =100,
+        dat_.plot.imshow(ax=ax[2,0], cmap= "gist_earth_r", vmin=0, vmax =300,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
         ax[2,0].coastlines()
         ax[2,0].gridlines()
@@ -197,7 +197,7 @@ class Report:
         
         dat_= ds.sel(latitude = slice(50, -15), longitude = slice(90, 160)).Extrapolation_Index
         dat_.attrs['long_name'] = 'Extrapolation index'
-        dat_.plot.imshow(ax=ax[2,1], cmap= "gist_earth_r", vmin=0,vmax =100,
+        dat_.plot.imshow(ax=ax[2,1], cmap= "gist_earth_r", vmin=0,vmax =300,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
         ax[2,1].coastlines()
         ax[2,1].gridlines()
@@ -211,7 +211,7 @@ class Report:
         
         ds = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_1km')).isel(time=0, members=0)
         
-        fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(10,7),
+        fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(10,7), constrained_layout = True,
                       subplot_kw={'projection': ccrs.PlateCarree()})
         
         dat_= ds.sel(latitude = slice(15, -30), longitude = slice(-90, -30)).forest_age_TC020
@@ -278,5 +278,8 @@ class Report:
         elif 'extrapolation-index' in diagnostic_type:
             print('Computing extrapolation-index diagnostic')
             self.EI_diagnostic()
+        elif 'global-age' in diagnostic_type:
+            print('Computing global forest age diagnostic')
+            self.GlobalAge_diagnostic()
         
         
