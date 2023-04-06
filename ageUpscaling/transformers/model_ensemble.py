@@ -70,7 +70,7 @@ class ModelEnsemble(ABC):
         
         subset_age_cube  = xr.open_zarr(self.cube_config['cube_location'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])
         
-        for var_ in list(subset_age_cube.keys()):
+        for var_ in set(list(subset_age_cube.keys())) - set(subset_age_cube.coords):
             output_mean = subset_age_cube[var_].mean(dim = 'members').to_dataset(name = var_ + '_mean')
             output_std = subset_age_cube[var_].std(dim = 'members').to_dataset(name = var_ + '_std')
             output_ = xr.merge([output_mean, output_std])
