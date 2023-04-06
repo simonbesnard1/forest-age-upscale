@@ -156,6 +156,8 @@ class ExtrapolationIndex(ABC):
         
         weights = [{self.DataConfig['features'][i]: np.median((np.abs(shap_values[:, i]) - np.min(np.abs(shap_values[:, i]))) / (np.max(np.abs(shap_values[:, i])) - np.min(np.abs(shap_values[:, i])))) for i in  np.arange(len(self.DataConfig['features']))}]
         
+        shutil.rmtree(os.path.join(self.base_dir, "tune"))  
+        
         return weights
    
     def calculate_index(self, 
@@ -223,8 +225,6 @@ class ExtrapolationIndex(ABC):
         
         #weights = self.calculate_weights(self.x_train, self.y_train)
         best_KNN = self.trainKNN(self.x_train, self.y_train)
-        
-        shutil.rmtree(os.path.join(self.base_dir, "tune"))  
         
         for tree_cover in self.cube_config["tree_cover_tresholds"]:
             self.tree_cover = tree_cover
