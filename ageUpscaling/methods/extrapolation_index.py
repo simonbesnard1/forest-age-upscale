@@ -28,6 +28,7 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.model_selection import train_test_split
 import shap
 from sklearn.model_selection import GridSearchCV,  KFold
+from sklearn import preprocessing
 
 from ageUpscaling.core.cube import DataCube
 from ageUpscaling.methods.xgboost import XGBoost
@@ -92,14 +93,15 @@ class ExtrapolationIndex(ABC):
         knn = KNeighborsRegressor(metric=metric)
         kf = KFold(n_splits=10)
         grid = GridSearchCV(knn, param_grid, cv=kf, scoring='neg_mean_squared_error')
-        grid.fit(X, Y)
+        scaler = preprocessing.StandardScaler().fit(X)
+
+        grid.fit(scaler.transform(X), Y)
         
-        #distances, indices = grid.best_estimator_.kneighbors(X)
-        
-        return grid
+        return grid, scaler
     
     def calculate_distance(self,
                            best_KNN,
+                           scaler,
                            x_test):
         
         # distance_sum = 0
@@ -108,7 +110,7 @@ class ExtrapolationIndex(ABC):
         #     distance_sum += np.sum(list(weights[0].values()) * np.abs(x_test - x_train[indices[0][i]]), axis=1)
         # average_distance = distance_sum / grid.best_params_["n_neighbors"]
         
-        distances, indices = best_KNN.best_estimator_.kneighbors(x_test)
+        distances, indices = best_KNN.best_estimator_.kneighbors(scaler.transform(x_test))
 
         # calculate the average distance for each new data point
         average_distance = np.mean(distances, axis=1)
@@ -162,7 +164,8 @@ class ExtrapolationIndex(ABC):
    
     def calculate_index(self, 
                         IN,
-                        best_KNN) -> None:
+                        best_KNN, 
+                        scaler) -> None:
         
         subset_agb_cube  = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])
         subset_clim_cube = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])[[x for x in self.DataConfig['features'] if "WorlClim" in x]]
@@ -192,7 +195,7 @@ class ExtrapolationIndex(ABC):
         
         if (X_upscale_reg_flattened[mask].shape[0]>0):
             
-            average_distance = self.calculate_distance(best_KNN, X_upscale_reg_flattened[mask])
+            average_distance = self.calculate_distance(best_KNN, scaler, X_upscale_reg_flattened[mask])
             #epsilon = calculate_epsilon(self.x_train, self.y_pred, self.y_train)
             #average_distance_weighted = average_distance * epsilon
             
@@ -224,7 +227,7 @@ class ExtrapolationIndex(ABC):
         self.y_train = xr.open_dataset(self.DataConfig['training_dataset'])[self.DataConfig['target']]
         
         #weights = self.calculate_weights(self.x_train, self.y_train)
-        best_KNN = self.trainKNN(self.x_train, self.y_train)
+        best_KNN, scaler = self.trainKNN(self.x_train, self.y_train)
         
         for tree_cover in self.cube_config["tree_cover_tresholds"]:
             self.tree_cover = tree_cover
@@ -232,7 +235,7 @@ class ExtrapolationIndex(ABC):
                 with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
                                       'distributed.worker.threads': 2}):
 
-                    futures = [self.calculate_index(i, best_KNN) for i in AllExtents]
+                    futures = [self.calculate_index(i, best_KNN, scaler) for i in AllExtents]
                     dask.compute(*futures, num_workers=self.n_jobs)    
             else:
                 for extent in AllExtents:
