@@ -178,7 +178,7 @@ class Study(ABC):
         """
         pred_cube = DataCube(cube_config = self.cube_config)
         cluster_ = np.load(xval_index_path)
-        kf = KFold(n_splits=n_folds)
+        kf = KFold(n_splits=n_folds, shuffle=True)
         
         for task_ in ["Regressor", "Classifier"]:
             
