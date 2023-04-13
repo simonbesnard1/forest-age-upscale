@@ -176,10 +176,10 @@ class RandomForest:
                         "min_samples_leaf": trial.suggest_int('min_samples_leaf', DataConfig['hyper_params']['min_samples_leaf']['min'], DataConfig['hyper_params']['min_samples_leaf']['max'], step=DataConfig['hyper_params']['min_samples_leaf']['step'])}
                                         
         if self.method == "RandomForestRegressor":
-            model_ = RandomForestRegressor(**hyper_params)
+            model_ = RandomForestRegressor(**hyper_params, n_jobs=10)
             
         elif self.method == "RandomForestClassifier":
-          model_ = RandomForestClassifier(**hyper_params)
+          model_ = RandomForestClassifier(**hyper_params, n_jobs=10)
           
         model_.fit(train_data['features'], train_data['target'])
         

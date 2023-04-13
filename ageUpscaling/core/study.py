@@ -186,7 +186,7 @@ class Study(ABC):
                 self.DataConfig['features_selected'] = FeatureSelection(method=task_, 
                                                                         feature_selection_method = feature_selection_method, 
                                                                         features = self.DataConfig['features'],
-                                                                        data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features()
+                                                                        data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features(n_jobs = self.n_jobs)
             else:
                 self.DataConfig['features_selected'] = self.DataConfig['features'].copy()
                 

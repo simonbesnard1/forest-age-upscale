@@ -1,4 +1,4 @@
-training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300.nc"
+training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300_substetFIA_withTH.nc"
 features:
   - agb
   - AnnualMeanTemperature_WorlClim
