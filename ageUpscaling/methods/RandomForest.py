@@ -25,7 +25,7 @@ from sklearn.metrics import mean_squared_error, roc_auc_score
 import optuna
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
-from ageUpscaling.utils.metrics import mef_gufunc
+#from ageUpscaling.utils.metrics import mef_gufunc
 
 class RandomForest:
     """A method class for training and evaluating an RandomForest model.

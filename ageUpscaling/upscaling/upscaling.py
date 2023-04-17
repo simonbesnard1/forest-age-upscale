@@ -22,10 +22,10 @@ import yaml as yml
 import pickle
 
 import dask
-
 import xarray as xr
 import zarr
 import dask.array as da
+from shapely.geometry import Polygon
 
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
@@ -172,8 +172,14 @@ class UpscaleAge(ABC):
     def _predict_func(self, 
                       IN) -> None:
         
+        lat_start, lat_stop = IN['latitude'].start, IN['latitude'].stop
+        lon_start, lon_stop = IN['longitude'].start, IN['longitude'].stop
+        buffer_IN = Polygon([(lon_start, lat_start), (lon_start, lat_stop),(lon_stop, lat_stop), (lon_stop, lat_start)]).buffer(0.01)
+        buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
+                     'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
+        
         var_selected           = self.best_models['Classifier']['selected_features'] + self.best_models['Regressor']['selected_features']
-        subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(IN).astype('float16')
+        subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(buffer_IN).astype('float16')
         if not self.cube_config["high_res_pred"]:
             subset_agb_cube    = subset_agb_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = self.tree_cover) : 'agb'})
        
@@ -181,13 +187,13 @@ class UpscaleAge(ABC):
         
         if not np.isnan(subset_agb_cube.to_array().values).all():
             
-            subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(IN)[[x for x in var_selected if "WorlClim" in x]].astype('float16')
+            subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(buffer_IN)[[x for x in var_selected if "WorlClim" in x]].astype('float16')
            
             if self.cube_config["high_res_pred"]:    
                 subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
             
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
-            subset_cube      = xr.merge([subset_agb_cube, subset_clim_cube])
+            subset_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN)])
             
             X_upscale_class = []
             for var_name in self.best_models['Classifier']['selected_features']:
@@ -378,7 +384,7 @@ class UpscaleAge(ABC):
                     for extent in AllExtents:
                         self._predict_func(extent).compute()
             
-            shutil.rmtree(os.path.join(self.study_dir, "tune"))    
+            shutil.rmtree(os.path.join(self.study_dir, "tune"))
                             
     def norm(self, 
              x: np.array,
