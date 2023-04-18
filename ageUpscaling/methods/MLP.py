@@ -294,7 +294,7 @@ class MLPmethod:
                                    solver = hyper_params['solver'],
                                    batch_size=hyper_params['batch_size'],
                                    warm_start=True,
-                                   #tol=hyper_params['tol'],
+                                   tol=hyper_params['tol'],
                                    early_stopping= True, 
                                    validation_fraction=0.3,
                                    random_state=1)
