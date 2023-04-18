@@ -277,7 +277,7 @@ class MLPmethod:
             'first_layer_neurons': trial.suggest_int('first_layer_neurons', DataConfig['hyper_params']['first_layer_neurons']['min'], DataConfig['hyper_params']['first_layer_neurons']['max'], step=DataConfig['hyper_params']['first_layer_neurons']['step']),
             'second_layer_neurons': trial.suggest_int('second_layer_neurons', DataConfig['hyper_params']['second_layer_neurons']['min'], DataConfig['hyper_params']['second_layer_neurons']['max'], step=DataConfig['hyper_params']['second_layer_neurons']['step']),
             'third_layer_neurons': trial.suggest_int('third_layer_neurons', DataConfig['hyper_params']['third_layer_neurons']['min'], DataConfig['hyper_params']['third_layer_neurons']['max'], step=DataConfig['hyper_params']['third_layer_neurons']['step']),
-            #'fourth_layer_neurons': trial.suggest_int('fourth_layer_neurons', DataConfig['hyper_params']['fourth_layer_neurons']['min'], DataConfig['hyper_params']['fourth_layer_neurons']['max'], step=DataConfig['hyper_params']['fourth_layer_neurons']['step']),
+            'fourth_layer_neurons': trial.suggest_int('fourth_layer_neurons', DataConfig['hyper_params']['fourth_layer_neurons']['min'], DataConfig['hyper_params']['fourth_layer_neurons']['max'], step=DataConfig['hyper_params']['fourth_layer_neurons']['step']),
             'activation': trial.suggest_categorical('activation', DataConfig['hyper_params']['activation']),
             'solver': trial.suggest_categorical('solver', DataConfig['hyper_params']['solver']),            
             'batch_size': trial.suggest_int('batch_size', DataConfig['hyper_params']['batch_size']['min'], DataConfig['hyper_params']['batch_size']['max'], step=DataConfig['hyper_params']['batch_size']['step']),
@@ -302,7 +302,8 @@ class MLPmethod:
         elif self.method == "MLPClassifier": 
             model_ = MLPClassifier(hidden_layer_sizes=tuple([hyper_params['first_layer_neurons'], 
                                                             hyper_params['second_layer_neurons'],
-                                                            hyper_params['third_layer_neurons']][0:hyper_params['num_layers']]),
+                                                            hyper_params['third_layer_neurons'],
+                                                            hyper_params['fourth_layer_neurons']][0:hyper_params['num_layers']]),
                                    learning_rate_init=hyper_params['learning_rate_init'],
                                    learning_rate = hyper_params['learning_rate'],
                                    activation=hyper_params['activation'],
@@ -324,7 +325,7 @@ class MLPmethod:
             
         if self.method == "MLPRegressor":
             loss_ =   mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False) #/ (np.max(val_data['target']) - np.min(val_data['target']))
-            #loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(val_data['features']))
+            loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(val_data['features']))
         elif self.method == "MLPClassifier":
             loss_ =  roc_auc_score(val_data['target'], model_.predict(val_data['features']))
         return loss_ 
