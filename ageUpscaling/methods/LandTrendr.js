@@ -97,13 +97,15 @@ var getSRcollection = function(year, startDay, endDay, sensor, aoi, maskThese, e
   }
   
   // get a landsat collection for given year, day range, and sensor
+  var slopes = ee.Image.constant([0.9785, 0.9542, 0.9825, 1.0073, 1.0171, 0.9949]);        // RMA - create an image of slopes per band for L8 TO L7 regression line - David Roy
+  var itcp = ee.Image.constant([-0.0095, -0.0016, -0.0022, -0.0021, -0.0030, 0.0029]);     // RMA - create an image of y-intercepts per band for L8 TO L7 regression line - David Roy
   var srCollection = buildSensorYearCollection(year, startDay, endDay, sensor, aoi, exclude);
   // apply the harmonization function to LC08 (if LC08), subset bands, unmask, and resample           
   srCollection = srCollection.map(function(img) {
     var dat = ee.Image(
       ee.Algorithms.If(
         (sensor == 'LC08') || (sensor == 'LC09'),                            // condition - if image is OLI
-        scaleLTdata(img.select(['SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7'],['B1', 'B2', 'B3', 'B4', 'B5', 'B7'])).unmask(),
+        scaleLTdata(img.select(['SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7'],['B1', 'B2', 'B3', 'B4', 'B5', 'B7'])).unmask().subtract(itcp.multiply(10000)).divide(slopes),
         //NOTE based on analysis of the effects of Roy coefficients for various places around the world
         //we have opted to NOT include their use in this version of these modules
         scaleLTdata(img.select(['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B7'],['B1', 'B2', 'B3', 'B4', 'B5', 'B7']))                   // false - else select out the reflectance bands from the non-OLI image
