@@ -27,6 +27,10 @@ import zarr
 import dask.array as da
 from shapely.geometry import Polygon
 
+# from dask_jobqueue import SLURMCluster
+# from dask.distributed import Client
+# import subprocess as sp
+
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
 
@@ -375,11 +379,24 @@ class UpscaleAge(ABC):
                             for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
             
                 if (self.n_jobs_upscaling > 1):
+                    # cluster = SLURMCluster(queue='regular',
+                    #                        account="besnard",
+                    #                        cores=24,
+                    #                        memory="500 GB",
+                    #                        job_extra=['--nodes=1', '--ntasks-per-node=1'])
+                    #cluster.scale(jobs=10) 
+                    #client = Client(cluster)
+                    #futures = client.map(self._predict_func, AllExtents)
+                    #results = client.gather(futures)
+            
+
                     with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
                                           'distributed.worker.threads': 2}):
 
                         futures = [self._predict_func(i) for i in AllExtents]
                         dask.compute(*futures, num_workers=self.n_jobs_upscaling)    
+                    # cluster.close()
+                    #client.close()
                 else:
                     for extent in AllExtents:
                         self._predict_func(extent).compute()
