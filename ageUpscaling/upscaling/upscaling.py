@@ -386,13 +386,13 @@ class UpscaleAge(ABC):
         else:
             print("Code is not running in a SLURM cluster")
             
-        cluster = SLURMCluster(queue= os.environ.get('SLURM_JOB_PARTITION'),
-                                account= os.environ.get('SLURM_JOB_USER'),
-                                cores= os.environ.get('SLURM_CPUS_PER_TASK'),
-                                memory= os.environ.get('SLURM_MEM_PER_NODE'),
-                                job_extra_directives=['--nodes={n_nodes}'.format(n_nodes = os.environ.get('SLURM_JOB_NUM_NODES')), 
-                                                      '--ntasks-per-node={ntasks_}'.format(ntasks_= int(os.environ.get('SLURM_TASKS_PER_NODE').split('(x')[0]))])
-        
+        cluster = SLURMCluster(queue= str(os.environ.get('SLURM_JOB_PARTITION')),
+                                account= str(os.environ.get('SLURM_JOB_USER')),
+                                cores= str(os.environ.get('SLURM_CPUS_PER_TASK')),
+                                memory= str(os.environ.get('SLURM_MEM_PER_NODE')),
+                                job_extra_directives=['--nodes={n_nodes}'.format(n_nodes = str(os.environ.get('SLURM_JOB_NUM_NODES'))), 
+                                                      '--ntasks-per-node={ntasks_}'.format(ntasks_= str(int(os.environ.get('SLURM_TASKS_PER_NODE').split('(x')[0])))])
+        cluster.close()
         # self.pred_cube = DataCube(cube_config = self.cube_config)
         # self.pred_cube.init_variable(self.cube_config['cube_variables'], 
         #                               njobs= len(self.cube_config['cube_variables'].keys()))
