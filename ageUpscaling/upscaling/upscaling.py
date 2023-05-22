@@ -354,7 +354,6 @@ class UpscaleAge(ABC):
         memory = os.environ.get('SLURM_MEM_PER_NODE')
         
         tasks_per_node = os.environ.get('SLURM_TASKS_PER_NODE')
-        num_tasks_per_node = int(tasks_per_node.split(':')[0])
         
         # Access the number of allocated nodes
         num_nodes = os.environ.get('SLURM_JOB_NUM_NODES')
@@ -369,7 +368,7 @@ class UpscaleAge(ABC):
         print("SLURM Job ID:", job_id)
         print("Number of CPU cores:", num_cores)
         print("Allocated memory:", memory)
-        print("Number of tasks per node:", num_tasks_per_node)
+        print("Number of tasks per node:", tasks_per_node)
 
         print("Queue name:", queue_name)      
         
