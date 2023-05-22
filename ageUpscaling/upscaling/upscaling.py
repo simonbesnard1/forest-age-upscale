@@ -27,9 +27,8 @@ import zarr
 import dask.array as da
 from shapely.geometry import Polygon
 
-# from dask_jobqueue import SLURMCluster
-# from dask.distributed import Client
-# import subprocess as sp
+from dask_jobqueue import SLURMCluster
+from dask.distributed import Client
 
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
@@ -345,63 +344,81 @@ class UpscaleAge(ABC):
             Boolean indicating whether to perform high resolution prediction, default is False
         """
         
-        self.pred_cube = DataCube(cube_config = self.cube_config)
-        self.pred_cube.init_variable(self.cube_config['cube_variables'], 
-                                     njobs= len(self.cube_config['cube_variables'].keys()))
+        # Access the SLURM job ID
+        job_id = os.environ.get('SLURM_JOB_ID')
         
-        cluster_ = np.load(self.xval_index_path)        
-        train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
+        # Access the number of allocated CPU cores
+        num_cores = os.environ.get('SLURM_CPUS_PER_TASK')
         
-        for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):
+        # Access the amount of allocated memory
+        memory = os.environ.get('SLURM_MEM_PER_NODE')
+        
+        # Access other environment variables as needed
+        
+        # Print the values for demonstration
+        print("SLURM Job ID:", job_id)
+        print("Number of CPU cores:", num_cores)
+        print("Allocated memory:", memory)
+        
+        # self.pred_cube = DataCube(cube_config = self.cube_config)
+        # self.pred_cube.init_variable(self.cube_config['cube_variables'], 
+        #                              njobs= len(self.cube_config['cube_variables'].keys()))
+        
+        # cluster_ = np.load(self.xval_index_path)        
+        # train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
+        
+        # for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):
             
-            self.member = run_
-            self.best_models = {}
-            for task_ in ["Regressor", "Classifier"]:
-                model_tuned      = self.model_tuning(run_ = run_, 
-                                                     task_ = task_,
-                                                     feature_selection= self.DataConfig['feature_selection'],
-                                                     feature_selection_method = self.DataConfig['feature_selection_method'],     
-                                                     train_subset=train_subset, 
-                                                     valid_subset=valid_subset)
-                self.best_models[task_] = model_tuned      
+        #     self.member = run_
+        #     self.best_models = {}
+        #     for task_ in ["Regressor", "Classifier"]:
+        #         model_tuned      = self.model_tuning(run_ = run_, 
+        #                                              task_ = task_,
+        #                                              feature_selection= self.DataConfig['feature_selection'],
+        #                                              feature_selection_method = self.DataConfig['feature_selection_method'],     
+        #                                              train_subset=train_subset, 
+        #                                              valid_subset=valid_subset)
+        #         self.best_models[task_] = model_tuned      
             
-            for tree_cover in self.cube_config["tree_cover_tresholds"]:
+        #     for tree_cover in self.cube_config["tree_cover_tresholds"]:
                 
-                if (self.cube_config["high_res_pred"] and tree_cover != '000'):
-                    raise ValueError(f'tree cover threshold of {tree_cover} is not supported for the high-resolution cubes -  Thereshold has to be 000')
+        #         if (self.cube_config["high_res_pred"] and tree_cover != '000'):
+        #             raise ValueError(f'tree cover threshold of {tree_cover} is not supported for the high-resolution cubes -  Thereshold has to be 000')
                 
-                self.tree_cover = tree_cover
-                LatChunks = np.array_split(self.pred_cube.cube.latitude.values, self.cube_config["num_chunks"])
-                LonChunks = np.array_split(self.pred_cube.cube.longitude.values, self.cube_config["num_chunks"])
+        #         self.tree_cover = tree_cover
+        #         LatChunks = np.array_split(self.pred_cube.cube.latitude.values, self.cube_config["num_chunks"])
+        #         LonChunks = np.array_split(self.pred_cube.cube.longitude.values, self.cube_config["num_chunks"])
                 
-                AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                               "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-                            for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
+        #         AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
+        #                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+        #                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
             
-                if (self.n_jobs_upscaling > 1):
-                    # cluster = SLURMCluster(queue='regular',
-                    #                        account="besnard",
-                    #                        cores=24,
-                    #                        memory="500 GB",
-                    #                        job_extra=['--nodes=1', '--ntasks-per-node=1'])
-                    #cluster.scale(jobs=10) 
-                    #client = Client(cluster)
-                    #futures = client.map(self._predict_func, AllExtents)
-                    #results = client.gather(futures)
-            
+        #         if (self.n_jobs_upscaling > 1):
 
-                    with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
-                                          'distributed.worker.threads': 2}):
-
-                        futures = [self._predict_func(i) for i in AllExtents]
-                        dask.compute(*futures, num_workers=self.n_jobs_upscaling)    
-                    # cluster.close()
-                    #client.close()
-                else:
-                    for extent in AllExtents:
-                        self._predict_func(extent).compute()
+        #             cluster = SLURMCluster(queue='regular',
+        #                                    account="besnard",
+        #                                    cores=2,
+        #                                    memory="100 GB",
+        #                                    job_extra_directives=['--nodes=4', 
+        #                                                          '--ntasks-per-node=2', 
+        #                                                          '--cpus-per-task=10'])
+        #             #cluster.scale(jobs=10) 
+        #             client = Client(cluster)
+        #             futures = client.map(self._predict_func, AllExtents)
+        #             _ = client.gather(futures)
             
-            shutil.rmtree(os.path.join(self.study_dir, "tune"))
+        #             # with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
+        #             #                       'distributed.worker.threads': 2}):
+
+        #             #     futures = [self._predict_func(i) for i in AllExtents]
+        #             #     dask.compute(*futures, num_workers=self.n_jobs_upscaling)    
+        #             cluster.close()
+        #             client.close()
+        #         else:
+        #             for extent in AllExtents:
+        #                 self._predict_func(extent).compute()
+            
+        #     shutil.rmtree(os.path.join(self.study_dir, "tune"))
                             
     def norm(self, 
              x: np.array,
