@@ -61,6 +61,7 @@ setuptools.setup(
         "xgboost==1.7.2",
         "torch==1.13.1",
         "TPOT==0.11.7",
-        "shap==0.41.0"],
+        "shap==0.41.0",
+        "dask_jobqueue==0.8.1"],
     include_package_data=True,
 )
