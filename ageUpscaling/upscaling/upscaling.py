@@ -390,8 +390,8 @@ class UpscaleAge(ABC):
                                 account= os.environ.get('SLURM_JOB_USER'),
                                 cores= os.environ.get('SLURM_CPUS_PER_TASK'),
                                 memory= os.environ.get('SLURM_MEM_PER_NODE'),
-                                job_extra_directives=['--nodes=' + os.environ.get('SLURM_JOB_NUM_NODES'), 
-                                                      '--ntasks-per-node=' + int(os.environ.get('SLURM_TASKS_PER_NODE').split('(x')[0])])
+                                job_extra_directives=['--nodes={n_nodes}'.format(n_nodes = os.environ.get('SLURM_JOB_NUM_NODES')), 
+                                                      '--ntasks-per-node={ntasks_}'.format(ntasks_= int(os.environ.get('SLURM_TASKS_PER_NODE').split('(x')[0]))])
         
         # self.pred_cube = DataCube(cube_config = self.cube_config)
         # self.pred_cube.init_variable(self.cube_config['cube_variables'], 
