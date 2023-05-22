@@ -355,6 +355,8 @@ class UpscaleAge(ABC):
         
         tasks_per_node = os.environ.get('SLURM_TASKS_PER_NODE')
         
+        num_tasks_per_node = int(tasks_per_node.split('(x')[0])
+        
         # Access the number of allocated nodes
         num_nodes = os.environ.get('SLURM_JOB_NUM_NODES')
         
@@ -368,11 +370,22 @@ class UpscaleAge(ABC):
         print("SLURM Job ID:", job_id)
         print("Number of CPU cores:", num_cores)
         print("Allocated memory:", memory)
-        print("Number of tasks per node:", tasks_per_node)
-
+        print("Number of tasks per node:", num_tasks_per_node)
         print("Queue name:", queue_name)      
-        
         print("User name:", user_name)
+        
+        is_running_in_slurm = (
+                                'SLURM_JOB_ID' in os.environ
+                                and 'SLURM_JOB_NUM_NODES' in os.environ
+                                and 'SLURM_TASKS_PER_NODE' in os.environ
+                                and 'SLURM_CPUS_PER_TASK' in os.environ
+                                )
+        # Print the result
+        if is_running_in_slurm:
+            print("Code is running in a SLURM cluster")
+        else:
+            print("Code is not running in a SLURM cluster")
+            
         # self.pred_cube = DataCube(cube_config = self.cube_config)
         # self.pred_cube.init_variable(self.cube_config['cube_variables'], 
         #                              njobs= len(self.cube_config['cube_variables'].keys()))
@@ -408,12 +421,12 @@ class UpscaleAge(ABC):
             
         #         if (self.n_jobs_upscaling > 1):
 
-        #             cluster = SLURMCluster(queue='regular',
-        #                                    account="besnard",
+        #             cluster = SLURMCluster(queue='os.environ.get('SLURM_JOB_PARTITION')',
+        #                                    account="os.environ.get('SLURM_JOB_USER')",
         #                                    cores=os.environ.get('SLURM_CPUS_PER_TASK'),
         #                                    memory="os.environ.get('SLURM_MEM_PER_NODE')",
         #                                    job_extra_directives=['--nodes=os.environ.get('SLURM_JOB_NUM_NODES')', 
-        #                                                          '--ntasks-per-node=int(os.environ.get('SLURM_TASKS_PER_NODE').split(':')[0])')
+        #                                                          '--ntasks-per-node=int(os.environ.get('SLURM_TASKS_PER_NODE').split('(x')[0])')
         #             #cluster.scale(jobs=10) 
         #             client = Client(cluster)
         #             futures = client.map(self._predict_func, AllExtents)
