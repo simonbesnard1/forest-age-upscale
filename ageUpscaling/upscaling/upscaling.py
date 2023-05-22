@@ -388,7 +388,7 @@ class UpscaleAge(ABC):
             
         cluster = SLURMCluster(queue= str(os.environ.get('SLURM_JOB_PARTITION')),
                                 account= str(os.environ.get('SLURM_JOB_USER')),
-                                cores= str(os.environ.get('SLURM_CPUS_PER_TASK')),
+                                cores= int(os.environ.get('SLURM_CPUS_PER_TASK')),
                                 memory= str(os.environ.get('SLURM_MEM_PER_NODE')),
                                 job_extra_directives=['--nodes={n_nodes}'.format(n_nodes = str(os.environ.get('SLURM_JOB_NUM_NODES'))), 
                                                       '--ntasks-per-node={ntasks_}'.format(ntasks_= str(int(os.environ.get('SLURM_TASKS_PER_NODE').split('(x')[0])))])
