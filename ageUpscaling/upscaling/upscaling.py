@@ -379,15 +379,6 @@ class UpscaleAge(ABC):
             
                 if (self.n_jobs_upscaling > 1):
                     
-                    if (
-                        'SLURM_JOB_ID' in os.environ
-                        and 'SLURM_JOB_NUM_NODES' in os.environ
-                        and 'SLURM_TASKS_PER_NODE' in os.environ
-                        and 'SLURM_CPUS_PER_TASK' in os.environ
-                        ):
-                        
-                        print("Code is running in a SLURM cluster")
-                    
                     cluster = SLURMCluster(queue= str(os.environ.get('SLURM_JOB_PARTITION')),
                                             account= str(os.environ.get('SLURM_JOB_USER')),
                                             cores= int(os.environ.get('SLURM_CPUS_PER_TASK')),
