@@ -386,9 +386,16 @@ class UpscaleAge(ABC):
         else:
             print("Code is not running in a SLURM cluster")
             
+        cluster = SLURMCluster(queue= os.environ.get('SLURM_JOB_PARTITION'),
+                                account= os.environ.get('SLURM_JOB_USER'),
+                                cores= os.environ.get('SLURM_CPUS_PER_TASK'),
+                                memory= os.environ.get('SLURM_MEM_PER_NODE'),
+                                job_extra_directives=['--nodes=' + os.environ.get('SLURM_JOB_NUM_NODES'), 
+                                                      '--ntasks-per-node=' + int(os.environ.get('SLURM_TASKS_PER_NODE').split('(x')[0])])
+        
         # self.pred_cube = DataCube(cube_config = self.cube_config)
         # self.pred_cube.init_variable(self.cube_config['cube_variables'], 
-        #                              njobs= len(self.cube_config['cube_variables'].keys()))
+        #                               njobs= len(self.cube_config['cube_variables'].keys()))
         
         # cluster_ = np.load(self.xval_index_path)        
         # train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
@@ -399,11 +406,11 @@ class UpscaleAge(ABC):
         #     self.best_models = {}
         #     for task_ in ["Regressor", "Classifier"]:
         #         model_tuned      = self.model_tuning(run_ = run_, 
-        #                                              task_ = task_,
-        #                                              feature_selection= self.DataConfig['feature_selection'],
-        #                                              feature_selection_method = self.DataConfig['feature_selection_method'],     
-        #                                              train_subset=train_subset, 
-        #                                              valid_subset=valid_subset)
+        #                                               task_ = task_,
+        #                                               feature_selection= self.DataConfig['feature_selection'],
+        #                                               feature_selection_method = self.DataConfig['feature_selection_method'],     
+        #                                               train_subset=train_subset, 
+        #                                               valid_subset=valid_subset)
         #         self.best_models[task_] = model_tuned      
             
         #     for tree_cover in self.cube_config["tree_cover_tresholds"]:
@@ -416,17 +423,17 @@ class UpscaleAge(ABC):
         #         LonChunks = np.array_split(self.pred_cube.cube.longitude.values, self.cube_config["num_chunks"])
                 
         #         AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-        #                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+        #                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
         #                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
             
         #         if (self.n_jobs_upscaling > 1):
 
-        #             cluster = SLURMCluster(queue='os.environ.get('SLURM_JOB_PARTITION')',
-        #                                    account="os.environ.get('SLURM_JOB_USER')",
-        #                                    cores=os.environ.get('SLURM_CPUS_PER_TASK'),
-        #                                    memory="os.environ.get('SLURM_MEM_PER_NODE')",
-        #                                    job_extra_directives=['--nodes=os.environ.get('SLURM_JOB_NUM_NODES')', 
-        #                                                          '--ntasks-per-node=int(os.environ.get('SLURM_TASKS_PER_NODE').split('(x')[0])')
+        #             cluster = SLURMCluster(queue= os.environ.get('SLURM_JOB_PARTITION'),
+        #                                     account= os.environ.get('SLURM_JOB_USER'),
+        #                                     cores= os.environ.get('SLURM_CPUS_PER_TASK'),
+        #                                     memory= os.environ.get('SLURM_MEM_PER_NODE'),
+        #                                     job_extra_directives=['--nodes=' + os.environ.get('SLURM_JOB_NUM_NODES'), 
+        #                                                           '--ntasks-per-node=' + int(os.environ.get('SLURM_TASKS_PER_NODE').split('(x')[0])])
         #             #cluster.scale(jobs=10) 
         #             client = Client(cluster)
         #             futures = client.map(self._predict_func, AllExtents)
