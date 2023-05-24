@@ -390,7 +390,7 @@ class UpscaleAge(ABC):
                     
                 else:
                     for extent in AllExtents:
-                        self._predict_func(extent).compute()
+                        self._predict_func(extent)#.compute()
             
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
                             
