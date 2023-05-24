@@ -22,14 +22,12 @@ import yaml as yml
 import pickle
 
 #import dask
-#import joblib
+import joblib
 import xarray as xr
 import zarr
 import dask.array as da
 from shapely.geometry import Polygon
 
-from dask_jobqueue import SLURMCluster
-from dask.distributed import Client
 
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
@@ -380,23 +378,9 @@ class UpscaleAge(ABC):
             
                 if (self.n_jobs_upscaling > 1):
                     
-                    cluster = SLURMCluster(queue= str(os.environ.get('SLURM_JOB_PARTITION')),
-                                            account= str(os.environ.get('SLURM_JOB_USER')),
-                                            cores= int(os.environ.get('SLURM_CPUS_PER_TASK')),
-                                            memory= str(os.environ.get('SLURM_MEM_PER_NODE')),
-                                            job_extra_directives=['--nodes={n_nodes}'.format(n_nodes = str(os.environ.get('SLURM_JOB_NUM_NODES'))), 
-                                                                  '--ntasks-per-node={ntasks_}'.format(ntasks_= str(int(os.environ.get('SLURM_TASKS_PER_NODE').split('(x')[0])))])
-                    
-                    #cluster.scale(jobs=10) 
-                    client = Client(cluster)
-                    futures = client.map(self._predict_func, AllExtents)
-                    _ = client.gather(futures)
-                    cluster.close()
-                    client.close()
-                    
-                    # with joblib.Parallel(n_jobs=self.n_jobs_upscaling) as parallel:
-                    #     futures = parallel(joblib.delayed(self._predict_func)(i) for i in AllExtents)
-                    #     _ = parallel(futures)
+                    with joblib.Parallel(n_jobs=self.n_jobs_upscaling) as parallel:
+                        futures = parallel(joblib.delayed(self._predict_func)(i) for i in AllExtents)
+                        _ = parallel(futures)
             
                     # with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
                     #                       'distributed.worker.threads': 2}):
