@@ -32,7 +32,6 @@ from shapely.geometry import Polygon
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
 
-from ageUpscaling.core.cube import DataCube
 from ageUpscaling.transformers.spatial import interpolate_worlClim
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
@@ -69,7 +68,7 @@ class UpscaleAge(ABC):
     """
     def __init__(self,
                  DataConfig_path: str,
-                 cube_config_path: str,            
+                 upscaling_config_path: str,            
                  base_dir: str,
                  algorithm: str = 'MLP',
                  exp_name: str = None,
@@ -81,8 +80,8 @@ class UpscaleAge(ABC):
         with open(DataConfig_path, 'r') as f:
             self.DataConfig =  yml.safe_load(f)
         
-        with open(cube_config_path, 'r') as f:
-            self.cube_config =  yml.safe_load(f)
+        with open(upscaling_config_path, 'r') as f:
+            self.upscaling_config =  yml.safe_load(f)
         
         self.algorithm = algorithm
         self.base_dir = base_dir
@@ -101,7 +100,7 @@ class UpscaleAge(ABC):
         self.valid_fraction= self.DataConfig["valid_fraction"]
         self.feature_selection= self.DataConfig["feature_selection"]
         self.feature_selection_method= self.DataConfig["feature_selection_method"]      
-        self.cube_config['cube_location'] = os.path.join(self.study_dir, self.cube_config['cube_name'])
+        self.upscaling_config['upscaling_output'] = os.path.join(self.study_dir, 'geotiff')
         self.xval_index_path = self.DataConfig["xval_index_path"]
     
     def version_dir(self, 
@@ -180,91 +179,118 @@ class UpscaleAge(ABC):
         buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
                      'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
         
-        var_selected           = self.best_models['Classifier']['selected_features'] + self.best_models['Regressor']['selected_features']
         subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(buffer_IN).astype('float16')
-        if not self.cube_config["high_res_pred"]:
-            subset_agb_cube    = subset_agb_cube.rename({'agb_001deg_cc_min_{tree_cover}'.format(tree_cover = self.tree_cover) : 'agb'})
-       
         subset_agb_cube        = subset_agb_cube.agb.where(subset_agb_cube.agb >0).to_dataset()
         
         if not np.isnan(subset_agb_cube.to_array().values).all():
             
-            subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(buffer_IN)[[x for x in var_selected if "WorlClim" in x]].astype('float16')
+            subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
            
-            if self.cube_config["high_res_pred"]:    
+            if self.upscaling_config["high_res_pred"]:    
                 subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
             
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             subset_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN)])
             
-            X_upscale_class = []
-            for var_name in self.best_models['Classifier']['selected_features']:
-                if self.algorithm == "MLP":
-                    X_upscale_class.append(self.norm(subset_cube[var_name], self.best_models['Classifier']['norm_stats'][var_name]))
-                else:
-                    X_upscale_class.append(subset_cube[var_name])
+            output_reg_xr = []
+            for run_ in tqdm(np.arange(self.upscaling_config['output_writer_params']['dims']['members']), desc='Model inference'):
                 
-            X_upscale_reg = []
-            for var_name in self.best_models['Regressor']['selected_features']:
-                if self.algorithm == "MLP":
-                    X_upscale_reg.append(self.norm(subset_cube[var_name], self.best_models['Regressor']['norm_stats'][var_name]))
-                else:
-                    X_upscale_reg.append(subset_cube[var_name])
-            
-            X_upscale_reg_flattened = []
-    
-            for arr in X_upscale_reg:
-                data = arr.data.flatten()
-                X_upscale_reg_flattened.append(data)
+                with open(self.study_dir + "/save_model/run{id_}/best_{method}.pickle".format(method = 'Classifier', id_ = run_), 'rb') as f:
+                    classifier_config = pickle.load(f)
+                best_classifier = classifier_config['best_model']
+                features_classifier = classifier_config['selected_features']
+                norm_stats_classifier = classifier_config['norm_stats']
                 
-            X_upscale_class_flattened = []
-    
-            for arr in X_upscale_class:
-                data = arr.data.flatten()
-                X_upscale_class_flattened.append(data)
-        
-            X_upscale_reg_flattened = da.array(X_upscale_reg_flattened).transpose().compute()
-            X_upscale_class_flattened = da.array(X_upscale_class_flattened).transpose().compute()
-            
-            RF_pred_class = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
-            RF_pred_reg = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
-            
-            mask = (np.all(np.isfinite(X_upscale_reg_flattened), axis=1)) & (np.all(np.isfinite(X_upscale_class_flattened), axis=1))
-            
-            if (X_upscale_class_flattened[mask].shape[0]>0):
+                with open(self.study_dir + "/save_model/run{id_}/best_{method}.pickle".format(method = 'Regressor', id_ = run_), 'rb') as f:
+                    regressor_config = pickle.load(f)
+                best_regressor = regressor_config['best_model']
+                features_regressor = regressor_config['selected_features']
+                norm_stats_regressor = regressor_config['norm_stats']
                 
-                if self.algorithm == "XGBoost":
-                    dpred =  xgb.DMatrix(X_upscale_class_flattened[mask])
-                    pred_class = np.rint(self.best_models["Classifier"]['best_model'].predict(dpred))
-                
-                else:
-                    pred_class = self.best_models["Classifier"]['best_model'].predict(X_upscale_class_flattened[mask])
+                var_selected           = features_regressor + features_classifier
+                subset_cube = subset_cube[var_selected]
+
+                X_upscale_class = []
+                for var_name in features_classifier:
+                    if self.algorithm == "MLP":
+                        X_upscale_class.append(self.norm(subset_cube[var_name], norm_stats_classifier[var_name]))
+                    else:
+                        X_upscale_class.append(subset_cube[var_name])
                     
-                RF_pred_class[mask] = pred_class
+                X_upscale_reg = []
+                for var_name in features_regressor:
+                    if self.algorithm == "MLP":
+                        X_upscale_reg.append(self.norm(subset_cube[var_name], norm_stats_regressor[var_name]))
+                    else:
+                        X_upscale_reg.append(subset_cube[var_name])
                 
-                if self.algorithm == "XGBoost":
-                    dpred =  xgb.DMatrix(X_upscale_reg_flattened[mask])
-                    pred_reg= self.best_models["Regressor"]['best_model'].predict(dpred)
-                
-                else:
-                    # pred_reg= self.denorm_target(self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
-                    #                              self.best_models["Regressor"]['norm_stats']['age'])
-                    pred_reg= self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask])
-                
-                pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
-                pred_reg[pred_reg<1] = 1
-                RF_pred_reg[mask] = pred_reg
-                RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]            
-                out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
-                output_reg_xr = xr.DataArray(out_reg, 
-                                              coords={"latitude": subset_cube.latitude, 
-                                                      "longitude": subset_cube.longitude,
-                                                      "time": subset_cube.time,                                                          
-                                                      'members': [self.member]}, 
-                                              dims=["latitude", "longitude", "time", "members"]).to_dataset(name="forest_age_TC{tree_cover}".format(tree_cover= self.tree_cover))
-                        
-                self.pred_cube.update_cube(output_reg_xr, initialize=False)
+                X_upscale_reg_flattened = []
         
+                for arr in X_upscale_reg:
+                    data = arr.data.flatten()
+                    X_upscale_reg_flattened.append(data)
+                    
+                X_upscale_class_flattened = []
+        
+                for arr in X_upscale_class:
+                    data = arr.data.flatten()
+                    X_upscale_class_flattened.append(data)
+            
+                X_upscale_reg_flattened = da.array(X_upscale_reg_flattened).transpose().compute()
+                X_upscale_class_flattened = da.array(X_upscale_class_flattened).transpose().compute()
+                
+                RF_pred_class = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
+                RF_pred_reg = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
+                
+                mask = (np.all(np.isfinite(X_upscale_reg_flattened), axis=1)) & (np.all(np.isfinite(X_upscale_class_flattened), axis=1))
+                
+                if (X_upscale_class_flattened[mask].shape[0]>0):
+                    
+                    if self.algorithm == "XGBoost":
+                        dpred =  xgb.DMatrix(X_upscale_class_flattened[mask])
+                        pred_class = np.rint(best_classifier.predict(dpred))
+                    
+                    else:
+                        pred_class = best_classifier.predict(X_upscale_class_flattened[mask])
+                        
+                    RF_pred_class[mask] = pred_class
+                    
+                    if self.algorithm == "XGBoost":
+                        dpred =  xgb.DMatrix(X_upscale_reg_flattened[mask])
+                        pred_reg= best_regressor.predict(dpred)
+                    
+                    else:
+                        # pred_reg= self.denorm_target(self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
+                        #                              self.best_models["Regressor"]['norm_stats']['age'])
+                        pred_reg= best_regressor.predict(X_upscale_reg_flattened[mask])
+                    
+                    pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
+                    pred_reg[pred_reg<1] = 1
+                    RF_pred_reg[mask] = pred_reg
+                    RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]            
+                    out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
+                    output_reg_xr.append(xr.DataArray(out_reg, 
+                                                  coords={"latitude": subset_cube.latitude, 
+                                                          "longitude": subset_cube.longitude,
+                                                          "time": subset_cube.time,                                                          
+                                                          'members': [self.member]}, 
+                                                  dims=["latitude", "longitude", "time", "members"]).to_dataset(name="forest_age"))
+                            
+                output_reg_xr = xr.concat(output_reg_xr, dim = 'members').transpose('time', 'latitude', 'longitude').astype("int16")
+                output_reg_xr.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
+                output_reg_xr.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
+                output_reg_xr = output_reg_xr.rio.write_crs("epsg:4326", inplace=True)
+                output_reg_xr_mean = output_reg_xr.mean(dim = 'members')
+                output_reg_xr_std = output_reg_xr.std(dim = 'members')
+                output_reg_xr_mean.attrs = {'long_name': 'Forest age mean derived from model ensembles',
+                                            'units': 'years'}              
+                output_reg_xr_std.attrs = {'long_name': 'Forest age mean derived from model ensembles',
+                                            'units': 'years'}              
+                out_file =  self.upscaling_config['upscaling_output']  +  "ForestAge" + "_mean_" + str(np.round(lat_start, 4)) + '_' + str(np.round(lon_start, 4)) + '.tiff'
+                output_reg_xr_mean.rio.to_raster(raster_path=out_file, driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")
+                out_file =  self.upscaling_config['upscaling_output'] +  "ForestAge" + "_std_" + str(np.round(lat_start, 4)) + '_' + str(np.round(lon_start, 4)) + '.tiff'
+                output_reg_xr_std.rio.to_raster(raster_path=out_file, driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")                             
+                
     def model_tuning(self,
                      run_: int=1,
                      task_:str='Regressor',
@@ -321,12 +347,10 @@ class UpscaleAge(ABC):
         if not os.path.exists(self.study_dir + '/save_model/'):
              os.makedirs(self.study_dir + '/save_model/')
              
-        with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = task_, id_ = run_), "wb") as fout:
-            pickle.dump(ml_method.best_model, fout)
-         
-        return {'best_model': ml_method.best_model, 
-                'selected_features': self.DataConfig['features_selected'], 
-                'norm_stats' : ml_method.mldata.norm_stats}
+        with open(self.study_dir + "/save_model/run{id_}/best_{method}.pickle".format(method = task_, id_ = run_), "wb") as fout:
+            pickle.dump({'best_model': ml_method.best_model, 
+                         'selected_features': self.DataConfig['features_selected'], 
+                         'norm_stats' : ml_method.mldata.norm_stats}, fout)
     
     def ForwardRun(self) -> None:
         """Perform forward run of the model, which consists of generating high resolution maps of age using the trained model.
@@ -343,56 +367,48 @@ class UpscaleAge(ABC):
             Boolean indicating whether to perform high resolution prediction, default is False
         """
         
-        self.pred_cube = DataCube(cube_config = self.cube_config)
-        self.pred_cube.init_variable(self.cube_config['cube_variables'], 
-                                      njobs= len(self.cube_config['cube_variables'].keys()))
-        
         cluster_ = np.load(self.xval_index_path)        
         train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
         
-        for run_ in tqdm(np.arange(self.cube_config['output_writer_params']['dims']['members']), desc='Forward run model members'):
+        for run_ in tqdm(np.arange(self.upscaling_config['output_writer_params']['dims']['members']), desc='Training model members'):
             
-            self.member = run_
-            self.best_models = {}
             for task_ in ["Regressor", "Classifier"]:
-                model_tuned      = self.model_tuning(run_ = run_, 
-                                                      task_ = task_,
-                                                      feature_selection= self.DataConfig['feature_selection'],
-                                                      feature_selection_method = self.DataConfig['feature_selection_method'],     
-                                                      train_subset=train_subset, 
-                                                      valid_subset=valid_subset)
-                self.best_models[task_] = model_tuned      
-            
-            for tree_cover in self.cube_config["tree_cover_tresholds"]:
-                
-                if (self.cube_config["high_res_pred"] and tree_cover != '000'):
-                    raise ValueError(f'tree cover threshold of {tree_cover} is not supported for the high-resolution cubes -  Thereshold has to be 000')
-                
-                self.tree_cover = tree_cover
-                LatChunks = np.array_split(self.pred_cube.cube.latitude.values, self.cube_config["num_chunks"])
-                LonChunks = np.array_split(self.pred_cube.cube.longitude.values, self.cube_config["num_chunks"])
-                
-                AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                                "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-                            for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-            
-                if (self.n_jobs_upscaling > 1):
-                    
-                    with joblib.Parallel(n_jobs=self.n_jobs_upscaling) as parallel:
-                        futures = parallel(joblib.delayed(self._predict_func)(i) for i in AllExtents)
-                        _ = parallel(futures)
-            
-                    # with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
-                    #                       'distributed.worker.threads': 2}):
-
-                    #     futures = [self._predict_func(i) for i in AllExtents]
-                    #     dask.compute(*futures, num_workers=self.n_jobs_upscaling)    
-                    
-                else:
-                    for extent in AllExtents:
-                        self._predict_func(extent)#.compute()
-            
+                self.model_tuning(run_ = run_, 
+                                  task_ = task_,
+                                  feature_selection= self.DataConfig['feature_selection'],
+                                  feature_selection_method = self.DataConfig['feature_selection_method'],     
+                                  train_subset=train_subset, 
+                                  valid_subset=valid_subset)
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
+            
+        
+        lat_vector = np.flip(np.arange(self.upscaling_config["output_writer_params"]['dims']['latitude'][0], self.upscaling_config["output_writer_params"]['dims']['latitude'][1], self.upscaling_config["spatial_resolution"])) 
+        lon_vector = np.arange(self.upscaling_config["output_writer_params"]['dims']['longitude'][0], self.upscaling_config["output_writer_params"]['dims']['longitude'][1], self.upscaling_config["spatial_resolution"])
+                       
+        LatChunks = np.array_split(lat_vector, self.upscaling_config["num_chunks"])
+        LonChunks = np.array_split(lon_vector, self.upscaling_config["num_chunks"])
+        
+        AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
+                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+                    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
+    
+        if (self.n_jobs_upscaling > 1):
+            
+            with joblib.Parallel(n_jobs=self.n_jobs_upscaling) as parallel:
+                futures = parallel(joblib.delayed(self._predict_func)(i) for i in AllExtents)
+                _ = parallel(futures)
+    
+            # with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
+            #                       'distributed.worker.threads': 2}):
+
+            #     futures = [self._predict_func(i) for i in AllExtents]
+            #     dask.compute(*futures, num_workers=self.n_jobs_upscaling)    
+            
+        else:
+            for extent in AllExtents:
+                self._predict_func(extent)#.compute()
+            
+            
                             
     def norm(self, 
              x: np.array,
