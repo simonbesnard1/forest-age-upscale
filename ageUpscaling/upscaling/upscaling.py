@@ -195,13 +195,13 @@ class UpscaleAge(ABC):
             output_reg_xr = []
             for run_ in tqdm(np.arange(self.upscaling_config['output_writer_params']['dims']['members']), desc='Model inference'):
                 
-                with open(self.study_dir + "/save_model/run{id_}/best_{method}.pickle".format(method = 'Classifier', id_ = run_), 'rb') as f:
+                with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = 'Classifier', id_ = run_), 'rb') as f:
                     classifier_config = pickle.load(f)
                 best_classifier = classifier_config['best_model']
                 features_classifier = classifier_config['selected_features']
                 norm_stats_classifier = classifier_config['norm_stats']
                 
-                with open(self.study_dir + "/save_model/run{id_}/best_{method}.pickle".format(method = 'Regressor', id_ = run_), 'rb') as f:
+                with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = 'Regressor', id_ = run_), 'rb') as f:
                     regressor_config = pickle.load(f)
                 best_regressor = regressor_config['best_model']
                 features_regressor = regressor_config['selected_features']
@@ -347,7 +347,7 @@ class UpscaleAge(ABC):
         if not os.path.exists(self.study_dir + '/save_model/'):
              os.makedirs(self.study_dir + '/save_model/')
              
-        with open(self.study_dir + "/save_model/run{id_}/best_{method}.pickle".format(method = task_, id_ = run_), "wb") as fout:
+        with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = task_, id_ = run_), "wb") as fout:
             pickle.dump({'best_model': ml_method.best_model, 
                          'selected_features': self.DataConfig['features_selected'], 
                          'norm_stats' : ml_method.mldata.norm_stats}, fout)
