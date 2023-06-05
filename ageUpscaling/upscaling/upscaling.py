@@ -22,7 +22,7 @@ import yaml as yml
 import pickle
 
 #import dask
-import joblib
+import multiprocessing
 import xarray as xr
 import zarr
 import dask.array as da
@@ -169,7 +169,6 @@ class UpscaleAge(ABC):
         
         return f"{base_dir}/{exp_name}/{algorithm}/version-{version}"
     
-    #@dask.delayed
     def _predict_func(self, 
                       IN) -> None:
         
@@ -394,20 +393,13 @@ class UpscaleAge(ABC):
     
         if (self.n_jobs_upscaling > 1):
             
-            with joblib.Parallel(n_jobs=self.n_jobs_upscaling) as parallel:
-                futures = parallel(joblib.delayed(self._predict_func)(i) for i in AllExtents)
-                _ = parallel(futures)
-    
-            # with dask.config.set({'distributed.worker.memory.target': 50*1024*1024*1024, 
-            #                       'distributed.worker.threads': 2}):
-
-            #     futures = [self._predict_func(i) for i in AllExtents]
-            #     dask.compute(*futures, num_workers=self.n_jobs_upscaling)    
-            
+            with multiprocessing.Pool(self.n_jobs_upscaling) as pool:
+                futures = pool.imap(self._predict_func, AllExtents)
+                _ = list(futures)
+                        
         else:
             for extent in AllExtents:
-                self._predict_func(extent)#.compute()
-            
+                self._predict_func(extent)           
             
                             
     def norm(self, 
