@@ -103,6 +103,10 @@ class UpscaleAge(ABC):
         self.upscaling_config['upscaling_output'] = os.path.join(self.study_dir, 'geotiff')
         self.xval_index_path = self.DataConfig["xval_index_path"]
     
+        if not os.path.exists(self.upscaling_config['upscaling_output']):
+             os.makedirs(self.upscaling_config['upscaling_output'])
+            
+        
     def version_dir(self, 
                     base_dir: str,
                     exp_name:str,
@@ -401,7 +405,7 @@ class UpscaleAge(ABC):
         AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-    
+        
         if (self.n_jobs_upscaling > 1):
             
             with multiprocessing.Pool(self.n_jobs_upscaling) as pool:
