@@ -185,8 +185,7 @@ class UpscaleAge(ABC):
             
             subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
            
-            if self.upscaling_config["high_res_pred"]:    
-                subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
+            subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
             
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             subset_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN)])
@@ -275,21 +274,33 @@ class UpscaleAge(ABC):
                                                           'members': [self.member]}, 
                                                   dims=["latitude", "longitude", "time", "members"]).to_dataset(name="forest_age"))
                             
-                output_reg_xr = xr.concat(output_reg_xr, dim = 'members').transpose('time', 'latitude', 'longitude').astype("int16")
-                output_reg_xr.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
-                output_reg_xr.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
-                output_reg_xr = output_reg_xr.rio.write_crs("epsg:4326", inplace=True)
-                output_reg_xr_mean = output_reg_xr.mean(dim = 'members')
-                output_reg_xr_std = output_reg_xr.std(dim = 'members')
-                output_reg_xr_mean.attrs = {'long_name': 'Forest age mean derived from model ensembles',
-                                            'units': 'years'}              
-                output_reg_xr_std.attrs = {'long_name': 'Forest age mean derived from model ensembles',
-                                            'units': 'years'}              
-                out_file =  self.upscaling_config['upscaling_output']  +  "ForestAge" + "_mean_" + str(np.round(lat_start, 4)) + '_' + str(np.round(lon_start, 4)) + '.tiff'
-                output_reg_xr_mean.rio.to_raster(raster_path=out_file, driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")
-                out_file =  self.upscaling_config['upscaling_output'] +  "ForestAge" + "_std_" + str(np.round(lat_start, 4)) + '_' + str(np.round(lon_start, 4)) + '.tiff'
-                output_reg_xr_std.rio.to_raster(raster_path=out_file, driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")                             
-                
+            output_reg_xr = xr.concat(output_reg_xr, dim = 'members').transpose('time', 'latitude', 'longitude').astype("int16")
+            output_reg_xr.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
+            output_reg_xr.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
+            output_reg_xr = output_reg_xr.rio.write_crs("epsg:4326", inplace=True)
+            output_reg_xr_mean = output_reg_xr.mean(dim = 'members')
+            output_reg_xr_std = output_reg_xr.std(dim = 'members')
+            output_reg_xr_mean.attrs = {'long_name': 'Forest age mean derived from model ensembles',
+                                        'units': 'years'}              
+            output_reg_xr_std.attrs = {'long_name': 'Forest age std derived from model ensembles',
+                                        'units': 'years'}              
+            out_file =  self.upscaling_config['upscaling_output']  +  "ForestAge" + "_mean_" + str(np.round(lat_start, 4)) + '_' + str(np.round(lon_start, 4)) + '.tiff'
+            output_reg_xr_mean.rio.to_raster(raster_path=out_file, driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")
+            out_file =  self.upscaling_config['upscaling_output'] +  "ForestAge" + "_std_" + str(np.round(lat_start, 4)) + '_' + str(np.round(lon_start, 4)) + '.tiff'
+            output_reg_xr_std.rio.to_raster(raster_path=out_file, driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")                             
+        
+        else:
+            output_reg_xr_mean = xr.zeros_like(subset_agb_cube).astype("int16")
+            output_reg_xr_std = xr.zeros_like(subset_agb_cube).astype("int16")
+            output_reg_xr_mean.attrs = {'long_name': 'Forest age mean derived from model ensembles',
+                                        'units': 'years'}              
+            output_reg_xr_std.attrs = {'long_name': 'Forest age std derived from model ensembles',
+                                        'units': 'years'}              
+            out_file =  self.upscaling_config['upscaling_output']  +  "ForestAge" + "_mean_" + str(np.round(lat_start, 4)) + '_' + str(np.round(lon_start, 4)) + '.tiff'
+            output_reg_xr_mean.rio.to_raster(raster_path=out_file, driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")
+            out_file =  self.upscaling_config['upscaling_output'] +  "ForestAge" + "_std_" + str(np.round(lat_start, 4)) + '_' + str(np.round(lon_start, 4)) + '.tiff'
+            output_reg_xr_std.rio.to_raster(raster_path=out_file, driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")                             
+                    
     def model_tuning(self,
                      run_: int=1,
                      task_:str='Regressor',
