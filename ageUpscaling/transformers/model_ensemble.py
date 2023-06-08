@@ -70,7 +70,7 @@ class ModelEnsemble(ABC):
         
         subset_age_cube  = xr.open_zarr(self.cube_config['cube_location'], synchronizer=synchronizer).sel(latitude= IN['latitude'],longitude=IN['longitude'])
         
-        for var_ in {key for key in set(list(subset_age_cube.keys())) - set(subset_age_cube.coords) if not key.endswith('_median') and not key.endswith('_iqr')}:
+        for var_ in {key for key in set(list(subset_age_cube.keys())) - set(subset_age_cube.coords) if not key.endswith('_median') and not key.endswith('_iqr') and not key.endswith('_mean') and not key.endswith('_std')}:
             output_mean = subset_age_cube[var_].median(dim = 'members').to_dataset(name = var_ + '_median')
             output_iqr = subset_age_cube[var_].quantile(q=0.75, dim = 'members') - subset_age_cube[var_].quantile(q=0.25, dim = 'members') 
             output_iqr = output_iqr.to_dataset(name = var_ + '_iqr')
