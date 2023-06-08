@@ -101,7 +101,7 @@ class UpscaleAge(ABC):
         self.valid_fraction= self.DataConfig["valid_fraction"]
         self.feature_selection= self.DataConfig["feature_selection"]
         self.feature_selection_method= self.DataConfig["feature_selection_method"]      
-        self.upscaling_config['upscaling_output'] =  os.path.join(self.study_dir, self.upscaling_config['cube_name'])
+        self.upscaling_config['cube_location'] =  os.path.join(self.study_dir, self.upscaling_config['cube_name'])
         self.xval_index_path = self.DataConfig["xval_index_path"]
         
     def version_dir(self, 
