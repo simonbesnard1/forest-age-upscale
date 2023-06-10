@@ -272,7 +272,7 @@ class UpscaleAge(ABC):
                                                   coords={"latitude": subset_cube.latitude, 
                                                           "longitude": subset_cube.longitude,
                                                           "time": subset_cube.time,                                                          
-                                                          'members': [self.member]}, 
+                                                          'members': [run_]}, 
                                                   dims=["latitude", "longitude", "time", "members"]))
                             
             output_reg_xr = xr.concat(output_reg_xr, dim = 'members')
