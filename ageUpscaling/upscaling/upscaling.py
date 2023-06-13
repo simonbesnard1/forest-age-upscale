@@ -275,7 +275,7 @@ class UpscaleAge(ABC):
                                                           'members': [run_]}, 
                                                   dims=["latitude", "longitude", "time", "members"]))
                             
-            if len(output_reg_xr>0):
+            if len(output_reg_xr) >0:
                 output_reg_xr = xr.concat(output_reg_xr, dim = 'members')
                 output_reg_xr_mean = output_reg_xr.mean(dim = 'members').to_dataset(name="forest_age_mean")
                 output_reg_xr_std = output_reg_xr.std(dim = 'members').to_dataset(name="forest_age_std")
