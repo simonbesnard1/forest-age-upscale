@@ -18,7 +18,7 @@ from typing import Any, Tuple
 import xarray as xr
 
 import xgboost as xgb
-from sklearn.metrics import mean_squared_error, roc_auc_score
+from sklearn.metrics import mean_squared_error, roc_auc_score, mean_squared_log_error
 
 import optuna
 
@@ -234,7 +234,8 @@ class XGBoost:
         training_params['early_stopping_rounds'] = 1000
         
         if self.method == "XGBoostRegressor":
-            #hyper_params['objective'] = "reg:squarederror"
+            hyper_params['objective'] = "reg:squarederror"
+            hyper_params['eval_metric'] = "rmse"      
             pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-rmse")
 
             
@@ -247,28 +248,15 @@ class XGBoost:
         deval = xgb.DMatrix(val_data['features'], label = val_data['target'])
         vallist = [(dtrain, 'train'), (deval, 'eval')]
         
-        if self.method == "XGBoostRegressor":
-        
-            model_ = xgb.train(hyper_params, dtrain, evals=vallist, callbacks = [pruning_callback],
-                                custom_metric = rmsle, obj= squared_log, verbose_eval=False, **training_params)
-        elif self.method == "XGBoostClassifier":
-            
-            model_ = xgb.train(hyper_params, dtrain, evals=vallist, callbacks = [pruning_callback],
-                               verbose_eval=False, **training_params)
+        model_ = xgb.train(hyper_params, dtrain, evals=vallist, callbacks = [pruning_callback],
+                           verbose_eval=False, **training_params)
 
-            
         self.best_ntree = model_.best_ntree_limit
             
         if retrain_with_valid:
             training_params['num_boost_round'] = self.best_ntree
-            training_params['early_stopping_rounds'] = None
-            if self.method == "XGBoostRegressor":
-                
-                model_ = xgb.train(hyper_params, dtrain, custom_metric = rmsle, obj= squared_log, **training_params)
-
-            elif self.method == "XGBoostClassifier":
-                   
-                model_ = xgb.train(hyper_params, dtrain, **training_params)
+            training_params['early_stopping_rounds'] = None                   
+            model_ = xgb.train(hyper_params, dtrain, **training_params)
 
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)
@@ -278,8 +266,7 @@ class XGBoost:
         
         if self.method == "XGBoostRegressor":
             #loss_ =   mean_squared_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), squared=False) #/ (np.max(val_data['target']) - np.min(val_data['target']))
-            #loss_ = quantile_loss(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), [0.05, 0.25, 0.5, 0.75, 0.95])
-            loss_ =   mean_squared_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), squared=False) #/ (np.max(val_data['target']) - np.min(val_data['target']))
+            loss_ = quantile_loss(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), [0.05, 0.25, 0.5, 0.75, 0.95])
             
             #loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])))
         elif self.method == "XGBoostClassifier":
