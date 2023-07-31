@@ -31,7 +31,7 @@ max_forest_age:
   - 300
   
 hyper_params:
-  number_trials: 10
+  number_trials: 2
   tree_method: ['hist']
   eta: 
     min: 0.0001

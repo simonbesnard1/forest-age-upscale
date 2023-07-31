@@ -13,7 +13,7 @@
 import os
 import numpy as np
 import pickle
-from typing import Any
+from typing import Any, Tuple
 
 import xarray as xr
 
@@ -23,7 +23,44 @@ from sklearn.metrics import mean_squared_error, roc_auc_score
 import optuna
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
-from ageUpscaling.utils.metrics import mef_gufunc
+#from ageUpscaling.utils.metrics import mef_gufunc
+from ageUpscaling.methods.feature_selection import FeatureSelection
+
+def quantile_loss(y_true, y_pred, quantiles):
+    losses = []
+    for quantile in quantiles:
+        residual = y_true - y_pred
+        loss_q = np.where(residual >= 0, quantile * residual, (quantile - 1) * residual)
+        losses.append(loss_q)
+    return np.sum(losses)
+
+def gradient(predt: np.ndarray, dtrain: xgb.DMatrix) -> np.ndarray:
+    '''Compute the gradient squared log error.'''
+    y = dtrain.get_label()
+    return (np.log1p(predt) - np.log1p(y)) / (predt + 1)
+
+def hessian(predt: np.ndarray, dtrain: xgb.DMatrix) -> np.ndarray:
+    '''Compute the hessian for squared log error.'''
+    y = dtrain.get_label()
+    return ((-np.log1p(predt) + np.log1p(y) + 1) /
+            np.power(predt + 1, 2))
+
+def squared_log(predt: np.ndarray,
+                dtrain: xgb.DMatrix) -> Tuple[np.ndarray, np.ndarray]:
+    '''Squared Log Error objective. A simplified version for RMSLE used as
+    objective function.
+    '''
+    predt[predt < -1] = -1 + 1e-6
+    grad = gradient(predt, dtrain)
+    hess = hessian(predt, dtrain)
+    return grad, hess
+
+def rmsle(predt: np.ndarray, dtrain: xgb.DMatrix) -> Tuple[str, float]:
+    ''' Root mean squared log error metric.'''
+    y = dtrain.get_label()
+    predt[predt < -1] = -1 + 1e-6
+    elements = np.power(np.log1p(y) - np.log1p(predt), 2)
+    return 'PyRMSLE', float(np.sqrt(np.sum(elements) / len(y)))
 
 
 class XGBoost:
@@ -100,6 +137,10 @@ class XGBoost:
               train_subset:dict={},
               valid_subset:dict={}, 
               test_subset:dict={},
+              task_:str= '',
+              feature_selection:bool= True,
+              feature_selection_method:str='',
+              biais_correction:bool= True,
               n_jobs:int=10) -> None:
         
         """Trains an XGBoost model using the specified training and validation datasets.
@@ -114,6 +155,14 @@ class XGBoost:
             n_jobs: int, optional
                 Number of jobs to use when fitting the model.
         """
+        if feature_selection:
+            self.DataConfig['features_selected'] = FeatureSelection(method=task_, 
+                                                                    feature_selection_method = feature_selection_method, 
+                                                                    features = self.DataConfig['features'],
+                                                                    data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features(n_jobs = n_jobs)
+        else:
+            self.DataConfig['features_selected'] = self.DataConfig['features'].copy()
+        
 
         self.mldata = self.get_datamodule(method= self.method,
                                           DataConfig=self.DataConfig, 
@@ -185,7 +234,7 @@ class XGBoost:
         training_params['early_stopping_rounds'] = 1000
         
         if self.method == "XGBoostRegressor":
-            hyper_params['objective'] = "reg:squarederror"
+            #hyper_params['objective'] = "reg:squarederror"
             pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-rmse")
 
             
@@ -198,15 +247,28 @@ class XGBoost:
         deval = xgb.DMatrix(val_data['features'], label = val_data['target'])
         vallist = [(dtrain, 'train'), (deval, 'eval')]
         
-        model_ = xgb.train(hyper_params, dtrain, evals=vallist, callbacks = [pruning_callback],
-                            verbose_eval=False, **training_params)
+        if self.method == "XGBoostRegressor":
         
+            model_ = xgb.train(hyper_params, dtrain, evals=vallist, callbacks = [pruning_callback],
+                                custom_metric = rmsle, obj= squared_log, verbose_eval=False, **training_params)
+        elif self.method == "XGBoostClassifier":
+            
+            model_ = xgb.train(hyper_params, dtrain, evals=vallist, callbacks = [pruning_callback],
+                               verbose_eval=False, **training_params)
+
+            
         self.best_ntree = model_.best_ntree_limit
             
         if retrain_with_valid:
             training_params['num_boost_round'] = self.best_ntree
             training_params['early_stopping_rounds'] = None
-            model_ = xgb.train(hyper_params, dtrain, **training_params)
+            if self.method == "XGBoostRegressor":
+                
+                model_ = xgb.train(hyper_params, dtrain, custom_metric = rmsle, obj= squared_log, **training_params)
+
+            elif self.method == "XGBoostClassifier":
+                   
+                model_ = xgb.train(hyper_params, dtrain, **training_params)
 
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)
@@ -215,7 +277,10 @@ class XGBoost:
             raise optuna.exceptions.TrialPruned()
         
         if self.method == "XGBoostRegressor":
+            #loss_ =   mean_squared_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), squared=False) #/ (np.max(val_data['target']) - np.min(val_data['target']))
+            #loss_ = quantile_loss(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), [0.05, 0.25, 0.5, 0.75, 0.95])
             loss_ =   mean_squared_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), squared=False) #/ (np.max(val_data['target']) - np.min(val_data['target']))
+            
             #loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])))
         elif self.method == "XGBoostClassifier":
             loss_ =  roc_auc_score(val_data['target'], np.rint(model_.predict(xgb.DMatrix(val_data['features']))))
@@ -229,6 +294,9 @@ class XGBoost:
         Parameters:
             save_cube: str
                 Path to the output netCDF file where the predictions will be saved.
+            biais_correction : bool
+                Whether to apply a biais correction or not.
+                Default is True.
         """
         
         X = self.mldata.test_dataloader().get_x(method= self.method, features = self.DataConfig['features_selected'])

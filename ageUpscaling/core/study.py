@@ -13,7 +13,6 @@
 import os
 
 import numpy as np
-import xarray as xr
 from abc import ABC
 from sklearn.model_selection import KFold, train_test_split
 from tqdm import tqdm
@@ -25,7 +24,6 @@ from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 from ageUpscaling.methods.RandomForest import RandomForest
 from ageUpscaling.methods.autoML import TPOT
-from ageUpscaling.methods.feature_selection import FeatureSelection
 
 class Study(ABC):
     """Study abstract class for cross validation, model training, prediction.
@@ -152,7 +150,8 @@ class Study(ABC):
                          xval_index_path:str = None,
                          valid_fraction:float=0.3,
                          feature_selection:bool=False,
-                         feature_selection_method:str=None) -> None:
+                         feature_selection_method:str=None,
+                         biais_correction:bool=True) -> None:
         """Perform cross-validation on the data.
     
         Parameters
@@ -171,6 +170,9 @@ class Study(ABC):
             The method to use for feature selection.
             Only applicable if `feature_selection` is True.
             Default is None.
+        biais_correction : bool, optional
+            Whether to apply a biais correction or not.
+            Default is True.
     
         Notes
         -----
@@ -181,14 +183,6 @@ class Study(ABC):
         kf = KFold(n_splits=n_folds, shuffle=True)
         
         for task_ in ["Regressor", "Classifier"]:
-            
-            if feature_selection:
-                self.DataConfig['features_selected'] = FeatureSelection(method=task_, 
-                                                                        feature_selection_method = feature_selection_method, 
-                                                                        features = self.DataConfig['features'],
-                                                                        data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features(n_jobs = self.n_jobs)
-            else:
-                self.DataConfig['features_selected'] = self.DataConfig['features'].copy()
                 
             for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
                 train_subset, test_subset = cluster_[train_index], cluster_[test_index]
@@ -214,9 +208,17 @@ class Study(ABC):
                 ml_method.train(train_subset=train_subset,
                                   valid_subset=valid_subset, 
                                   test_subset=test_subset,
+                                  task_= task_,
+                                  feature_selection=feature_selection,
+                                  feature_selection_method=feature_selection_method,
+                                  biais_correction= biais_correction,
                                   n_jobs = self.n_jobs)
                 ml_method.predict_clusters(save_cube = pred_cube)                       
                 shutil.rmtree(os.path.join(self.study_dir, "tune"))
+                
+                
+                
+                
             
     
             
