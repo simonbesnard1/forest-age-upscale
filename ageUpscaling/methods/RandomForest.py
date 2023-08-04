@@ -20,7 +20,9 @@ import xarray as xr
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import RandomForestClassifier
 
-from sklearn.metrics import mean_squared_error, roc_auc_score
+from sklearn.metrics import mean_absolute_error, roc_auc_score
+from sklearn.utils.class_weight import compute_sample_weight
+
 
 import optuna
 
@@ -176,10 +178,13 @@ class RandomForest:
                         "min_samples_leaf": trial.suggest_int('min_samples_leaf', DataConfig['hyper_params']['min_samples_leaf']['min'], DataConfig['hyper_params']['min_samples_leaf']['max'], step=DataConfig['hyper_params']['min_samples_leaf']['step'])}
                                         
         if self.method == "RandomForestRegressor":
+            weight_ = None
             model_ = RandomForestRegressor(**hyper_params, n_jobs=10)
             
         elif self.method == "RandomForestClassifier":
-          model_ = RandomForestClassifier(**hyper_params, n_jobs=10)
+            weight_ = compute_sample_weight(class_weight='balanced',
+                                            y=val_data['target'])
+            model_ = RandomForestClassifier(**hyper_params, class_weight = "balanced", n_jobs=10)
           
         model_.fit(train_data['features'], train_data['target'])
         
@@ -190,10 +195,12 @@ class RandomForest:
             raise optuna.exceptions.TrialPruned()
         
         if self.method == "RandomForestRegressor":
-            loss_ =   mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False) #/ (np.max(val_data['target']) - np.min(val_data['target']))
+            loss_ =   mean_absolute_error(val_data['target'], model_.predict(val_data['features']),
+                                          sample_weight = weight_) #/ (np.max(val_data['target']) - np.min(val_data['target']))
             #loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(val_data['features']))
         elif self.method == "RandomForestClassifier":
-            loss_ =  roc_auc_score(val_data['target'], np.rint(model_.predict(val_data['features'])))
+            loss_ =  roc_auc_score(val_data['target'], np.rint(model_.predict(val_data['features'])),
+                                   sample_weight = weight_)
         
         return loss_
     

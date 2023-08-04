@@ -223,7 +223,8 @@ class XGBoost:
             raise optuna.exceptions.TrialPruned()
         
         if self.method == "XGBoostRegressor":
-            loss_ =   mean_absolute_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), sample_weight = weight_) #/ (np.max(val_data['target']) - np.min(val_data['target']))
+            loss_ =   mean_absolute_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), 
+                                          sample_weight = weight_) #/ (np.max(val_data['target']) - np.min(val_data['target']))
             #loss_ = quantile_loss(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), [0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99])            
             #loss_ +=  0.5 * (1 - mef_gufunc(val_data['target'], model_.predict(xgb.DMatrix(val_data['features']))))
 
