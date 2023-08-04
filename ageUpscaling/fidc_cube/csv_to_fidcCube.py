@@ -148,8 +148,8 @@ class ImportAndSave(ABC):
                 
                 	
             ds = xr.Dataset(data_vars=ds, coords=coords)  
-            ds = ds.assign_coords(latitude  =  np.unique(df_['latitude_origin'].values[siteMask]),
-                                  longitude = np.unique(df_['longitude_origin'].values[siteMask]))
+            ds = ds.assign_coords(latitude  =  np.unique(df_['latitude'].values[siteMask]),
+                                  longitude = np.unique(df_['longitude'].values[siteMask]))
             plot_ds.append(ds)    
         plot_ds = xr.concat(plot_ds, dim= 'cluster')
         

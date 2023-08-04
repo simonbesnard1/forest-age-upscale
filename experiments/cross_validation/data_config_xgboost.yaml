@@ -1,4 +1,4 @@
-training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300_substetFIA_withTH.nc"
+training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300_v3.nc"
 features:
   - agb
   - AnnualMeanTemperature_WorlClim
@@ -31,24 +31,24 @@ max_forest_age:
   - 300
   
 hyper_params:
-  number_trials: 2
-  tree_method: ['hist']
+  number_trials: 50
+  tree_method: ['hist', 'auto']
   eta: 
-    min: 0.0001
+    min: 0.01
     max: 1
   gamma: 
      min: 1
      max: 9
   max_depth:
     min: 1
-    max: 10
+    max: 15
     step: 1
   min_child_weight:
     min: 1
-    max: 15
+    max: 20
     step: 1
   subsample:
-    min: 0.1
+    min: 0.5
     max: 1
     step: 0.1
   colsample_bynode:
@@ -56,18 +56,14 @@ hyper_params:
     max: 1
     step: 0.1
   lambda:
-    min: 0.00000001
-    max: 1
+    min: 0
+    max: 10
   alpha:
-    min: 0.00000001
-    max: 1
+    min: 10
+    max: 80
   num_boost_round:
-    min: 50
+    min: 100
     max: 1000
     step: 100
-  early_stopping_rounds:
-    min: 10
-    max: 50
-    step: 10
   
 

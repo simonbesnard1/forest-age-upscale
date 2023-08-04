@@ -18,12 +18,9 @@ from typing import Any
 import xarray as xr
 
 from sklearn.neural_network import MLPRegressor, MLPClassifier
-from sklearn.metrics import mean_squared_error, roc_auc_score
+from sklearn.metrics import mean_absolute_error, roc_auc_score
 
 import optuna
-import ray
-from ray import tune
-from ray.tune import CLIReporter
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
 from ageUpscaling.utils.metrics import mef_gufunc
@@ -100,38 +97,6 @@ class MLPmethod:
 
         return mlData
         
-    def ray_optimization(train_fn, 
-                         train_data=None,
-                         val_data=None,
-                         num_trials=10, 
-                         resources_per_trial={"cpu": 1}, 
-                         search_alg=None):
-        
-        analysis = tune.run(
-            train_fn,
-            train_data= train_data, 
-            val_data= val_data, 
-            config={
-                "learning_rate_init": tune.uniform(0.001, 0.1),
-                "learning_rate": tune.choice(["constant", "invscaling", "adaptive"]),
-                "num_layers": tune.randint(1, 3),
-                "first_layer_neurons": tune.randint(10, 100),
-                "second_layer_neurons": tune.randint(10, 100),
-                "third_layer_neurons": tune.randint(10, 100),
-                "activation": tune.choice(["logistic", "tanh", "relu"]),
-                "solver": tune.choice(["lbfgs", "sgd", "adam"]),
-                "batch_size": tune.choice([32, 64, 128, 256])
-            },
-            num_samples=num_trials,
-            resources_per_trial=resources_per_trial,
-            search_alg=search_alg,
-            progress_reporter=CLIReporter(),
-            local_dir="./ray_results",
-            name="hyperparameter_tuning"
-        )
-        
-        return analysis
-    
     def train_model(self, 
                    hyper_params,
                    train_data, 
@@ -190,8 +155,8 @@ class MLPmethod:
         model_.fit(train_data['features'], train_data['target'])
         
         if self.method == "MLPRegressor":
-            loss_ =   mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False) / (np.max(val_data['target']) - np.min(val_data['target']))
-            loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(val_data['features']))
+            loss_ =   mean_absolute_error(val_data['target'], model_.predict(val_data['features']), squared=False) #/ (np.max(val_data['target']) - np.min(val_data['target']))
+            #loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(val_data['features']))
         elif self.method == "MLPClassifier":
             loss_ =  roc_auc_score(val_data['target'], model_.predict(val_data['features']))
         return loss_ 
@@ -324,8 +289,8 @@ class MLPmethod:
             raise optuna.exceptions.TrialPruned()
             
         if self.method == "MLPRegressor":
-            loss_ =   mean_squared_error(val_data['target'], model_.predict(val_data['features']), squared=False) #/ (np.max(val_data['target']) - np.min(val_data['target']))
-            loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(val_data['features']))
+            loss_ =   mean_absolute_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features']))) / (np.max(val_data['target']) - np.min(val_data['target']))
+            #loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(val_data['features']))
         elif self.method == "MLPClassifier":
             loss_ =  roc_auc_score(val_data['target'], model_.predict(val_data['features']))
         return loss_ 

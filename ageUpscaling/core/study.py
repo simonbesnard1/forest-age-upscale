@@ -13,6 +13,7 @@
 import os
 
 import numpy as np
+import xarray as xr
 from abc import ABC
 from sklearn.model_selection import KFold, train_test_split
 from tqdm import tqdm
@@ -24,6 +25,7 @@ from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 from ageUpscaling.methods.RandomForest import RandomForest
 from ageUpscaling.methods.autoML import TPOT
+from ageUpscaling.methods.feature_selection import FeatureSelection
 
 class Study(ABC):
     """Study abstract class for cross validation, model training, prediction.
@@ -179,10 +181,18 @@ class Study(ABC):
         - If `feature_selection` is True, `feature_selection_method` must be specified.
         """
         pred_cube = DataCube(cube_config = self.cube_config)
-        cluster_ = np.load(xval_index_path)
+        cluster_ = np.load(xval_index_path, allow_pickle=True)
         kf = KFold(n_splits=n_folds, shuffle=True)
         
         for task_ in ["Regressor", "Classifier"]:
+            
+            if feature_selection:
+                self.DataConfig['features_selected'] = FeatureSelection(method=task_, 
+                                                                        feature_selection_method = feature_selection_method, 
+                                                                        features = self.DataConfig['features'],
+                                                                        data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features(n_jobs = self.n_jobs)
+            else:
+                self.DataConfig['features_selected'] = self.DataConfig['features'].copy()
                 
             for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
                 train_subset, test_subset = cluster_[train_index], cluster_[test_index]
@@ -209,9 +219,6 @@ class Study(ABC):
                                   valid_subset=valid_subset, 
                                   test_subset=test_subset,
                                   task_= task_,
-                                  feature_selection=feature_selection,
-                                  feature_selection_method=feature_selection_method,
-                                  biais_correction= biais_correction,
                                   n_jobs = self.n_jobs)
                 ml_method.predict_clusters(save_cube = pred_cube)                       
                 shutil.rmtree(os.path.join(self.study_dir, "tune"))

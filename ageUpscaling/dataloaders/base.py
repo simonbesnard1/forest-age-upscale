@@ -107,7 +107,7 @@ class MLData(ABC):
         
         if 'Classifier' in method :
             Y = Y.to_array().values
-            mask_old = Y==max_forest_age
+            mask_old = Y>=max_forest_age
             mask_young = Y<max_forest_age
             Y[mask_old] = 1
             Y[mask_young] = 0    
@@ -119,7 +119,7 @@ class MLData(ABC):
         else :
             Y = Y.where(Y<max_forest_age).to_array().values
             Y[Y<1] = 1 ## set min age to 1
-        
+            
         return Y
             
     def get_xy(self) -> dict:
