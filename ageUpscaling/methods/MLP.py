@@ -19,11 +19,12 @@ import xarray as xr
 
 from sklearn.neural_network import MLPRegressor, MLPClassifier
 from sklearn.metrics import mean_absolute_error, roc_auc_score
+from sklearn.utils.class_weight import compute_sample_weight
 
 import optuna
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
-from ageUpscaling.utils.metrics import mef_gufunc
+#from ageUpscaling.utils.metrics import mef_gufunc
 
 class MLPmethod:
     """A method class for training and evaluating an MLP model.
@@ -289,10 +290,15 @@ class MLPmethod:
             raise optuna.exceptions.TrialPruned()
             
         if self.method == "MLPRegressor":
-            loss_ =   mean_absolute_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features']))) / (np.max(val_data['target']) - np.min(val_data['target']))
+            weight_ = None
+            loss_ =   mean_absolute_error(val_data['target'], model_.predict(val_data['features']),
+                                          sample_weight = weight_) #/ (np.max(val_data['target']) - np.min(val_data['target']))
             #loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(val_data['features']))
         elif self.method == "MLPClassifier":
-            loss_ =  roc_auc_score(val_data['target'], model_.predict(val_data['features']))
+            weight_ = compute_sample_weight(class_weight='balanced',
+                                            y=val_data['target'])
+            loss_ =  roc_auc_score(val_data['target'], model_.predict(val_data['features']),
+                                          sample_weight = weight_)
         return loss_ 
     
     def predict_clusters(self, 
