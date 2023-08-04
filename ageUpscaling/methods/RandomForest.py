@@ -149,8 +149,7 @@ class RandomForest:
                    train_data:dict,
                    val_data:dict,
                    DataConfig:dict,
-                   tune_dir:str,
-                   retrain_with_valid:bool= True) -> float:
+                   tune_dir:str) -> float:
         """Searches for the optimal hyperparameters for the machine learning model.
         
         Parameters
