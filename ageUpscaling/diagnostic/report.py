@@ -101,7 +101,7 @@ class Report:
         ax[0,0].text(0.05, 0.95, "A", transform=ax[0,0].transAxes,
                 fontsize=16, fontweight='bold', va='top')
         
-        im = ax[0,1].hexbin(pred_, obs_, bins='log', gridsize=100, mincnt=5)
+        im = ax[0,1].hexbin(pred_, obs_, bins='log', gridsize=100, mincnt=2)
         ax[0,1].set_xlabel('Predicted forest age [years]', size=12)   
         ax[0,1].set_ylabel('Observed forest age [years]', size=12)
         ax[0,1].spines['top'].set_visible(False)

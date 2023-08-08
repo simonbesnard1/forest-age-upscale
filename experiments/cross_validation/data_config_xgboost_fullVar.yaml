@@ -1,0 +1,154 @@
+training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300_v2.nc"
+
+features:
+  - agb
+  - AnnualMeanTemperature_WorlClim
+  - AnnualPrecipitation_WorlClim
+  - AnnualSrad_WorlClim
+  - AnnualVapr_WorlClim
+  - AnnualWind_WorlClim
+  - Isothermality_WorlClim
+  - MaxTemperatureofWarmestMonth_WorlClim
+  - MeanDiurnalRange_WorlClim
+  - MeanTemperatureofColdestQuarter_WorlClim
+  - MeanTemperatureofDriestQuarter_WorlClim
+  - MeanTemperatureofWarmestQuarter_WorlClim
+  - MeanTemperatureofWettestQuarter_WorlClim
+  - MinTemperatureofColdestMonth_WorlClim
+  - PrecipitationSeasonality_WorlClim
+  - PrecipitationofColdestQuarter_WorlClim
+  - PrecipitationofDriestMonth_WorlClim
+  - PrecipitationofDriestQuarter_WorlClim
+  - PrecipitationofWarmestQuarter_WorlClim
+  - PrecipitationofWettestMonth_WorlClim
+  - PrecipitationofWettestQuarter_WorlClim
+  - TemperatureAnnualRange_WorlClim
+  - TemperatureSeasonality_WorlClim  
+  - prec.mon.01_WorlClim
+  - prec.mon.02_WorlClim
+  - prec.mon.03_WorlClim
+  - prec.mon.04_WorlClim
+  - prec.mon.05_WorlClim
+  - prec.mon.06_WorlClim
+  - prec.mon.07_WorlClim
+  - prec.mon.08_WorlClim
+  - prec.mon.09_WorlClim
+  - prec.mon.10_WorlClim
+  - prec.mon.11_WorlClim
+  - prec.mon.12_WorlClim
+  - srad.mon.01_WorlClim
+  - srad.mon.02_WorlClim
+  - srad.mon.03_WorlClim
+  - srad.mon.04_WorlClim
+  - srad.mon.05_WorlClim
+  - srad.mon.06_WorlClim
+  - srad.mon.07_WorlClim
+  - srad.mon.08_WorlClim
+  - srad.mon.09_WorlClim
+  - srad.mon.10_WorlClim
+  - srad.mon.11_WorlClim
+  - srad.mon.12_WorlClim
+  - tmax.mon.01_WorlClim
+  - tmax.mon.02_WorlClim
+  - tmax.mon.03_WorlClim
+  - tmax.mon.04_WorlClim
+  - tmax.mon.05_WorlClim
+  - tmax.mon.06_WorlClim
+  - tmax.mon.07_WorlClim
+  - tmax.mon.08_WorlClim
+  - tmax.mon.09_WorlClim
+  - tmax.mon.10_WorlClim
+  - tmax.mon.11_WorlClim
+  - tmax.mon.12_WorlClim
+  - tmean.mon.01_WorlClim
+  - tmean.mon.02_WorlClim
+  - tmean.mon.03_WorlClim
+  - tmean.mon.04_WorlClim
+  - tmean.mon.05_WorlClim
+  - tmean.mon.06_WorlClim
+  - tmean.mon.07_WorlClim
+  - tmean.mon.08_WorlClim
+  - tmean.mon.09_WorlClim
+  - tmean.mon.10_WorlClim
+  - tmean.mon.11_WorlClim
+  - tmean.mon.12_WorlClim
+  - tmin.mon.01_WorlClim
+  - tmin.mon.02_WorlClim
+  - tmin.mon.03_WorlClim
+  - tmin.mon.04_WorlClim
+  - tmin.mon.05_WorlClim
+  - tmin.mon.06_WorlClim
+  - tmin.mon.07_WorlClim
+  - tmin.mon.08_WorlClim
+  - tmin.mon.09_WorlClim
+  - tmin.mon.10_WorlClim
+  - tmin.mon.11_WorlClim
+  - tmin.mon.12_WorlClim
+  - vapr.mon.01_WorlClim
+  - vapr.mon.02_WorlClim
+  - vapr.mon.03_WorlClim
+  - vapr.mon.04_WorlClim
+  - vapr.mon.05_WorlClim
+  - vapr.mon.06_WorlClim
+  - vapr.mon.07_WorlClim
+  - vapr.mon.08_WorlClim
+  - vapr.mon.09_WorlClim
+  - vapr.mon.10_WorlClim
+  - vapr.mon.11_WorlClim
+  - vapr.mon.12_WorlClim
+  - wind.mon.01_WorlClim
+  - wind.mon.02_WorlClim
+  - wind.mon.03_WorlClim
+  - wind.mon.04_WorlClim
+  - wind.mon.05_WorlClim
+  - wind.mon.06_WorlClim
+  - wind.mon.07_WorlClim
+  - wind.mon.08_WorlClim
+  - wind.mon.09_WorlClim
+  - wind.mon.10_WorlClim
+  - wind.mon.11_WorlClim
+  - wind.mon.12_WorlClim
+
+target:
+  - age
+  
+max_forest_age:
+  - 300
+  
+hyper_params:
+  number_trials: 50
+  tree_method: ['hist', 'auto']
+  eta: 
+    min: 0.001
+    max: 1
+  gamma: 
+     min: 0
+     max: 9
+  max_depth:
+    min: 1
+    max: 15
+    step: 1
+  min_child_weight:
+    min: 1
+    max: 20
+    step: 1
+  subsample:
+    min: 0.5
+    max: 1
+    step: 0.1
+  colsample_bynode:
+    min: 0.1
+    max: 1
+    step: 0.1
+  lambda:
+    min: 0
+    max: 10
+  alpha:
+    min: 0
+    max: 10
+  num_boost_round:
+    min: 100
+    max: 1000
+    step: 100
+  
+

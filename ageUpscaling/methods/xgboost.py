@@ -149,7 +149,8 @@ class XGBoost:
                    val_data:dict,
                    DataConfig:dict,
                    tune_dir:str,
-                   retrain_with_valid:bool= True) -> float:
+                   retrain_with_valid:bool= True,
+                   oversampling:bool= True) -> float:
         """Searches for the optimal hyperparameters for the machine learning model.
         
         Parameters
@@ -173,13 +174,13 @@ class XGBoost:
         
         hyper_params = {
                         'eta': trial.suggest_float('eta ', DataConfig['hyper_params']['eta']['min'], DataConfig['hyper_params']['eta']['max']),
-                        'gamma': trial.suggest_int('gamma ', DataConfig['hyper_params']['gamma']['min'], DataConfig['hyper_params']['gamma']['max']),
+                        'gamma': trial.suggest_float('gamma ', DataConfig['hyper_params']['gamma']['min'], DataConfig['hyper_params']['gamma']['max']),
                         'max_depth': trial.suggest_int('max_depth', DataConfig['hyper_params']['max_depth']['min'], DataConfig['hyper_params']['max_depth']['max'], step=DataConfig['hyper_params']['max_depth']['step']),
                         'min_child_weight': trial.suggest_int('min_child_weight', DataConfig['hyper_params']['min_child_weight']['min'], DataConfig['hyper_params']['min_child_weight']['max'], step=DataConfig['hyper_params']['min_child_weight']['step']),
                         'subsample': trial.suggest_float('subsample ', DataConfig['hyper_params']['subsample']['min'], DataConfig['hyper_params']['subsample']['max'], step=DataConfig['hyper_params']['subsample']['step']),
                         'colsample_bynode': trial.suggest_float('colsample_bynode ', DataConfig['hyper_params']['colsample_bynode']['min'], DataConfig['hyper_params']['colsample_bynode']['max'], step=DataConfig['hyper_params']['colsample_bynode']['step']),
-                        #'lambda': trial.suggest_int('lambda ', DataConfig['hyper_params']['lambda']['min'], DataConfig['hyper_params']['lambda']['max']),
-                        #'alpha': trial.suggest_int('alpha ', DataConfig['hyper_params']['alpha']['min'], DataConfig['hyper_params']['alpha']['max']),
+                        'lambda': trial.suggest_float('lambda ', DataConfig['hyper_params']['lambda']['min'], DataConfig['hyper_params']['lambda']['max']),
+                        'alpha': trial.suggest_float('alpha ', DataConfig['hyper_params']['alpha']['min'], DataConfig['hyper_params']['alpha']['max']),
                         'tree_method': trial.suggest_categorical('tree_method', DataConfig['hyper_params']['tree_method']),
                         'n_jobs': 10,
                         'num_parallel_tree':1,
@@ -203,6 +204,29 @@ class XGBoost:
             pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-auc")
 
         dtrain = xgb.DMatrix(train_data['features'], label=train_data['target'])
+        
+        if oversampling and self.method == "XGBoostRegressor":
+            
+            age_classes, current_points = np.unique(np.round(train_data['target'], -1), return_counts=True)
+            desired_points_per_class = np.nanmax(current_points)
+            
+            Y_sample = []
+            X_sample = []
+            for a, b in zip(age_classes, current_points):
+                
+                required_samples = desired_points_per_class - b
+                
+                if required_samples > 0:
+                    idx_ =  np.where(np.round(train_data['target'], -1) == a)[0]   
+                    idx_sample = np.random.choice(idx_, required_samples)
+                    Y_sample.append(train_data['target'][idx_sample]), 
+                    X_sample.append(train_data['features'][idx_sample])
+                    
+            Y_sample = np.concatenate(Y_sample)
+            X_sample = np.concatenate(X_sample)
+            dtrain = xgb.DMatrix(np.concatenate([train_data['features'], X_sample]), 
+                                  label=np.concatenate([train_data['target'], Y_sample]))
+
         deval = xgb.DMatrix(val_data['features'], label = val_data['target'])
         vallist = [(dtrain, 'train'), (deval, 'eval')]
         
@@ -223,8 +247,7 @@ class XGBoost:
             raise optuna.exceptions.TrialPruned()
         
         if self.method == "XGBoostRegressor":
-            loss_ =   mean_absolute_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), 
-                                          sample_weight = weight_) #/ (np.max(val_data['target']) - np.min(val_data['target']))
+            loss_ =   mean_absolute_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features']))) #/ (np.max(val_data['target']) - np.min(val_data['target']))
             #loss_ = quantile_loss(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), [0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99])            
             #loss_ +=  0.5 * (1 - mef_gufunc(val_data['target'], model_.predict(xgb.DMatrix(val_data['features']))))
 
