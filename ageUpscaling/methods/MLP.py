@@ -150,7 +150,7 @@ class MLPmethod:
                    val_data:dict,
                    DataConfig:dict,
                    tune_dir:str,
-                   oversampling:bool= True) -> float:
+                   oversampling:bool= False) -> float:
         """Searches for the optimal hyperparameters for the machine learning model.
         
         Parameters
