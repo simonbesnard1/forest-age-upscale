@@ -205,7 +205,7 @@ class RandomForest:
                     
             Y_sample = np.concatenate(Y_sample)
             X_sample = np.concatenate(X_sample)
-            train_data['features'] = np.concatenate([train_data['features'], X_sample]), 
+            train_data['features'] = np.concatenate([train_data['features'], X_sample])
             train_data['target'] = np.concatenate([train_data['target'], Y_sample])
 
         

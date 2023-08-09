@@ -97,71 +97,6 @@ class MLPmethod:
                               normalize)
 
         return mlData
-        
-    def train_model(self, 
-                   hyper_params,
-                   train_data, 
-                   val_data) -> float:
-        """Searches for the optimal hyperparameters for the machine learning model.
-        
-        Parameters
-        ----------
-        trial: optuna.Trial
-            The trial object for the hyperparameter optimization.
-        train_data: dict
-            A dictionary containing the training data.
-        val_data: dict
-            A dictionary containing the validation data.
-        DataConfig: dict
-            A dictionary containing the data configuration.
-        tune_dir: str
-            The directory to save the model experiment.
-            
-        Returns
-        -------
-        float
-            The loss of the model.
-        """
-        
-        if self.method == "MLPRegressor": 
-            model_ = MLPRegressor(hidden_layer_sizes=tuple([hyper_params['first_layer_neurons'], 
-                                                            hyper_params['second_layer_neurons'],
-                                                            hyper_params['third_layer_neurons']][0:hyper_params['num_layers']]),
-                                   learning_rate_init=hyper_params['learning_rate_init'],
-                                   learning_rate = hyper_params['learning_rate'],
-                                   activation=hyper_params['activation'],
-                                   solver = hyper_params['solver'],
-                                   batch_size=hyper_params['batch_size'],
-                                   warm_start=True,
-                                   #tol=hyper_params['tol'],
-                                   early_stopping= True, 
-                                   validation_fraction=0.3,
-                                   random_state=1)
-            
-        elif self.method == "MLPClassifier": 
-            model_ = MLPClassifier(hidden_layer_sizes=tuple([hyper_params['first_layer_neurons'], 
-                                                            hyper_params['second_layer_neurons'],
-                                                            hyper_params['third_layer_neurons']][0:hyper_params['num_layers']]),
-                                   learning_rate_init=hyper_params['learning_rate_init'],
-                                   learning_rate = hyper_params['learning_rate'],
-                                   activation=hyper_params['activation'],
-                                   solver = hyper_params['solver'],
-                                   batch_size=hyper_params['batch_size'],
-                                   warm_start=True,
-                                   #tol=hyper_params['tol'],
-                                   early_stopping= True, 
-                                   validation_fraction=0.3,
-                                   random_state=1)
-        
-        model_.fit(train_data['features'], train_data['target'])
-        
-        if self.method == "MLPRegressor":
-            loss_ =   mean_absolute_error(val_data['target'], model_.predict(val_data['features']), squared=False) #/ (np.max(val_data['target']) - np.min(val_data['target']))
-            #loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(val_data['features']))
-        elif self.method == "MLPClassifier":
-            loss_ =  roc_auc_score(val_data['target'], model_.predict(val_data['features']))
-        return loss_ 
-    
     
     def train(self,  
               train_subset:dict={},
@@ -282,7 +217,6 @@ class MLPmethod:
                                    validation_fraction=0.3,
                                    random_state=1)
         
-        
         if oversampling and self.method == "MLPRegressor":
             
             age_classes, current_points = np.unique(np.round(train_data['target'], -1), return_counts=True)
@@ -302,9 +236,9 @@ class MLPmethod:
                     
             Y_sample = np.concatenate(Y_sample)
             X_sample = np.concatenate(X_sample)
-            train_data['features'] = np.concatenate([train_data['features'], X_sample]), 
+            train_data['features'] = np.concatenate([train_data['features'], X_sample]) 
             train_data['target'] = np.concatenate([train_data['target'], Y_sample])
-
+            
         model_.fit(train_data['features'], train_data['target'])
         
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
