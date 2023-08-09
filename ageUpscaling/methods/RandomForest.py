@@ -188,28 +188,27 @@ class RandomForest:
           
         if oversampling and self.method == "RandomForestRegressor":
             
-            age_classes, current_points = np.unique(np.round(train_data['target'], -1), return_counts=True)
-            desired_points_per_class = np.nanmax(current_points)
-            
-            Y_sample = []
-            X_sample = []
-            for a, b in zip(age_classes, current_points):
-                
-                required_samples = desired_points_per_class - b
-                
-                if required_samples > 0:
-                    idx_ =  np.where(np.round(train_data['target'], -1) == a)[0]   
-                    idx_sample = np.random.choice(idx_, required_samples)
-                    Y_sample.append(train_data['target'][idx_sample]), 
-                    X_sample.append(train_data['features'][idx_sample])
-                    
-            Y_sample = np.concatenate(Y_sample)
-            X_sample = np.concatenate(X_sample)
-            train_data['features'] = np.concatenate([train_data['features'], X_sample])
-            train_data['target'] = np.concatenate([train_data['target'], Y_sample])
-
+           age_classes, current_points = np.unique(np.round(train_data['target'], -1), return_counts=True)
+           desired_points_per_class = np.nanmax(current_points)
+           
+           Y_sample = []
+           X_sample = []
+           for a, b in zip(age_classes, current_points):
+               
+               required_samples = desired_points_per_class - b
+               
+               if required_samples > 0:
+                   idx_ =  np.where(np.round(train_data['target'], -1) == a)[0]   
+                   idx_sample = np.random.choice(idx_, required_samples)
+                   Y_sample.append(train_data['target'][idx_sample]), 
+                   X_sample.append(train_data['features'][idx_sample])
+                   
+           Y_sample = np.concatenate(Y_sample)
+           X_sample = np.concatenate(X_sample)
+           model_.fit(np.concatenate([train_data['features'], X_sample]) , np.concatenate([train_data['target'], Y_sample]))
         
-        model_.fit(train_data['features'], train_data['target'])
+        else: 
+           model_.fit(train_data['features'], train_data['target'])
         
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)

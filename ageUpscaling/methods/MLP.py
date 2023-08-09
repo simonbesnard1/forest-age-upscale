@@ -150,7 +150,7 @@ class MLPmethod:
                    val_data:dict,
                    DataConfig:dict,
                    tune_dir:str,
-                   oversampling:bool= False) -> float:
+                   oversampling:bool= True) -> float:
         """Searches for the optimal hyperparameters for the machine learning model.
         
         Parameters
@@ -236,11 +236,11 @@ class MLPmethod:
                     
             Y_sample = np.concatenate(Y_sample)
             X_sample = np.concatenate(X_sample)
-            train_data['features'] = np.concatenate([train_data['features'], X_sample]) 
-            train_data['target'] = np.concatenate([train_data['target'], Y_sample])
-            
-        model_.fit(train_data['features'], train_data['target'])
-        
+            model_.fit(np.concatenate([train_data['features'], X_sample]) , np.concatenate([train_data['target'], Y_sample]))
+         
+        else: 
+            model_.fit(train_data['features'], train_data['target'])
+             
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)
         
