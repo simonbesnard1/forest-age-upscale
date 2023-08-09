@@ -101,7 +101,6 @@ class XGBoost:
               train_subset:dict={},
               valid_subset:dict={}, 
               test_subset:dict={},
-              task_:str= '',
               n_jobs:int=10) -> None:
         
         """Trains an XGBoost model using the specified training and validation datasets.

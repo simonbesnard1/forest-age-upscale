@@ -218,7 +218,6 @@ class Study(ABC):
                 ml_method.train(train_subset=train_subset,
                                   valid_subset=valid_subset, 
                                   test_subset=test_subset,
-                                  task_= task_,
                                   n_jobs = self.n_jobs)
                 ml_method.predict_clusters(save_cube = pred_cube)                       
                 shutil.rmtree(os.path.join(self.study_dir, "tune"))
