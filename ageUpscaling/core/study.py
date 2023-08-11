@@ -18,6 +18,7 @@ from sklearn.model_selection import KFold, train_test_split
 from tqdm import tqdm
 import yaml as yml
 import shutil
+import numpy as np
 
 from ageUpscaling.core.cube import DataCube
 from ageUpscaling.methods.MLP import MLPmethod
@@ -179,8 +180,9 @@ class Study(ABC):
         - If `feature_selection` is True, `feature_selection_method` must be specified.
         """
         pred_cube = DataCube(cube_config = self.cube_config)
-        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
-        kf = KFold(n_splits=len(cluster_), shuffle=True)
+        #cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
+        cluster_ = np.load('/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/xval_index_subsetFIA.npy')
+        kf = KFold(n_splits=n_folds, shuffle=True)
         
         for task_ in ["Regressor", "Classifier"]:
             

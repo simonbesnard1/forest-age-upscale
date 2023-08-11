@@ -45,11 +45,11 @@ class SoilGrids(DataCube):
         with open(cube_config_path, 'r') as f:
             self.cube_config =  yml.safe_load(f)
             
-        self.cube_config['output_writer_params']['dims']['latitude'] = self.da .latitude.values
-        self.cube_config['output_writer_params']['dims']['longitude'] = self.da .longitude.values
-        self.cube_config['output_metadata']['scale_factor'] = self.da .scale_factor
-        self.cube_config['output_metadata']['add_offset'] = self.da .add_offset
-        self.cube_config['output_metadata']['_FillValue'] = self.da ._FillValue
+        self.cube_config['output_writer_params']['dims']['latitude'] = self.da.latitude.values
+        self.cube_config['output_writer_params']['dims']['longitude'] = self.da.longitude.values
+        self.cube_config['output_metadata']['scale_factor'] = self.da.scale_factor
+        self.cube_config['output_metadata']['add_offset'] = self.da.add_offset
+        self.cube_config['output_metadata']['_FillValue'] = self.da._FillValue
     
         super().__init__(self.cube_config)
 
@@ -69,8 +69,7 @@ class SoilGrids(DataCube):
     
         """
         
-        ds_ = self.da.where(self.da>=0)
-        ds_ = ds_.to_dataset(name = var_name)
+        ds_ = self.da.to_dataset(name = var_name)
         
         vars_to_proc = {}
         

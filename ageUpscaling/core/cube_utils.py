@@ -146,7 +146,8 @@ class ComputeCube(ABC):
             If the dimensions of the new cube are not valid.
         """ 
         coords = {dim: pd.to_datetime(self.dims_[dim]) if dim == 'time' else
-                       self.dims_[dim] if dim in 'latitude' or 'longitude' else
+                       self.dims_[dim] if dim in 'latitude' else
+                       self.dims_[dim] if dim in 'longitude' else
                        np.arange(self.dims_[dim]) if dim == 'cluster' else
                        np.arange(self.dims_[dim]) for dim in self.dims_.keys()}
         
