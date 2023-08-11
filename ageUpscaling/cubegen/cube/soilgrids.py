@@ -69,8 +69,8 @@ class SoilGrids(DataCube):
     
         """
         
-        ds_ = self.da.where(self.da>=0)
-        ds_ = ds_.to_dataset(name = var_name)
+        #ds_ = self.da.where(self.da>=0)
+        ds_ = self.da_.to_dataset(name = var_name)
         
         vars_to_proc = {}
         
