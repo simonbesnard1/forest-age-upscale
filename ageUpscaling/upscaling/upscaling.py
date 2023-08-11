@@ -21,13 +21,11 @@ import numpy as np
 import yaml as yml
 import pickle
 
-#import dask
 import multiprocessing
 import xarray as xr
 import zarr
 import dask.array as da
 from shapely.geometry import Polygon
-
 
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
@@ -102,7 +100,6 @@ class UpscaleAge(ABC):
         self.feature_selection= self.DataConfig["feature_selection"]
         self.feature_selection_method= self.DataConfig["feature_selection_method"]      
         self.upscaling_config['cube_location'] =  os.path.join(self.study_dir, self.upscaling_config['cube_name'])
-        self.xval_index_path = self.DataConfig["xval_index_path"]
         
     def version_dir(self, 
                     base_dir: str,
@@ -361,7 +358,7 @@ class UpscaleAge(ABC):
         self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
                                       njobs= len(self.upscaling_config['cube_variables'].keys()))
 
-        cluster_ = np.load(self.xval_index_path)        
+        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
         
         for run_ in tqdm(np.arange(self.upscaling_config['num_members']), desc='Training model members'):

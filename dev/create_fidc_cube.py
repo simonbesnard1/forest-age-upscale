@@ -9,8 +9,8 @@ from ageUpscaling.fidc_cube.csv_to_fidcCube import ImportAndSave
 import numpy as np
 
 #%% Run data cubing
-fidc_prov = ImportAndSave(input_csv= '//home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300.csv',
-                          out_file='/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300_subsetFIA_v2.nc')
+fidc_prov = ImportAndSave(input_csv= '//home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300_subsetFIA_v3.csv',
+                          out_file='/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300_subsetFIA_v3.nc')
 data_ = fidc_prov.compute_cube(variables= 'default')
 cluster_ = data_.cluster.values
-np.save('/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/xval_index_v3.npy', cluster_)
+np.save('/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/xval_index_subsetFIA_v3.npy', cluster_)

@@ -22,6 +22,8 @@ from sklearn.metrics import roc_auc_score, mean_absolute_error
 from sklearn.utils.class_weight import compute_sample_weight
 
 import optuna
+optuna.logging.set_verbosity(optuna.logging.WARNING)
+optuna.logging.set_verbosity(optuna.logging.INFO)
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
 #from ageUpscaling.utils.metrics import mef_gufunc
@@ -135,7 +137,7 @@ class XGBoost:
                                     # pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
                                     #                                                reduction_factor=4, 
                                     #                                                min_early_stopping_rate=8),
-                                    direction=['minimize' if self.method == 'XGBoostRegressor' else 'maximize'][0])
+                                    direction=["minimize" if self.method == 'XGBoostRegressor' else 'maximize'][0])
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
@@ -246,16 +248,16 @@ class XGBoost:
             raise optuna.exceptions.TrialPruned()
         
         if self.method == "XGBoostRegressor":
-            loss_ =   mean_absolute_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features']))) #/ (np.max(val_data['target']) - np.min(val_data['target']))
+            loss_mae =   mean_absolute_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features']))) #/ (np.max(val_data['target']) - np.min(val_data['target']))
             #loss_ = quantile_loss(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), [0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99])            
-            #loss_ +=  0.5 * (1 - mef_gufunc(val_data['target'], model_.predict(xgb.DMatrix(val_data['features']))))
+            #loss_mef =  mef_gufunc(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])))
 
         elif self.method == "XGBoostClassifier":
-            loss_ =  roc_auc_score(val_data['target'], 
+            loss_roc =  roc_auc_score(val_data['target'], 
                                    np.rint(model_.predict(xgb.DMatrix(val_data['features']))), 
                                    sample_weight = weight_)
         
-        return loss_
+        return [loss_roc if self.method == 'XGBoostClassifier' else loss_mae]
     
     def predict_clusters(self, 
                         save_cube:str) -> None:

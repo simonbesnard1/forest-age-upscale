@@ -12,7 +12,6 @@
 """
 import os
 
-import numpy as np
 import xarray as xr
 from abc import ABC
 from sklearn.model_selection import KFold, train_test_split
@@ -149,7 +148,6 @@ class Study(ABC):
     
     def cross_validation(self, 
                          n_folds:int=10, 
-                         xval_index_path:str = None,
                          valid_fraction:float=0.3,
                          feature_selection:bool=False,
                          feature_selection_method:str=None,
@@ -181,8 +179,8 @@ class Study(ABC):
         - If `feature_selection` is True, `feature_selection_method` must be specified.
         """
         pred_cube = DataCube(cube_config = self.cube_config)
-        cluster_ = np.load(xval_index_path, allow_pickle=True)
-        kf = KFold(n_splits=n_folds, shuffle=True)
+        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
+        kf = KFold(n_splits=len(cluster_), shuffle=True)
         
         for task_ in ["Regressor", "Classifier"]:
             

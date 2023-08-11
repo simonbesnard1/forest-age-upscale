@@ -145,9 +145,8 @@ class ComputeCube(ABC):
         ValueError:
             If the dimensions of the new cube are not valid.
         """ 
-        coords = {dim: np.flip(np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution)) if dim in 'latitude' else
-                       np.arange(self.dims_[dim][0], self.dims_[dim][1], self.spatial_resolution) if dim in 'longitude' else
-                       np.array(pd.to_datetime(self.dims_[dim])) if dim == 'time' else
+        coords = {dim: pd.to_datetime(self.dims_[dim]) if dim == 'time' else
+                       self.dims_[dim] if dim in 'latitude' or 'longitude' else
                        np.arange(self.dims_[dim]) if dim == 'cluster' else
                        np.arange(self.dims_[dim]) for dim in self.dims_.keys()}
         
