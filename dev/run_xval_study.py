@@ -23,5 +23,5 @@ study_.cross_validation(n_folds=20,
                         feature_selection_method= 'recursive')
     
 #%% Generate report
-report_ = Report(study_dir= study_.study_dir)
+report_ = Report(study_dir= '/home/simon/gfz_hpc/projects/forest-age-upscale/output/cross_validation/subsetFIA_recursive/XGBoost/version-1.4')
 report_.generate_diagnostic(diagnostic_type =  {'cross-validation'})

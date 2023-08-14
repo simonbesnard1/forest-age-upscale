@@ -370,7 +370,7 @@ DEFAULT_LONG_NAMES = {
         'ocs_15_30cm_mean': 'Organic carbon stocks - 15 to 30cm soil layers',
         'ocs_30_60cm_mean': 'Organic carbon stocks - 30 to 6cm soil layers',
         'ocs_60_100cm_mean': 'Organic carbon stocks - 60 to 10cm soil layers',
-        'ocs_100_200cm_mean': 'Organic carbon stocks - 100 to 200cm soil layers'}
+        'ocs_100_200cm_mean': 'Organic carbon stocks - 100 to 200cm soil layers'
         }
 
 DEFAULT_UNITS = {"age"  : "years",
