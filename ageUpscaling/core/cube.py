@@ -108,7 +108,7 @@ class DataCube(ComputeCube):
                 futures = [self._update(da.sel(latitude = chunk['latitude'], 
                                               longitude = chunk['longitude']))
                           for chunk in chunks]
-                dask.compute(*futures, num_workers=15)
+                dask.compute(*futures, num_workers=1)
                 
         else:
             self._update(da)

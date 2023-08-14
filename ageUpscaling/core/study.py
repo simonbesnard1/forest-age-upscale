@@ -18,7 +18,6 @@ from sklearn.model_selection import KFold, train_test_split
 from tqdm import tqdm
 import yaml as yml
 import shutil
-import numpy as np
 
 from ageUpscaling.core.cube import DataCube
 from ageUpscaling.methods.MLP import MLPmethod
@@ -180,10 +179,13 @@ class Study(ABC):
         - If `feature_selection` is True, `feature_selection_method` must be specified.
         """
         pred_cube = DataCube(cube_config = self.cube_config)
-        #cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
-        cluster_ = np.load('/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/xval_index_subsetFIA.npy')
-        kf = KFold(n_splits=n_folds, shuffle=True)
+        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         
+        if n_folds is None:
+            kf = KFold(n_splits=len(cluster_), shuffle=True)
+        else: 
+            kf = KFold(n_splits= n_folds, shuffle=True)
+            
         for task_ in ["Regressor", "Classifier"]:
             
             if feature_selection:
@@ -196,7 +198,7 @@ class Study(ABC):
                 
             for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
                 train_subset, test_subset = cluster_[train_index], cluster_[test_index]
-                train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=False)
+                train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
                 
                 if self.algorithm == "MLP":
                     ml_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
