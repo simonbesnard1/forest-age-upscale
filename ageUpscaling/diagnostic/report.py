@@ -139,7 +139,33 @@ class Report:
         ax[1,0].set_ylim(0,310)
         ax[1,0].set_xlim(0,310)
         ax[1,0].plot([0, 310], [0, 310], linestyle='--', color='red', linewidth=2)
-        fig.delaxes(ax[1,1])
+        
+        
+        age_classes = [(0, 25), (25, 50), (50, 100), (100, 200), (200, 300)]
+
+        # Initialize lists to store residuals per age class
+        residuals_per_class = [[] for _ in range(len(age_classes))]
+        
+        # Calculate residuals and categorize them into age classes
+        for obs, pred in zip(obs_, pred_):
+            residual = obs - pred
+            for i, (lower, upper) in enumerate(age_classes):
+                if lower <= obs < upper:
+                    residuals_per_class[i].append(residual)
+                    break
+        
+        # Calculate mean residuals per age class
+        mean_residuals = [np.mean(residuals) for residuals in residuals_per_class]
+        
+        # Extract age class labels for x-axis
+        age_class_labels = [f'{lower}-{upper}' for (lower, upper) in age_classes]
+        
+        # Create the bar plot
+        ax[1,1].bar(age_class_labels, mean_residuals, color='blue')
+        ax[1,1].spines['top'].set_visible(False)
+        ax[1,1].spines['right'].set_visible(False)
+        ax[1,1].set_ylabel('Model residuals [years]', size=12)
+        
         plt.savefig(os.path.join(self.report_dir, 'xval_diagnostic.png'), dpi=300)        
         plt.close("all")
         

@@ -192,7 +192,8 @@ DEFAULT_VARS = {"age",
                 'ocs_15_30cm_mean',
                 'ocs_30_60cm_mean',
                 'ocs_60_100cm_mean',
-                'ocs_100_200cm_mean'}
+                'ocs_100_200cm_mean'
+                }
     
 DEFAULT_LONG_NAMES = {
         "age"  : "forest age at plot level",
@@ -370,6 +371,7 @@ DEFAULT_LONG_NAMES = {
         'ocs_30_60cm_mean': 'Organic carbon stocks - 30 to 6cm soil layers',
         'ocs_60_100cm_mean': 'Organic carbon stocks - 60 to 10cm soil layers',
         'ocs_100_200cm_mean': 'Organic carbon stocks - 100 to 200cm soil layers'}
+        }
 
 DEFAULT_UNITS = {"age"  : "years",
         "agb"  : "Mg ha-1",
@@ -545,7 +547,8 @@ DEFAULT_UNITS = {"age"  : "years",
         'ocs_15_30cm_mean': 't/ha',
         'ocs_30_60cm_mean': 't/ha',
         'ocs_60_100cm_mean': 't/ha',
-        'ocs_100_200cm_mean': 't/ha'}       
+        'ocs_100_200cm_mean': 't/ha'
+        }
 
 class ImportAndSave(ABC):
     """Abstract class for importing FIDC formatted CSV files and saving them in a specified format.
