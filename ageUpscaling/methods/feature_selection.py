@@ -18,6 +18,7 @@ from abc import ABC
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.feature_selection import RFE
 from boruta import BorutaPy
+from sklearn_genetic import GAFeatureSelectionCV
 
 import xarray as xr
 
@@ -93,10 +94,24 @@ class FeatureSelection(ABC):
             rf = RandomForestClassifier(n_jobs=n_jobs, class_weight='balanced', max_depth=max_depth)
         
         if self.feature_selection_method == "boruta":
-            feat_selector = BorutaPy(rf, n_estimators='auto', perc=50)
+            feat_selector = BorutaPy(rf, n_estimators='auto', perc=75)
 
         elif self.feature_selection_method == "recursive":
             feat_selector = RFE(rf, n_features_to_select=max_features, step=1)
+        
+        elif self.feature_selection_method == "genetic":
+            if "Regressor" in self.method:
+                score_ = "neg_mean_absolute_error"
+            elif "Classifier" in self.method:
+                score_ = "accuracy"
+                
+            feat_selector = GAFeatureSelectionCV(estimator=rf,
+                                                 scoring=score_,
+                                                 population_size=30,
+                                                 generations=20,
+                                                 n_jobs=n_jobs,
+                                                 verbose=False,
+                                                 elitism=True)
         
         feat_selector.fit(X, Y)
             

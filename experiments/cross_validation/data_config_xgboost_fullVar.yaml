@@ -107,7 +107,49 @@ features:
   - wind.mon.09_WorlClim
   - wind.mon.10_WorlClim
   - wind.mon.11_WorlClim
-  - wind.mon.12_WorlClim
+  - wind.mon.12_WorlClim  
+  - bdod_0_5cm_mean
+  - bdod_5_15cm_mean
+  - bdod_15_30cm_mean
+  - bdod_30_60cm_mean 
+  - bdod_60_100cm_mean
+  - bdod_100_200cm_mean 
+  - cec_0_5cm_mean
+  - cec_5_15cm_mean
+  - cec_15_30cm_mean 
+  - cec_30_60cm_mean 
+  - cec_60_100cm_mean
+  - cec_100_200cm_mean 
+  - cfvo_0_5cm_mean 
+  - cfvo_5_15cm_mean
+  - cfvo_15_30cm_mean 
+  - cfvo_30_60cm_mean 
+  - cfvo_60_100cm_mean
+  - cfvo_100_200cm_mean 
+  - clay_0_5cm_mean 
+  - clay_5_15cm_mean
+  - clay_15_30cm_mean 
+  - clay_30_60cm_mean 
+  - clay_60_100cm_mean
+  - clay_100_200cm_mean 
+  - nitrogen_0_5cm_mean
+  - nitrogen_5_15cm_mean 
+  - nitrogen_15_30cm_mean
+  - nitrogen_30_60cm_mean 
+  - nitrogen_60_100cm_mean
+  - nitrogen_100_200cm_mean
+  - ocd_0_5cm_mean 
+  - ocd_5_15cm_mean
+  - ocd_15_30cm_mean 
+  - ocd_30_60cm_mean 
+  - ocd_60_100cm_mean
+  - ocd_100_200cm_mean 
+  - soc_0_5cm_mean 
+  - soc_5_15cm_mean
+  - soc_15_30cm_mean 
+  - soc_30_60cm_mean 
+  - soc_60_100cm_mean
+  - soc_100_200cm_mean
 
 target:
   - age

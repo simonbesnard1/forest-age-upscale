@@ -54,7 +54,7 @@ class SoilGrids(DataCube):
         super().__init__(self.cube_config)
 
     def fill_cube(self, 
-                  var_name:str= 'bdod_0-5cm_mean',
+                  var_name:str= 'bdod_0_5cm_mean',
                   chunk_data:bool = False) -> None:
         """Fill a data cube from input datasets.
 

@@ -63,6 +63,7 @@ setuptools.setup(
         "TPOT==0.11.7",
         "shap==0.41.0",
         'tqdm==4.65.0',
-        "dask_jobqueue==0.8.1"],
+        "dask_jobqueue==0.8.1",
+        "sklearn-genetic-opt==0.10.1"],
     include_package_data=True,
 )
