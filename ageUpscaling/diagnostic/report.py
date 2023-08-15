@@ -20,10 +20,47 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import cartopy
 import cartopy.crs as ccrs
+import scipy.stats as st
 
 from sklearn.metrics import classification_report
 
 from ageUpscaling.utils.metrics import mef_gufunc, nrmse_gufunc, rmse_gufunc
+
+def violins(data,pos=0,bw_method=None,resolution=50,spread=1,max_num_points=100):
+    """violins(data,pos=0,bw_method=None,resolution=50,spread=1)
+    Jitter violin plot creater
+    Takes points from a distribution and creates data for both a jitter violin and a standard violin plot.
+    Parameters
+    ----------
+    data : numpy array
+        The data to build the violin plots from
+    pos : float or int
+        The position the resulting violin will be centered on
+    bw_method : str, scalar or callable, optional
+        The method used to calculate the estimator bandwidth. This can be ‘scott’, ‘silverman’, a scalar constant or a callable. If a scalar, this will be used directly as kde.factor. If a callable, it should take a gaussian_kde instance as only parameter and return a scalar. If None (default), ‘scott’ is used. See Notes for more details.
+    resolution : int
+        The resolution of the resulting violin plot
+    spread : int or float
+        The spread of the violin plots
+     Returns
+    -------
+    pointx,pointy : numpy arrays
+        The resulting data for the jitter violin plot (use with pl.scatter)
+    fillx,filly : numpy array
+        The resulting data for a standard violin plot (use with pl.fill_between)
+    """
+    if data.size>max_num_points:
+        data = np.random.choice(data,size=max_num_points,replace=False)
+    kde    = st.gaussian_kde(data,bw_method=bw_method)
+    pointx = data
+    pointy = kde.pdf(pointx)
+    pointy = pointy/(2*pointy.max())
+    fillx  = np.linspace(data.min(),data.max(),resolution)
+    filly  = kde.pdf(fillx)
+    filly  = filly/(2*filly.max())
+    pointy = pos+np.where(np.random.rand(pointx.shape[0])>0.5,-1,1)*np.random.rand(pointx.shape[0])*pointy*spread
+    filly  = (pos-filly*spread,pos+filly*spread)
+    return(pointx,pointy,fillx,filly)
 
 class Report: 
 
@@ -140,35 +177,29 @@ class Report:
         ax[1,0].set_xlim(0,310)
         ax[1,0].plot([0, 310], [0, 310], linestyle='--', color='red', linewidth=2)
         
-        
-        age_classes = [(0, 10), (10, 20), (20, 30), (30, 40), (40, 50), (50, 100), (100, 200), (200, 300)]
-
-        # Initialize lists to store residuals per age class
-        residuals_per_class = [[] for _ in range(len(age_classes))]
-        
-        # Calculate residuals and categorize them into age classes
-        for obs, pred in zip(obs_, pred_):
-            residual = obs - pred
-            for i, (lower, upper) in enumerate(age_classes):
-                if lower <= obs < upper:
-                    residuals_per_class[i].append(residual)
-                    break
-        
-        # Calculate mean residuals per age class
-        mean_residuals = [np.mean(residuals) for residuals in residuals_per_class]
-        
+        residual = obs_ - pred_
+        age_classes = [(0, 10), (10, 20), (20, 30), (30, 40), (40, 50), (50, 100), (100, 150), (150, 200), (200, 300)]
+        for j in range(len(age_classes)):
+            
+            Agemask = (obs_ >= age_classes[j][0]) & (obs_ < age_classes[j][1])
+            
+            residual_masked = residual[Agemask]
+            IQ_mask = (residual_masked > np.quantile(residual_masked, 0.25)) & (residual_masked < np.quantile(residual_masked, 0.75))
+            pointx,pointy,fillx,filly = violins(residual_masked[IQ_mask],pos=j,spread=0.3,max_num_points=1000)
+            ax[1,1].scatter(pointy, pointx, color='darkblue',alpha=0.1, marker='.') 
+            ax[1,1].scatter(j, np.nanquantile(residual_masked[IQ_mask], 0.5), marker='d', s=200, color='red', alpha=0.5)
+    
         # Extract age class labels for x-axis
         age_class_labels = [f'{lower}-{upper}' for (lower, upper) in age_classes]
         
         # Create the bar plot
-        ax[1,1].bar(age_class_labels, mean_residuals, color='blue')
         ax[1,1].spines['top'].set_visible(False)
         ax[1,1].spines['right'].set_visible(False)
         ax[1,1].set_ylabel('Model residuals [years]', size=12)
         ax[1,1].text(0.05, 0.95, "D", transform=ax[1,1].transAxes,
                 fontsize=16, fontweight='bold', va='top')
+        ax[1,1].set_xticks(range(len(age_classes)))
         ax[1,1].set_xticklabels(age_class_labels, rotation=45)
-        
         
         plt.savefig(os.path.join(self.report_dir, 'xval_diagnostic.png'), dpi=300)        
         plt.close("all")
