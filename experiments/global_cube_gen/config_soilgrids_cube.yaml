@@ -8,11 +8,15 @@ output_writer_params:
     latitude: None
     longitude: None
   chunksizes: 
-    latitude: 1000
-    longitude: 1000
+    latitude: 4000
+    longitude: 4000
     
 cube_variables:
   bdod_0_5cm_mean:
+    dims: ['latitude', 'longitude']
+    attrs: {'long_name': 'Bulk density of the fine earth fraction - 0 to 5cm soil layers', 'grid_mapping': 'crs', 'units': 'cg/cm3'}
+    dtype: float32
+  bdod_15_30cm_mean:
     dims: ['latitude', 'longitude']
     attrs: {'long_name': 'Bulk density of the fine earth fraction - 0 to 5cm soil layers', 'grid_mapping': 'crs', 'units': 'cg/cm3'}
     dtype: float32

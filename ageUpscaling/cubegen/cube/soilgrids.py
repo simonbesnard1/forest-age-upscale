@@ -55,7 +55,8 @@ class SoilGrids(DataCube):
 
     def fill_cube(self, 
                   var_name:str= 'bdod_0_5cm_mean',
-                  chunk_data:bool = False) -> None:
+                  chunk_data:bool = False,
+                  n_workers:int=10) -> None:
         """Fill a data cube from input datasets.
 
         This function processes input datasets stored at the path specified in the `base_file` attribute, 
@@ -82,7 +83,7 @@ class SoilGrids(DataCube):
         if len(vars_to_proc) > 0:
             
             self.init_variable(vars_to_proc, 
-                                njobs= len(vars_to_proc))
+                               njobs= len(vars_to_proc))
             
             ds_ = ds_[vars_to_proc.keys()].transpose(*self.cube.dims)
             
@@ -94,10 +95,11 @@ class SoilGrids(DataCube):
                 to_proc = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
                             "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                             for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
+                
             else:
                 to_proc= None
                 
-            self.update_cube(ds_, chunks=to_proc)
+            self.update_cube(ds_, chunks=to_proc, n_workers=n_workers)
             
         else: 
             raise ValueError(f'{var_name} is not in the data cube configuration file define in the cube_config_path parameters')

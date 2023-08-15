@@ -12,13 +12,13 @@
 """
 import os
 from typing import Union
+import shutil
 
 import xarray as xr
-#from concurrent.futures import ProcessPoolExecutor
 import dask
+import zarr
 
 from ageUpscaling.core.cube_utils import ComputeCube
-
 
 class DataCube(ComputeCube):
     """A class for handling the creation and updating of regularized cube zarr files.
@@ -68,19 +68,26 @@ class DataCube(ComputeCube):
         
         self.cube_config = cube_config
         
+        sync_file = os.path.abspath(os.path.join(cube_config['cube_location'], os.pardir)) + '/.zarrsync'
+        
+        if os.path.isdir(sync_file):
+            shutil.rmtree(sync_file)
+            
+        self.sync = zarr.ProcessSynchronizer(sync_file)
+        
         if not os.path.isdir(self.cube_config['cube_location']):
-            self.new_cube()
-        self.cube = xr.open_zarr(self.cube_config['cube_location'])
+            self.initialize_data_cube()
+            
+        self.cube = xr.open_zarr(self.cube_config['cube_location'], synchronizer=self.sync)
         
     def update_cube(self, 
                      da: Union[xr.DataArray, xr.Dataset],
                      chunks:dict = None,
-                     initialize:bool=True) -> None:
+                     n_workers:int=20) -> None:
         """Update the data cube with the provided xarray Dataset or DataArray.
 
         This function updates the data cube with the data in the input xarray Dataset or DataArray. 
-        If the `initialize` flag is set to `True`, the function will also initialize any new variables 
-        found in the input data. If the `chunks` argument is provided, it should be a dictionary with 
+        If the `chunks` argument is provided, it should be a dictionary with 
         keys representing the names of variables and values representing the chunk sizes for those 
         variables.
         
@@ -91,24 +98,16 @@ class DataCube(ComputeCube):
         chunks: dict, optional
             A dictionary specifying the chunk sizes for each variable in the data array. The dictionary 
             should have keys representing variable names and values representing chunk sizes.
-        initialize: bool, optional
-            Set to False to skip variable initialization. This is faster if the variables are already 
-            initialized. Default is True.
         """
         
-        if initialize:
-            
-            self.init_variable(self.cube_config['cube_variables'], 
-                               njobs= len(self.cube_config['cube_variables'].keys()))
-            
         if chunks is not None:
-            with dask.config.set({'distributed.worker.memory.target': 1*1024*1024*1024, 
-                                  'distributed.worker.threads': 2}):
+            
+            with dask.config.set({'distributed.worker.threads': n_workers//2}):
 
                 futures = [self._update(da.sel(latitude = chunk['latitude'], 
                                               longitude = chunk['longitude']))
                           for chunk in chunks]
-                dask.compute(*futures, num_workers=1)
+                dask.compute(*futures, num_workers=n_workers)
                 
         else:
             self._update(da)

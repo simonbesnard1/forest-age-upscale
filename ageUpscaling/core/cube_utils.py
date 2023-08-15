@@ -20,13 +20,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import zarr
-import shutil
-
-
-def cleanup():
-    if os.path.isdir('.zarrsync') and (len(os.listdir('.zarrsync')) == 0):
-        shutil.rmtree('.zarrsync')
-atexit.register(cleanup)
+from numcodecs import Blosc
 
 class ComputeCube(ABC):
     """A schema for creating new cube datasets.
@@ -85,6 +79,8 @@ class ComputeCube(ABC):
         """
         name, dims, attrs, dtype = IN
         dims = [dim for dim in self.dims_ if dim in dims]
+        compressor = Blosc(cname='zstd', clevel=4, shuffle=Blosc.BITSHUFFLE)
+        encoding = {name: {'compressor': compressor} for var in name}
         if name not in self.cube.variables:
             xr.DataArray(
                  dask.array.full(shape  = [self.cube.coords[dim].size for dim in dims],
@@ -93,9 +89,9 @@ class ComputeCube(ABC):
                  dims   = dims,
                  name   = name,
                  attrs  = attrs
-            ).chunk({dim:self.chunksizes[dim] for dim in dims}).to_dataset().to_zarr(self.cube_location, mode='a')
+            ).chunk({dim:self.chunksizes[dim] for dim in dims}).to_dataset().to_zarr(self.cube_location, mode='a', synchronizer = self.sync,
+                                                                                     consolidated=True, encoding=encoding)
 
-        
     def init_variable(self, 
                       cube_variables:dict, 
                       njobs:int = None) ->None:
@@ -125,9 +121,9 @@ class ComputeCube(ABC):
         futures = [self._init_zarr_variable(da_var) for da_var in vars_to_proc]
         dask.compute(*futures, num_workers= njobs)
     
-        self.cube = xr.open_zarr(self.cube_location) 
+        self.cube = xr.open_zarr(self.cube_location, synchronizer=self.sync) 
     
-    def new_cube(self) -> xr.Dataset:
+    def initialize_data_cube(self) -> xr.Dataset:
         """Create a new empty cube with predefined coordinate variables and metadata.
         
         This function creates a new empty cube with coordinate variables and metadata 
@@ -153,7 +149,7 @@ class ComputeCube(ABC):
         
         ds_ = xr.Dataset(data_vars={}, coords=coords, attrs= self.output_metadata)
             
-        ds_.to_zarr(self.cube_location, consolidated=True)
+        ds_.to_zarr(self.cube_location, consolidated=True, synchronizer = self.sync)
         
     @dask.delayed
     def _update_cube_DataArray(self, 
@@ -183,12 +179,9 @@ class ComputeCube(ABC):
         RuntimeError:
             If the update operation fails.
         """
-        
-        if sync is None:
-            sync = zarr.ProcessSynchronizer('.zarrsync')
-        
+
         try:
-            _zarr = zarr.open_group(self.cube_location, synchronizer = sync)[da.name]
+            _zarr = zarr.open_group(self.cube_location, synchronizer = self.sync)[da.name]
         except (IOError, ValueError, TypeError) as e:
             raise FileExistsError("cube_location already exists but is not a zarr group. Delete existing directory or choose a different cube_location: "+self.cube_location) from e
         
