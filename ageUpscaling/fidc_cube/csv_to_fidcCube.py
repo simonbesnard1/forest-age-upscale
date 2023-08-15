@@ -186,13 +186,7 @@ DEFAULT_VARS = {"age",
                 'ocd_15_30cm_mean',
                 'ocd_30_60cm_mean',
                 'ocd_60_100cm_mean',
-                'ocd_100_200cm_mean',
-                'ocs_0_5cm_mean',
-                'ocs_5_15cm_mean',
-                'ocs_15_30cm_mean',
-                'ocs_30_60cm_mean',
-                'ocs_60_100cm_mean',
-                'ocs_100_200cm_mean'
+                'ocd_100_200cm_mean'
                 }
     
 DEFAULT_LONG_NAMES = {
@@ -365,12 +359,6 @@ DEFAULT_LONG_NAMES = {
         'ocd_30_60cm_mean': 'Organic carbon density - 30 to 6cm soil layers',
         'ocd_60_100cm_mean': 'Organic carbon density - 60 to 10cm soil layers',
         'ocd_100_200cm_mean': 'Organic carbon density - 100 to 200cm soil layers',
-        'ocs_0_5cm_mean': 'Organic carbon stocks - 0 to 5cm soil layers',
-        'ocs_5_15cm_mean': 'Organic carbon stocks - 5 to 15cm soil layers',
-        'ocs_15_30cm_mean': 'Organic carbon stocks - 15 to 30cm soil layers',
-        'ocs_30_60cm_mean': 'Organic carbon stocks - 30 to 6cm soil layers',
-        'ocs_60_100cm_mean': 'Organic carbon stocks - 60 to 10cm soil layers',
-        'ocs_100_200cm_mean': 'Organic carbon stocks - 100 to 200cm soil layers'
         }
 
 DEFAULT_UNITS = {"age"  : "years",
@@ -541,13 +529,7 @@ DEFAULT_UNITS = {"age"  : "years",
         'ocd_15_30cm_mean': 'hg/dm^3',
         'ocd_30_60cm_mean': 'hg/dm^3',
         'ocd_60_100cm_mean': 'hg/dm^3',
-        'ocd_100_200cm_mean': 'hg/dm^3',
-        'ocs_0_5cm_mean': 't/ha',
-        'ocs_5_15cm_mean': 't/ha',
-        'ocs_15_30cm_mean': 't/ha',
-        'ocs_30_60cm_mean': 't/ha',
-        'ocs_60_100cm_mean': 't/ha',
-        'ocs_100_200cm_mean': 't/ha'
+        'ocd_100_200cm_mean': 'hg/dm^3'
         }
 
 class ImportAndSave(ABC):

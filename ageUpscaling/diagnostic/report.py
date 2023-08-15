@@ -141,7 +141,7 @@ class Report:
         ax[1,0].plot([0, 310], [0, 310], linestyle='--', color='red', linewidth=2)
         
         
-        age_classes = [(0, 25), (25, 50), (50, 100), (100, 200), (200, 300)]
+        age_classes = [(0, 10), (10, 20), (20, 30), (30, 40), (40, 50), (50, 100), (100, 200), (200, 300)]
 
         # Initialize lists to store residuals per age class
         residuals_per_class = [[] for _ in range(len(age_classes))]
@@ -165,6 +165,10 @@ class Report:
         ax[1,1].spines['top'].set_visible(False)
         ax[1,1].spines['right'].set_visible(False)
         ax[1,1].set_ylabel('Model residuals [years]', size=12)
+        ax[1,1].text(0.05, 0.95, "D", transform=ax[1,1].transAxes,
+                fontsize=16, fontweight='bold', va='top')
+        ax[1,1].set_xticklabels(age_class_labels, rotation=45)
+        
         
         plt.savefig(os.path.join(self.report_dir, 'xval_diagnostic.png'), dpi=300)        
         plt.close("all")
