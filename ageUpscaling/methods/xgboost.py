@@ -18,7 +18,7 @@ from typing import Any
 import xarray as xr
 
 import xgboost as xgb
-from sklearn.metrics import roc_auc_score, mean_absolute_error, log_loss
+from sklearn.metrics import mean_absolute_error, log_loss
 from sklearn.utils.class_weight import compute_sample_weight
 
 import optuna
@@ -133,10 +133,6 @@ class XGBoost:
             os.makedirs(self.tune_dir + '/trial_model/')
         
         study = optuna.create_study(study_name = 'hpo_ForestAge', 
-                                    #storage='sqlite:///' + self.tune_dir + '/trial_model/hp_trial.db',
-                                    # pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
-                                    #                                                reduction_factor=4, 
-                                    #                                                min_early_stopping_rate=8),
                                     direction=["minimize" if self.method == 'XGBoostRegressor' else 'minimize'][0])
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
@@ -253,9 +249,6 @@ class XGBoost:
             #loss_mef =  mef_gufunc(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])))
 
         elif self.method == "XGBoostClassifier":
-            # loss_roc =  roc_auc_score(val_data['target'], 
-            #                        np.rint(model_.predict(xgb.DMatrix(val_data['features']))), 
-            #                        sample_weight = weight_)
             
             loss_log =  log_loss(val_data['target'], 
                                  model_.predict(xgb.DMatrix(val_data['features'])), 
