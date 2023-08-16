@@ -179,6 +179,10 @@ class Study(ABC):
         - If `feature_selection` is True, `feature_selection_method` must be specified.
         """
         pred_cube = DataCube(cube_config = self.cube_config)
+        
+        pred_cube.init_variable(self.cube_config["cube_variables"], 
+                                njobs= len(self.cube_config["cube_variables"].keys()))
+        
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         
         if n_folds is None:

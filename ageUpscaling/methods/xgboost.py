@@ -295,7 +295,7 @@ class XGBoost:
                 preds["{out_var}_pred".format(out_var = out_var)] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
                 preds["{out_var}_obs".format(out_var = out_var)] = xr.DataArray([Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
                 
-                save_cube.update_cube(preds.transpose('sample', 'cluster'), initialize=True)
+                save_cube.CubeWriter(preds.transpose('sample', 'cluster'))
    
     
     

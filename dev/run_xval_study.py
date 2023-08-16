@@ -19,7 +19,7 @@ study_ = Study(DataConfig_path = DataConfig_path,
                n_jobs = 15)
 study_.cross_validation(n_folds=10, 
                         valid_fraction=0.3, 
-                        feature_selection=True, 
+                        feature_selection=False, 
                         feature_selection_method= 'genetic')
     
 #%% Generate report
