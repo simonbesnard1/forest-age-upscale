@@ -53,7 +53,7 @@ class SoilGrids(DataCube):
     
         super().__init__(self.cube_config)
 
-    def fill_cube(self, 
+    def CreateCube(self, 
                   var_name:str= 'bdod_0_5cm_mean',
                   chunk_data:bool = False,
                   n_workers:int=10) -> None:
@@ -70,7 +70,6 @@ class SoilGrids(DataCube):
     
         """
         
-        #ds_ = self.da.where(self.da>=0)
         ds_ = self.da.to_dataset(name = var_name)
         
         vars_to_proc = {}
@@ -99,7 +98,7 @@ class SoilGrids(DataCube):
             else:
                 to_proc= None
                 
-            self.update_cube(ds_, chunks=to_proc, n_workers=n_workers)
+            self.CubeWriter(ds_, chunks=to_proc, n_workers=n_workers)
             
         else: 
             raise ValueError(f'{var_name} is not in the data cube configuration file define in the cube_config_path parameters')

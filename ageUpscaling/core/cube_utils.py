@@ -10,10 +10,8 @@
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
 @Desc    :   A method class for creating new cube datasets.
 """
-import atexit
-import os
 from abc import ABC
-from typing import Optional, Union
+from typing import Union
 
 import dask
 import numpy as np
@@ -79,7 +77,7 @@ class ComputeCube(ABC):
         """
         name, dims, attrs, dtype = IN
         dims = [dim for dim in self.dims_ if dim in dims]
-        compressor = Blosc(cname='zstd', clevel=4, shuffle=Blosc.BITSHUFFLE)
+        compressor = Blosc(cname='lz4', clevel=4, shuffle=Blosc.BITSHUFFLE)
         encoding = {name: {'compressor': compressor} for var in name}
         if name not in self.cube.variables:
             xr.DataArray(
@@ -149,15 +147,15 @@ class ComputeCube(ABC):
         
         ds_ = xr.Dataset(data_vars={}, coords=coords, attrs= self.output_metadata)
             
-        ds_.to_zarr(self.cube_location, consolidated=True, synchronizer = self.sync)
+        ds_.to_zarr(self.cube_location, consolidated=True, 
+                    synchronizer = self.sync)
         
     @dask.delayed
-    def _update_cube_DataArray(self, 
-                               da: Union[xr.DataArray, xr.Dataset],
-                               sync: Optional[zarr.ProcessSynchronizer] = None) -> None:
-        """Update a single DataArray in the zarr cube. Data must be pre-sorted.
+    def write_chunck(self, 
+                     da: Union[xr.DataArray, xr.Dataset]) -> None:
+        """Update a single chunck in the zarr cube. Data must be pre-sorted.
         
-        This function is called by the `update_cube` function to update a specific 
+        This function is called by the `_update` function to update a specific 
         DataArray in the zarr cube. The data must be pre-sorted and aligned with the 
         dimensions of the target DataArray in the zarr cube.
         
@@ -165,9 +163,6 @@ class ComputeCube(ABC):
         -----------
         da: xr.DataArray or xr.Dataset
             The DataArray or Dataset to be updated in the zarr cube.
-        sync: zarr.Synchronizer, optional
-            An optional synchronizer to use when updating the data. If not provided,
-            the default synchronizer specified during initialization will be used.
             
         Raises:
         -------
@@ -182,6 +177,7 @@ class ComputeCube(ABC):
 
         try:
             _zarr = zarr.open_group(self.cube_location, synchronizer = self.sync)[da.name]
+
         except (IOError, ValueError, TypeError) as e:
             raise FileExistsError("cube_location already exists but is not a zarr group. Delete existing directory or choose a different cube_location: "+self.cube_location) from e
         
@@ -193,7 +189,9 @@ class ComputeCube(ABC):
             _zarr.set_orthogonal_selection(indx, da.data)
         except Exception as e:
             raise RuntimeError("Failed to write variable to cube: " + str(da)) from e
-      
+        
+        zarr.consolidate_metadata(self.cube_location)
+
     def _update(self, 
                 da:Union[xr.DataArray, xr.Dataset]) -> None:
         """Update the data cube with the provided data.
@@ -217,13 +215,13 @@ class ComputeCube(ABC):
         RuntimeError:
             If the input is not an xr.Dataset or xr.DataArray object.
         """
-        if da.__class__ is xr.Dataset:
+        if isinstance(da, xr.Dataset):
             vars_to_proc = [da[_var] for _var in (set(da.variables) - set(da.coords))]
-            futures = [self._update_cube_DataArray(da_var) for da_var in vars_to_proc]
+            futures = [self.write_chunck(da_var) for da_var in vars_to_proc]
             dask.compute(*futures, num_workers=len(vars_to_proc))
             
-        elif da.__class__ is xr.DataArray:
-            self._update_cube_DataArray(da).compute()
+        elif isinstance(da, xr.DataArray):
+            self.write_chunck(da).compute()
         else:
             raise RuntimeError("Input must be xr.Dataset or xr.DataArray objects")
         

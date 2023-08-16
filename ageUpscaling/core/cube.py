@@ -80,7 +80,7 @@ class DataCube(ComputeCube):
             
         self.cube = xr.open_zarr(self.cube_config['cube_location'], synchronizer=self.sync)
         
-    def update_cube(self, 
+    def CubeWriter(self, 
                      da: Union[xr.DataArray, xr.Dataset],
                      chunks:dict = None,
                      n_workers:int=20) -> None:
