@@ -138,7 +138,7 @@ class XGBoost:
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
         with open(self.tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
-            self.best_model = pickle.load(fin)            
+            self.best_model = pickle.load(fin)
             
     def hp_search(self, 
                    trial: optuna.Trial,
@@ -184,20 +184,17 @@ class XGBoost:
                         'random_state':None}
         
         training_params = {'num_boost_round': trial.suggest_int('num_boost_round', DataConfig['hyper_params']['num_boost_round']['min'], DataConfig['hyper_params']['num_boost_round']['max'], step=DataConfig['hyper_params']['num_boost_round']['step'])}
-        training_params['early_stopping_rounds'] = 10
+        training_params['early_stopping_rounds'] = 30
         
         if self.method == "XGBoostRegressor":
             hyper_params['objective'] = "reg:pseudohubererror"
             hyper_params['eval_metric'] = "mphe"      
-            weight_ = None
             pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-mphe")
 
         elif self.method == "XGBoostClassifier":
             hyper_params['objective'] = "binary:logistic"
             hyper_params['eval_metric'] = "logloss"
             hyper_params['scale_pos_weight'] = len(train_data['target'][train_data['target']]==0) / len(train_data['target'][train_data['target']]==1)
-            weight_ = compute_sample_weight(class_weight='balanced',
-                                            y=val_data['target'])
             pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-logloss")
 
         dtrain = xgb.DMatrix(train_data['features'], label=train_data['target'])
@@ -227,34 +224,52 @@ class XGBoost:
         deval = xgb.DMatrix(val_data['features'], label = val_data['target'])
         vallist = [(dtrain, 'train'), (deval, 'eval')]
         
-        model_ = xgb.train(hyper_params, dtrain, evals=vallist, callbacks = [pruning_callback],
+        first_model = xgb.train(hyper_params, dtrain, evals=vallist, callbacks = [pruning_callback],
                            verbose_eval=False, **training_params)
 
-        self.best_ntree = model_.best_ntree_limit
+        self.best_ntree = first_model.best_ntree_limit
             
         if retrain_with_valid:
             training_params['num_boost_round'] = self.best_ntree
-            training_params['early_stopping_rounds'] = None                   
-            model_ = xgb.train(hyper_params, dtrain, **training_params)
-
+            training_params['early_stopping_rounds'] = None 
+            
+            if oversampling and self.method == "XGBoostRegressor":
+                
+                age_classes, current_points = np.unique(np.round(np.concatenate([train_data['target'], val_data['target']]), -1), return_counts=True)
+                desired_points_per_class = np.nanmax(current_points)
+                
+                Y_sample = []
+                X_sample = []
+                for a, b in zip(age_classes, current_points):
+                    
+                    required_samples = desired_points_per_class - b
+                    
+                    if required_samples > 0:
+                        idx_ =  np.where(np.round(np.concatenate([train_data['target'], val_data['target']]), -1) == a)[0]   
+                        idx_sample = np.random.choice(idx_, required_samples)
+                        Y_sample.append(np.concatenate([train_data['target'], val_data['target']])[idx_sample]), 
+                        X_sample.append(np.concatenate([train_data['features'], val_data['features']])[idx_sample])
+                        
+                Y_sample = np.concatenate(Y_sample)
+                X_sample = np.concatenate(X_sample)
+                dtrain = xgb.DMatrix(np.concatenate([train_data['features'], val_data['features'], X_sample]), 
+                                     label = np.concatenate([train_data['target'], val_data['target'], Y_sample]))
+            else:
+                dtrain = xgb.DMatrix(np.concatenate([train_data['features'], val_data['features']]), 
+                                     label = np.concatenate([train_data['target'], val_data['target']]))
+                 
+            model_ = xgb.train(hyper_params, dtrain, **training_params) 
+        
+        else: 
+            model_= first_model            
+            
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
             pickle.dump(model_, fout)
         
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
-        
-        if self.method == "XGBoostRegressor":
-            loss_mae =   mean_absolute_error(val_data['target'], model_.predict(xgb.DMatrix(val_data['features']))) #/ (np.max(val_data['target']) - np.min(val_data['target']))
-            #loss_ = quantile_loss(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])), [0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99])            
-            #loss_mef =  mef_gufunc(val_data['target'], model_.predict(xgb.DMatrix(val_data['features'])))
-
-        elif self.method == "XGBoostClassifier":
             
-            loss_log =  log_loss(val_data['target'], 
-                                 model_.predict(xgb.DMatrix(val_data['features'])), 
-                                 sample_weight = weight_)
-            
-        return [loss_log if self.method == 'XGBoostClassifier' else loss_mae]
+        return first_model.best_score
     
     def predict_clusters(self, 
                         save_cube:str) -> None:

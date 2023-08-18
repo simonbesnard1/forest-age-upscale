@@ -20,7 +20,7 @@ from abc import ABC
 
 DEFAULT_VARS = {"age",
                 "agb",
-                #'tree_height',
+                'tree_height',
                 "AnnualMeanTemperature_WorlClim" ,
                 "MeanDiurnalRange_WorlClim",
                 "TemperatureSeasonality_WorlClim",
@@ -192,7 +192,7 @@ DEFAULT_VARS = {"age",
 DEFAULT_LONG_NAMES = {
         "age"  : "forest age at plot level",
         "agb"  : "above-ground biomass",
-        #'tree_height': 'tree_height',
+        'tree_height': 'tree_height',
         "AnnualMeanTemperature_WorlClim" : "Annual Mean Temperature - worldclim dataset",
         "MeanDiurnalRange_WorlClim" : " Mean Diurnal Range (Mean of monthly (max temp - min temp)) - worldclim dataset",
         "TemperatureSeasonality_WorlClim" : "Temperature Seasonality (standard deviation *100) - worldclim dataset",
@@ -363,7 +363,7 @@ DEFAULT_LONG_NAMES = {
 
 DEFAULT_UNITS = {"age"  : "years",
         "agb"  : "Mg ha-1",
-        #'tree_height': 'meters',        
+        'tree_height': 'meters',        
         "AnnualMeanTemperature_WorlClim" : "deg C",
         "MeanDiurnalRange_WorlClim" : "deg C",
         "TemperatureSeasonality_WorlClim" : "deg C", 

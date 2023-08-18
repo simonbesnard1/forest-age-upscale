@@ -100,6 +100,7 @@ class Report:
         pred_ = ds.forestAge_pred.values.reshape(-1)
         pred_[pred_>299] = 299
         pred_[pred_<1] = 1
+        obs_[obs_>=300] = np.nan        
         valid_values = np.isfinite(pred_) & np.isfinite(obs_)
         pred_ = pred_[valid_values]
         obs_ = obs_[valid_values]

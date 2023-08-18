@@ -16,6 +16,9 @@ import numpy as np
 
 import xarray as xr
 
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
+
 from abc import ABC
 
 class MLData(ABC):
@@ -39,6 +42,7 @@ class MLData(ABC):
     """
     def __init__(self,
                  method:str='MLPRegressor',
+                 imputing_:bool=True,
                  DataConfig: dict[str, Any] = {},
                  target: dict[str, Any] = {},
                  features: dict[str, Any] = {},     
@@ -55,6 +59,7 @@ class MLData(ABC):
         self.normalize = normalize 
         self.norm_stats = norm_stats
         self.method = method
+        self.imputing_ = imputing_
                 
     def get_x(self,
               method:str,
@@ -73,7 +78,7 @@ class MLData(ABC):
             The concatenated and normalized features.    
         """
         
-        data = xr.open_dataset(self.DataConfig['training_dataset']).sel(cluster = self.subset)
+        data = xr.open_dataset(self.DataConfig['imputing_dataset']).sel(cluster = self.subset)
 
         X = data[features]
         
@@ -103,7 +108,7 @@ class MLData(ABC):
             The target data, transformed as necessary for the given method and maximum forest age.
         """
 
-        Y = xr.open_dataset(self.DataConfig['training_dataset']).sel(cluster = self.subset)[target]
+        Y = xr.open_dataset(self.DataConfig['imputing_dataset']).sel(cluster = self.subset)[target]
         
         if 'Classifier' in method :
             Y = Y.to_array().values
@@ -131,20 +136,28 @@ class MLData(ABC):
             A dictionary containing the features and target arrays as well as the normalization statistics.
         """
         
-        self.y = self.get_y(target=self.target, 
+        Y = self.get_y(target=self.target, 
                             method = self.method, 
                             max_forest_age =self.DataConfig['max_forest_age'][0]).reshape(-1)
         
-        self.x = self.get_x(method = self.method, features= self.features).reshape(-1, len(self.features))        
-        mask_nan = (np.all(np.isfinite(self.x), axis=1)) & (np.isfinite(self.y))
+        X = self.get_x(method = self.method, features= self.features).reshape(-1, len(self.features))        
         
-        self.x, self.y = self.x[mask_nan, :], self.y[mask_nan]    
+        if self.imputing_:
+            mask_nan = np.isfinite(Y)            
+            imp = IterativeImputer(max_iter=100, random_state=0)
+            X_impute = X[mask_nan, :].copy()
+            imp.fit(X_impute)            
+            X =  imp.transform(X)
+            
+        mask_nan = (np.all(np.isfinite(X), axis=1)) & (np.isfinite(Y))
+        
+        X, Y = X[mask_nan, :], Y[mask_nan]    
         if 'Regressor' in self.method: 
-            self.y=self.y.astype('float16')
+            Y=Y.astype('float16')
         elif 'Classifier' in self.method: 
-            self.y=self.y.astype('int8')
+            Y=Y.astype('int8')
         
-        return {'features' : self.x.astype('float16'), "target": self.y, 'norm_stats': self.norm_stats}
+        return {'features' : X.astype('float16'), "target": Y, 'norm_stats': self.norm_stats}
     
     def norm(self, 
              x: xr.Dataset, 

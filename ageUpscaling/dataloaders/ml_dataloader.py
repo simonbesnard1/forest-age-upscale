@@ -73,7 +73,8 @@ class MLDataModule(MLData):
             MLData: Dataloader for the training set, containing the features and target values for the training set.
         """
         
-        train_data = MLData(self.method, 
+        train_data = MLData(self.method,
+                            True,
                             self.DataConfig, 
                             self.target, 
                             self.features, 
@@ -91,6 +92,7 @@ class MLDataModule(MLData):
         """
         
         valid_data = MLData(self.method, 
+                            False,
                             self.DataConfig, 
                             self.target, 
                             self.features, 
@@ -107,7 +109,8 @@ class MLDataModule(MLData):
             MLData: Dataloader for the test set, containing the features and target values for the test set.
         """
 
-        test_data = MLData(self.method, 
+        test_data = MLData(self.method,
+                           False,
                            self.DataConfig,
                            self.target, 
                            self.features, 
