@@ -78,7 +78,7 @@ class MLData(ABC):
             The concatenated and normalized features.    
         """
         
-        data = xr.open_dataset(self.DataConfig['imputing_dataset']).sel(cluster = self.subset)
+        data = xr.open_dataset(self.DataConfig['training_dataset']).sel(cluster = self.subset)
 
         X = data[features]
         
@@ -108,7 +108,7 @@ class MLData(ABC):
             The target data, transformed as necessary for the given method and maximum forest age.
         """
 
-        Y = xr.open_dataset(self.DataConfig['imputing_dataset']).sel(cluster = self.subset)[target]
+        Y = xr.open_dataset(self.DataConfig['training_dataset']).sel(cluster = self.subset)[target]
         
         if 'Classifier' in method :
             Y = Y.to_array().values
