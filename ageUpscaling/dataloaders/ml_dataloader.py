@@ -92,7 +92,7 @@ class MLDataModule(MLData):
         """
         
         valid_data = MLData(self.method, 
-                            False,
+                            True,
                             self.DataConfig, 
                             self.target, 
                             self.features, 
@@ -110,7 +110,7 @@ class MLDataModule(MLData):
         """
 
         test_data = MLData(self.method,
-                           False,
+                           True,
                            self.DataConfig,
                            self.target, 
                            self.features, 

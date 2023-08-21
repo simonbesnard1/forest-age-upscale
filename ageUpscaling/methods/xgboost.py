@@ -298,8 +298,10 @@ class XGBoost:
                     y_hat =  self.best_model.predict(dpred)
                     
                 elif self.method == "XGBoostClassifier":
-                    y_hat =  np.rint(self.best_model.predict(dpred))
-                
+                    #y_hat =  np.rint(self.best_model.predict(dpred))
+                    y_hat =  self.best_model.predict(dpred)
+                    y_hat = (y_hat > 0.6).astype(int)
+
                 preds = xr.Dataset()
                 
                 if self.method == "XGBoostClassifier": 
