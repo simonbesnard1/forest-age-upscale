@@ -123,7 +123,7 @@ class MLData(ABC):
             
         else :
             Y = Y.where(Y<max_forest_age).to_array().values
-            Y[Y<1] = 1 ## set min age to 1
+            #Y[Y<1] = 1 ## set min age to 1
             
         return Y
             

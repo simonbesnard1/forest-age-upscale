@@ -77,7 +77,7 @@ class Study(ABC):
                 raise ValueError(f'restore path does not exist:\n{study_dir}')
 
         self.study_dir = study_dir
-        self.cube_config['cube_location'] = os.path.join(study_dir, 'model_output')
+        self.cube_config['cube_location'] = os.path.join(study_dir, 'model_prediction')
         self.n_jobs = n_jobs
     
     def version_dir(self, 
@@ -200,33 +200,36 @@ class Study(ABC):
             else:
                 self.DataConfig['features_selected'] = self.DataConfig['features'].copy()
                 
+            fold_ = 1
             for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
                 train_subset, test_subset = cluster_[train_index], cluster_[test_index]
                 train_subset, valid_subset = train_test_split(train_subset, test_size=valid_fraction, shuffle=True)
                 
                 if self.algorithm == "MLP":
-                    ml_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
+                    ml_method = MLPmethod(study_dir=self.study_dir, 
                                             DataConfig= self.DataConfig,
                                             method=self.algorithm + task_)
                 elif self.algorithm == "XGBoost":
-                    ml_method = XGBoost(tune_dir=os.path.join(self.study_dir, "tune"), 
+                    ml_method = XGBoost(study_dir=self.study_dir,  
                                         DataConfig= self.DataConfig,
                                         method=self.algorithm + task_)
                 elif self.algorithm == "RandomForest":
-                    ml_method = RandomForest(tune_dir=os.path.join(self.study_dir, "tune"), 
+                    ml_method = RandomForest(study_dir=self.study_dir, 
                                               DataConfig= self.DataConfig,
                                               method=self.algorithm + task_)
                 elif self.algorithm == "TPOT":
-                    ml_method = TPOT(tune_dir=os.path.join(self.study_dir, "tune"), 
+                    ml_method = TPOT(study_dir=self.study_dir, 
                                       DataConfig= self.DataConfig,
                                       method=self.algorithm + task_)
                     
                 ml_method.train(train_subset=train_subset,
                                   valid_subset=valid_subset, 
                                   test_subset=test_subset,
+                                  fold_ = fold_,
                                   n_jobs = self.n_jobs)
                 ml_method.predict_clusters(save_cube = pred_cube)                       
                 shutil.rmtree(os.path.join(self.study_dir, "tune"))
+                fold_ += 1
                 
                 
                 

@@ -18,8 +18,8 @@ from typing import Any
 import xarray as xr
 
 import xgboost as xgb
-from sklearn.metrics import mean_absolute_error, log_loss
-from sklearn.utils.class_weight import compute_sample_weight
+#from sklearn.metrics import mean_absolute_error, log_loss
+#from sklearn.utils.class_weight import compute_sample_weight
 
 import optuna
 optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -43,15 +43,21 @@ class XGBoost:
     """
     
     def __init__(self,
-                 tune_dir: str=None,
+                 study_dir: str=None,
                  DataConfig:dict=None,
                  method:str = 'XGBoostRegressor') -> None:
 
-        self.tune_dir = tune_dir
+        self.study_dir = study_dir
         
-        if not os.path.exists(tune_dir):
-            os.makedirs(tune_dir)
-            
+        self.tune_dir = os.path.join(study_dir, "tune")
+        if not os.path.exists(self.tune_dir):
+            os.makedirs(self.tune_dir)
+        
+        self.best_model_dir = os.path.join(study_dir, "best_model")
+        
+        if not os.path.exists(self.best_model_dir):
+            os.makedirs(self.best_model_dir)
+        
         self.DataConfig = DataConfig
         self.method = method
         
@@ -103,6 +109,7 @@ class XGBoost:
               train_subset:dict={},
               valid_subset:dict={}, 
               test_subset:dict={},
+              fold_:int=1,
               n_jobs:int=10) -> None:
         
         """Trains an XGBoost model using the specified training and validation datasets.
@@ -140,6 +147,9 @@ class XGBoost:
         with open(self.tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
             self.best_model = pickle.load(fin)
             
+        with open(self.best_model_dir + "/{method_}_fold{fold_}.pickle".format(method_ = self.method, fold_ = fold_), "wb") as fout:
+            pickle.dump(self.best_model, fout)
+        
     def hp_search(self, 
                    trial: optuna.Trial,
                    train_data:dict,
