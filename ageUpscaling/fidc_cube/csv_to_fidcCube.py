@@ -20,6 +20,7 @@ from abc import ABC
 
 DEFAULT_VARS = {"age",
                 "agb",
+                "agb_gapfilled",                
                 'tree_height',
                 "AnnualMeanTemperature_WorlClim" ,
                 "MeanDiurnalRange_WorlClim",
@@ -253,6 +254,7 @@ DEFAULT_VARS = {"age",
 DEFAULT_LONG_NAMES = {
         "age"  : "forest age at plot level",
         "agb"  : "above-ground biomass",
+        "agb_gapfilled": "above-ground biomass gapfilled with ESA-CCI biomass",
         'tree_height': 'tree_height',
         "AnnualMeanTemperature_WorlClim" : "Annual Mean Temperature - worldclim dataset",
         "MeanDiurnalRange_WorlClim" : " Mean Diurnal Range (Mean of monthly (max temp - min temp)) - worldclim dataset",
@@ -484,6 +486,7 @@ DEFAULT_LONG_NAMES = {
 
 DEFAULT_UNITS = {"age"  : "years",
         "agb"  : "Mg ha-1",
+        "agb_gapfilled"  : "Mg ha-1",
         'tree_height': 'meters',        
         "AnnualMeanTemperature_WorlClim" : "deg C",
         "MeanDiurnalRange_WorlClim" : "deg C",
