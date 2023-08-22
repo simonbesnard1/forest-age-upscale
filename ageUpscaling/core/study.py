@@ -199,7 +199,10 @@ class Study(ABC):
                                                                         data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features(n_jobs = self.n_jobs)
             else:
                 self.DataConfig['features_selected'] = self.DataConfig['features'].copy()
-                
+            
+            features_selected = self.DataConfig['features_selected']
+            print(f'Running {task_} with this set of the following set of co-variates {features_selected}')
+            
             fold_ = 1
             for train_index, test_index in tqdm( kf.split(cluster_), desc='Performing cross-validation'):
                 train_subset, test_subset = cluster_[train_index], cluster_[test_index]

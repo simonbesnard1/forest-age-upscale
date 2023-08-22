@@ -203,9 +203,6 @@ class UpscaleAge(ABC):
                 features_regressor = regressor_config['selected_features']
                 norm_stats_regressor = regressor_config['norm_stats']
                 
-                var_selected           = features_regressor + features_classifier
-                subset_cube = subset_cube[var_selected]
-
                 X_upscale_class = []
                 for var_name in features_classifier:
                     if self.algorithm == "MLP":
@@ -244,7 +241,7 @@ class UpscaleAge(ABC):
                     
                     if self.algorithm == "XGBoost":
                         dpred =  xgb.DMatrix(X_upscale_class_flattened[mask])
-                        pred_class = np.rint(best_classifier.predict(dpred))
+                        pred_class = (best_classifier.predict(dpred) > 0.6).astype(int)
                     
                     else:
                         pred_class = best_classifier.predict(X_upscale_class_flattened[mask])
@@ -261,7 +258,7 @@ class UpscaleAge(ABC):
                         pred_reg= best_regressor.predict(X_upscale_reg_flattened[mask])
                     
                     pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
-                    pred_reg[pred_reg<1] = 1
+                    pred_reg[pred_reg<0] = 0
                     RF_pred_reg[mask] = pred_reg
                     RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]            
                     out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
@@ -275,9 +272,9 @@ class UpscaleAge(ABC):
             if len(output_reg_xr) >0:
                 output_reg_xr = xr.concat(output_reg_xr, dim = 'members')
                 output_reg_xr_mean = output_reg_xr.mean(dim = 'members').to_dataset(name="forest_age_mean")
-                output_reg_xr_std = output_reg_xr.std(dim = 'members').to_dataset(name="forest_age_std")
-                self.pred_cube.update_cube(output_reg_xr_mean, initialize=False)
-                self.pred_cube.update_cube(output_reg_xr_std, initialize=False)
+                #output_reg_xr_std = output_reg_xr.std(dim = 'members').to_dataset(name="forest_age_std")
+                self.pred_cube.CubeWriter(output_reg_xr_mean, n_workers=1)
+                #self.pred_cube.update_cube(output_reg_xr_std, initialize=False)
                     
     def model_tuning(self,
                      run_: int=1,

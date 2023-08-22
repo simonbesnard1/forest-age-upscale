@@ -189,7 +189,7 @@ class XGBoost:
                         'lambda': trial.suggest_float('lambda ', DataConfig['hyper_params']['lambda']['min'], DataConfig['hyper_params']['lambda']['max']),
                         'alpha': trial.suggest_float('alpha ', DataConfig['hyper_params']['alpha']['min'], DataConfig['hyper_params']['alpha']['max']),
                         'tree_method': trial.suggest_categorical('tree_method', DataConfig['hyper_params']['tree_method']),
-                        'n_jobs': 10,
+                        'n_jobs': 20,
                         'num_parallel_tree':1,
                         'random_state':None}
         
