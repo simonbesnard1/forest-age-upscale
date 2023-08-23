@@ -109,7 +109,7 @@ class XGBoost:
               train_subset:dict={},
               valid_subset:dict={}, 
               test_subset:dict={},
-              fold_:int=1,
+              #fold_:int=1,
               n_jobs:int=10) -> None:
         
         """Trains an XGBoost model using the specified training and validation datasets.
@@ -147,8 +147,8 @@ class XGBoost:
         with open(self.tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
             self.best_model = pickle.load(fin)
             
-        with open(self.best_model_dir + "/{method_}_fold{fold_}.pickle".format(method_ = self.method, fold_ = fold_), "wb") as fout:
-            pickle.dump(self.best_model, fout)
+        # with open(self.best_model_dir + "/{method_}_fold{fold_}.pickle".format(method_ = self.method, fold_ = fold_), "wb") as fout:
+        #     pickle.dump(self.best_model, fout)
         
     def hp_search(self, 
                    trial: optuna.Trial,
@@ -288,9 +288,6 @@ class XGBoost:
         Parameters:
             save_cube: str
                 Path to the output netCDF file where the predictions will be saved.
-            biais_correction : bool
-                Whether to apply a biais correction or not.
-                Default is True.
         """
         
         X = self.mldata.test_dataloader().get_x(method= self.method, features = self.DataConfig['features_selected'])
@@ -309,8 +306,10 @@ class XGBoost:
                     
                 elif self.method == "XGBoostClassifier":
                     #y_hat =  np.rint(self.best_model.predict(dpred))
-                    y_hat =  self.best_model.predict(dpred)
-                    y_hat = (y_hat > 0.6).astype(int)
+                    y_hat_proba =  self.best_model.predict(dpred)                    
+                    y_hat = (y_hat_proba > 0.6).astype(int)
+                    
+                    
 
                 preds = xr.Dataset()
                 
@@ -321,7 +320,10 @@ class XGBoost:
                 
                 preds["{out_var}_pred".format(out_var = out_var)] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
                 preds["{out_var}_obs".format(out_var = out_var)] = xr.DataArray([Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-                
+        
+                if self.method == "XGBoostClassifier": 
+                    preds["{out_var}_proba".format(out_var = out_var)] = xr.DataArray([y_hat_proba], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat_proba))})
+                    
                 save_cube.CubeWriter(preds.transpose('sample', 'cluster'))
    
     

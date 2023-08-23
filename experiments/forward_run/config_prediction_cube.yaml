@@ -5,8 +5,8 @@ temporal_resolution: 'Y'
 
 output_writer_params:
   dims:
-    latitude: [-60, 80]
-    longitude: [-180, 180]
+    latitude: None
+    longitude: None
     time: ["2010-01-01", "2017-01-01", "2018-01-01"]
     members: 1
   chunksizes: 

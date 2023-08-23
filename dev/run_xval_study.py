@@ -17,10 +17,10 @@ study_ = Study(DataConfig_path = DataConfig_path,
                algorithm  = 'XGBoost',
                base_dir= '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/output/',
                n_jobs = 15)
-study_.cross_validation(n_folds=10, 
+study_.cross_validation(n_folds=20, 
                         valid_fraction=0.3, 
-                        feature_selection=True, 
-                        feature_selection_method= 'recursive')
+                        feature_selection=None, 
+                        feature_selection_method= 'boruta')
     
 #%% Generate report
 report_ = Report(study_dir= study_.study_dir)

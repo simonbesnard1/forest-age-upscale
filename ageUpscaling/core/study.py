@@ -150,8 +150,7 @@ class Study(ABC):
                          n_folds:int=10, 
                          valid_fraction:float=0.3,
                          feature_selection:bool=False,
-                         feature_selection_method:str=None,
-                         biais_correction:bool=True) -> None:
+                         feature_selection_method:str=None) -> None:
         """Perform cross-validation on the data.
     
         Parameters
@@ -169,15 +168,17 @@ class Study(ABC):
         feature_selection_method : str, optional
             The method to use for feature selection.
             Only applicable if `feature_selection` is True.
-            Default is None.
-        biais_correction : bool, optional
-            Whether to apply a biais correction or not.
-            Default is True.
-    
+            Default is None.    
         Notes
         -----
         - If `feature_selection` is True, `feature_selection_method` must be specified.
         """
+        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
+        samples_ = xr.open_dataset(self.DataConfig['training_dataset']).sample.values
+        
+        self.cube_config['output_writer_params']['dims']['sample'] = len(samples_)
+        self.cube_config['output_writer_params']['dims']['cluster'] = len(cluster_)
+        
         pred_cube = DataCube(cube_config = self.cube_config)
         
         pred_cube.init_variable(self.cube_config["cube_variables"], 
@@ -228,11 +229,14 @@ class Study(ABC):
                 ml_method.train(train_subset=train_subset,
                                   valid_subset=valid_subset, 
                                   test_subset=test_subset,
-                                  fold_ = fold_,
+                                  #fold_ = fold_,
                                   n_jobs = self.n_jobs)
                 ml_method.predict_clusters(save_cube = pred_cube)                       
                 shutil.rmtree(os.path.join(self.study_dir, "tune"))
                 fold_ += 1
+                
+                print(f'Fold {fold_} was successfully performed')
+                
                 
                 
                 

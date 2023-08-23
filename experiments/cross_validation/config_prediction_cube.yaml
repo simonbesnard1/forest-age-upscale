@@ -3,8 +3,8 @@ temporal_resolution: 'static'
 
 output_writer_params:
   dims:
-    sample: 65845
-    cluster: 144
+    sample: None
+    cluster: None
   chunksizes: 
     sample: -1
     cluster: -1
@@ -26,9 +26,11 @@ cube_variables:
     dims: ['sample', 'cluster']
     attrs: {'long_name': 'old-growth observed - 0: non-old growth 1: old-growth', 'units': 'adimensional', 'valid_min': 0.0, 'valid_max': 1}
     dtype: int
-  
-njobs: 4
-
+  oldGrowth_proba:
+    dims: ['sample', 'cluster']
+    attrs: {'long_name': 'Probability of predicted old-growth', 'units': 'adimensional', 'valid_min': 0.0, 'valid_max': 1}
+    dtype: int
+    
 output_metadata:
   # CF: A succinct description of what is in the dataset.
   title: "Global data cube for forest age upscaling"

@@ -351,6 +351,9 @@ class UpscaleAge(ABC):
         high_res_pred : bool, optional
             Boolean indicating whether to perform high resolution prediction, default is False
         """
+        
+        self.upscaling_config['output_writer_params']['dims']['latitude'] = xr.open_zarr(self.DataConfig['agb_cube']).latitude.values
+        self.upscaling_config['output_writer_params']['dims']['longitude'] =  xr.open_zarr(self.DataConfig['agb_cube']).longitude.values
         self.pred_cube = DataCube(cube_config = self.upscaling_config)
         self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
                                       njobs= len(self.upscaling_config['cube_variables'].keys()))
