@@ -309,19 +309,19 @@ class UpscaleAge(ABC):
             
         if self.algorithm == "MLP":
             
-            ml_method = MLPmethod(tune_dir=os.path.join(self.study_dir, "tune"), 
+            ml_method = MLPmethod(study_dir=self.study_dir, 
                                    DataConfig= self.DataConfig,
                                    method=self.algorithm + task_)
         elif self.algorithm == "XGBoost":
-            ml_method = XGBoost(tune_dir=os.path.join(self.study_dir, "tune"), 
+            ml_method = XGBoost(study_dir=self.study_dir, 
                                 DataConfig= self.DataConfig,
                                 method=self.algorithm + task_)
         elif self.algorithm == "RandomForest":
-            ml_method = RandomForest(tune_dir=os.path.join(self.study_dir, "tune"), 
+            ml_method = RandomForest(study_dir=self.study_dir, 
                                      DataConfig= self.DataConfig,
                                      method=self.algorithm + task_)
         elif self.algorithm == "TPOT":
-            ml_method = TPOT(tune_dir=os.path.join(self.study_dir, "tune"), 
+            ml_method = TPOT(study_dir=self.study_dir, 
                              DataConfig= self.DataConfig,
                              method=self.algorithm + task_)
         
