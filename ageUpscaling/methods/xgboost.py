@@ -53,10 +53,10 @@ class XGBoost:
         if not os.path.exists(self.tune_dir):
             os.makedirs(self.tune_dir)
         
-        self.best_model_dir = os.path.join(study_dir, "best_model")
+        # self.best_model_dir = os.path.join(study_dir, "best_model")
         
-        if not os.path.exists(self.best_model_dir):
-            os.makedirs(self.best_model_dir)
+        # if not os.path.exists(self.best_model_dir):
+        #     os.makedirs(self.best_model_dir)
         
         self.DataConfig = DataConfig
         self.method = method
