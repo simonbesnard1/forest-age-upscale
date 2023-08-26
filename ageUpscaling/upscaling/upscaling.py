@@ -189,7 +189,7 @@ class UpscaleAge(ABC):
             subset_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN)])
             
             output_reg_xr = []
-            for run_ in tqdm(np.arange(self.upscaling_config['num_members']), desc='Model inference'):
+            for run_ in np.arange(self.upscaling_config['num_members']):
                 
                 with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = 'Classifier', id_ = run_), 'rb') as f:
                     classifier_config = pickle.load(f)
