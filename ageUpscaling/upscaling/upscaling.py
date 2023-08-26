@@ -387,7 +387,7 @@ class UpscaleAge(ABC):
                 _ = list(futures)
                         
         else:
-            for extent in AllExtents:
+            for extent in tqdm(AllExtents, desc='Upscaling procedure'):
                 self._predict_func(extent)           
             
                             
