@@ -241,7 +241,7 @@ class UpscaleAge(ABC):
                     
                     if self.algorithm == "XGBoost":
                         dpred =  xgb.DMatrix(X_upscale_class_flattened[mask])
-                        pred_class = (best_classifier.predict(dpred) > 0.6).astype(int)
+                        pred_class = (best_classifier.predict(dpred) > 0.9).astype(int)
                     
                     else:
                         pred_class = best_classifier.predict(X_upscale_class_flattened[mask])
