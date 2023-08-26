@@ -364,20 +364,17 @@ class UpscaleAge(ABC):
         for run_ in tqdm(np.arange(self.upscaling_config['num_members']), desc='Training model members'):
             
             for task_ in ["Regressor", "Classifier"]:
-                self.model_tuning(run_ = run_, 
-                                  task_ = task_,
-                                  feature_selection= self.DataConfig['feature_selection'],
-                                  feature_selection_method = self.DataConfig['feature_selection_method'],     
-                                  train_subset=train_subset, 
-                                  valid_subset=valid_subset)
+                if not os.path.exists(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = task_, id_ = run_)):
+                    self.model_tuning(run_ = run_, 
+                                      task_ = task_,
+                                      feature_selection= self.DataConfig['feature_selection'],
+                                      feature_selection_method = self.DataConfig['feature_selection_method'],     
+                                      train_subset=train_subset, 
+                                      valid_subset=valid_subset)
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
-        
-        lat_vector = np.flip(np.arange(self.upscaling_config["output_writer_params"]['dims']['latitude'][0], self.upscaling_config["output_writer_params"]['dims']['latitude'][1], self.upscaling_config["spatial_resolution"])) 
-        lon_vector = np.arange(self.upscaling_config["output_writer_params"]['dims']['longitude'][0], self.upscaling_config["output_writer_params"]['dims']['longitude'][1], self.upscaling_config["spatial_resolution"])
-                       
-        LatChunks = np.array_split(lat_vector, self.upscaling_config["num_chunks"])
-        LonChunks = np.array_split(lon_vector, self.upscaling_config["num_chunks"])
+        LatChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['latitude'], self.upscaling_config["num_chunks"])
+        LonChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['longitude'], self.upscaling_config["num_chunks"])
         
         AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
