@@ -371,7 +371,7 @@ class UpscaleAge(ABC):
                                       feature_selection_method = self.DataConfig['feature_selection_method'],     
                                       train_subset=train_subset, 
                                       valid_subset=valid_subset)
-            shutil.rmtree(os.path.join(self.study_dir, "tune"))
+                    shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
         LatChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['latitude'], self.upscaling_config["num_chunks"])
         LonChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['longitude'], self.upscaling_config["num_chunks"])
