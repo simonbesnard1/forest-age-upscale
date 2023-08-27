@@ -64,6 +64,7 @@ setuptools.setup(
         "shap==0.41.0",
         'tqdm==4.65.0',
         "dask_jobqueue==0.8.1",
-        "sklearn-genetic-opt==0.10.1"],
+        "sklearn-genetic-opt==0.10.1",
+        "alive-progress==1.0"],
     include_package_data=True,
 )

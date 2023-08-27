@@ -177,7 +177,7 @@ class UpscaleAge(ABC):
                      'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
         
         subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(buffer_IN).astype('float16')
-        subset_agb_cube        = subset_agb_cube.agb.where(subset_agb_cube.agb >0).to_dataset()
+        subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube.agb >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x])
         
         if not np.isnan(subset_agb_cube.to_array().values).all():
             
