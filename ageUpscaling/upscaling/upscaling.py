@@ -203,7 +203,7 @@ class UpscaleAge(ABC):
                 features_regressor = regressor_config['selected_features']
                 norm_stats_regressor = regressor_config['norm_stats']
                 
-                all_features = np.unique(features_classifier + features_regressor)
+                all_features = list(np.unique(features_classifier + features_regressor))
                                    
                 X_upscale = []
                 for var_name in all_features:
@@ -226,8 +226,8 @@ class UpscaleAge(ABC):
                 mask = (np.all(np.isfinite(X_upscale_flattened), axis=1)) 
                 
                 if (X_upscale_flattened[mask].shape[0]>0):
-                    index_mapping_class = [list(all_features).index(feature) for feature in features_classifier]
-                    index_mapping_reg = [list(all_features).index(feature) for feature in features_regressor]
+                    index_mapping_class = [all_features.index(feature) for feature in features_classifier]
+                    index_mapping_reg = [all_features.index(feature) for feature in features_regressor]
                     
                     if self.algorithm == "XGBoost":
                         dpred =  xgb.DMatrix(X_upscale_flattened[mask][:, index_mapping_class])
