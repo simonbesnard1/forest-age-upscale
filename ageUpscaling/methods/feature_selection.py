@@ -94,7 +94,7 @@ class FeatureSelection(ABC):
             rf = RandomForestClassifier(n_jobs=n_jobs, class_weight='balanced', max_depth=max_depth)
         
         if self.feature_selection_method == "boruta":
-            feat_selector = BorutaPy(rf, n_estimators='auto', perc=75)
+            feat_selector = BorutaPy(rf, n_estimators='auto')
 
         elif self.feature_selection_method == "recursive":
             feat_selector = RFE(rf, n_features_to_select=max_features, step=1)
