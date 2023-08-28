@@ -24,6 +24,7 @@ import xgboost as xgb
 import optuna
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 optuna.logging.set_verbosity(optuna.logging.INFO)
+from concurrent.futures import ThreadPoolExecutor
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
 #from ageUpscaling.utils.metrics import mef_gufunc
@@ -52,11 +53,6 @@ class XGBoost:
         self.tune_dir = os.path.join(study_dir, "tune")
         if not os.path.exists(self.tune_dir):
             os.makedirs(self.tune_dir)
-        
-        # self.best_model_dir = os.path.join(study_dir, "best_model")
-        
-        # if not os.path.exists(self.best_model_dir):
-        #     os.makedirs(self.best_model_dir)
         
         self.DataConfig = DataConfig
         self.method = method
@@ -109,7 +105,6 @@ class XGBoost:
               train_subset:dict={},
               valid_subset:dict={}, 
               test_subset:dict={},
-              #fold_:int=1,
               n_jobs:int=10) -> None:
         
         """Trains an XGBoost model using the specified training and validation datasets.
@@ -125,6 +120,7 @@ class XGBoost:
                 Number of jobs to use when fitting the model.
         """
     
+  
         self.mldata = self.get_datamodule(method= self.method,
                                           DataConfig=self.DataConfig, 
                                           target=self.DataConfig['target'],
@@ -139,16 +135,20 @@ class XGBoost:
         if not os.path.exists(self.tune_dir + '/trial_model/'):
             os.makedirs(self.tune_dir + '/trial_model/')
         
+        
         study = optuna.create_study(study_name = 'hpo_ForestAge', 
                                     direction=["minimize" if self.method == 'XGBoostRegressor' else 'minimize'][0])
+                
+        num_trials = self.DataConfig['hyper_params']['number_trials']
+
+        max_workers = min(num_trials, n_jobs)
+                
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
-                       n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
+                        n_trials=num_trials, 
+                        n_jobs=max_workers)
         
         with open(self.tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = study.best_trial.number), "rb") as fin:
             self.best_model = pickle.load(fin)
-            
-        # with open(self.best_model_dir + "/{method_}_fold{fold_}.pickle".format(method_ = self.method, fold_ = fold_), "wb") as fout:
-        #     pickle.dump(self.best_model, fout)
         
     def hp_search(self, 
                    trial: optuna.Trial,
