@@ -177,7 +177,7 @@ class UpscaleAge(ABC):
                      'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
         
         subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(buffer_IN).astype('float16')
-        subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube.agb >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x])
+        subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
         
         if not np.isnan(subset_agb_cube.to_array().values).all():
             
@@ -191,7 +191,7 @@ class UpscaleAge(ABC):
             output_reg_xr = []
             for run_ in np.arange(self.upscaling_config['num_members']):
                 
-                with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = 'Classifier', id_ = run_), 'rb') as f:
+                with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = "Classifier", id_ = run_), 'rb') as f:
                     classifier_config = pickle.load(f)
                 best_classifier = classifier_config['best_model']
                 features_classifier = classifier_config['selected_features']
@@ -203,71 +203,71 @@ class UpscaleAge(ABC):
                 features_regressor = regressor_config['selected_features']
                 norm_stats_regressor = regressor_config['norm_stats']
                 
-                X_upscale_class = []
-                for var_name in features_classifier:
+                all_features = np.unique(features_classifier + features_regressor)
+                                   
+                X_upscale = []
+                for var_name in all_features:
                     if self.algorithm == "MLP":
-                        X_upscale_class.append(self.norm(subset_cube[var_name], norm_stats_classifier[var_name]))
+                        X_upscale.append(self.norm(subset_cube[var_name], norm_stats_classifier[var_name]))
                     else:
-                        X_upscale_class.append(subset_cube[var_name])
+                        X_upscale.append(subset_cube[var_name])
                     
-                X_upscale_reg = []
-                for var_name in features_regressor:
-                    if self.algorithm == "MLP":
-                        X_upscale_reg.append(self.norm(subset_cube[var_name], norm_stats_regressor[var_name]))
-                    else:
-                        X_upscale_reg.append(subset_cube[var_name])
-                
-                X_upscale_reg_flattened = []
+                X_upscale_flattened = []
         
-                for arr in X_upscale_reg:
+                for arr in X_upscale:
                     data = arr.data.flatten()
-                    X_upscale_reg_flattened.append(data)
+                    X_upscale_flattened.append(data)
                     
-                X_upscale_class_flattened = []
-        
-                for arr in X_upscale_class:
-                    data = arr.data.flatten()
-                    X_upscale_class_flattened.append(data)
-            
-                X_upscale_reg_flattened = da.array(X_upscale_reg_flattened).transpose().compute()
-                X_upscale_class_flattened = da.array(X_upscale_class_flattened).transpose().compute()
+                X_upscale_flattened = da.array(X_upscale_flattened).transpose().compute()
                 
-                RF_pred_class = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
-                RF_pred_reg = np.zeros(X_upscale_reg_flattened.shape[0]) * np.nan
+                RF_pred_class = np.zeros(X_upscale_flattened.shape[0]) * np.nan
+                RF_pred_reg = np.zeros(X_upscale_flattened.shape[0]) * np.nan
                 
-                mask = (np.all(np.isfinite(X_upscale_reg_flattened), axis=1)) & (np.all(np.isfinite(X_upscale_class_flattened), axis=1))
+                mask = (np.all(np.isfinite(X_upscale_flattened), axis=1)) 
                 
-                if (X_upscale_class_flattened[mask].shape[0]>0):
+                if (X_upscale_flattened[mask].shape[0]>0):
+                    index_mapping_class = [list(all_features).index(feature) for feature in features_classifier]
+                    index_mapping_reg = [list(all_features).index(feature) for feature in features_regressor]
                     
                     if self.algorithm == "XGBoost":
-                        dpred =  xgb.DMatrix(X_upscale_class_flattened[mask])
+                        dpred =  xgb.DMatrix(X_upscale_flattened[mask][:, index_mapping_class])
                         pred_class = (best_classifier.predict(dpred) > 0.9).astype(int)
                     
+                    elif self.algorithm == "MLP":
+                        dpred =  X_upscale_flattened[mask][:, index_mapping_class]
+                        dpred = np.stack([self.norm(dpred[:, features_classifier.index(var_name)], norm_stats_classifier[var_name]) for var_name in features_classifier], axis=1)
+                    
                     else:
-                        pred_class = best_classifier.predict(X_upscale_class_flattened[mask])
+                        dpred =  X_upscale_flattened[mask][:, index_mapping_class]
+                        pred_class = best_classifier.predict(dpred)
                         
                     RF_pred_class[mask] = pred_class
                     
                     if self.algorithm == "XGBoost":
-                        dpred =  xgb.DMatrix(X_upscale_reg_flattened[mask])
+                        dpred =  xgb.DMatrix(X_upscale_flattened[mask][:, index_mapping_reg])
                         pred_reg= best_regressor.predict(dpred)
-                    
+                        
+                    elif self.algorithm == "MLP":
+                        dpred =  X_upscale_flattened[mask][:, index_mapping_reg]
+                        dpred = np.stack([self.norm(dpred[:, features_regressor.index(var_name)], norm_stats_regressor[var_name]) for var_name in features_regressor], axis=1)
+                        pred_reg= best_regressor.predict(dpred)
+                        
                     else:
-                        # pred_reg= self.denorm_target(self.best_models["Regressor"]['best_model'].predict(X_upscale_reg_flattened[mask]), 
-                        #                              self.best_models["Regressor"]['norm_stats']['age'])
-                        pred_reg= best_regressor.predict(X_upscale_reg_flattened[mask])
+                        dpred =  X_upscale_flattened[mask][:, index_mapping_reg]
+                        pred_reg= best_regressor.predict(dpred)
                     
                     pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
                     pred_reg[pred_reg<0] = 0
                     RF_pred_reg[mask] = pred_reg
                     RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]            
                     out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
+                
                     output_reg_xr.append(xr.DataArray(out_reg, 
-                                                  coords={"latitude": subset_cube.latitude, 
-                                                          "longitude": subset_cube.longitude,
-                                                          "time": subset_cube.time,                                                          
-                                                          'members': [run_]}, 
-                                                  dims=["latitude", "longitude", "time", "members"]))
+                                              coords={"latitude": subset_cube.latitude, 
+                                                      "longitude": subset_cube.longitude,
+                                                      "time": subset_cube.time,                                                          
+                                                      'members': [run_]}, 
+                                              dims=["latitude", "longitude", "time", "members"]))
                             
             if len(output_reg_xr) >0:
                 output_reg_xr = xr.concat(output_reg_xr, dim = 'members')
