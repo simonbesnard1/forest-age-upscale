@@ -13,6 +13,7 @@
 import os
 
 import xarray as xr
+import numpy as np
 from abc import ABC
 from sklearn.model_selection import KFold, train_test_split
 from tqdm import tqdm
@@ -185,6 +186,7 @@ class Study(ABC):
                                 njobs= len(self.cube_config["cube_variables"].keys()))
         
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
+        np.random.shuffle(cluster_)
         
         if n_folds is None:
             kf = KFold(n_splits=len(cluster_), shuffle=True)
