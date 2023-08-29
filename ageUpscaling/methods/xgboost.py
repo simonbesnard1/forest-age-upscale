@@ -18,15 +18,12 @@ from typing import Any
 import xarray as xr
 
 import xgboost as xgb
-#from sklearn.metrics import mean_absolute_error, log_loss
-#from sklearn.utils.class_weight import compute_sample_weight
 
 import optuna
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 optuna.logging.set_verbosity(optuna.logging.INFO)
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
-#from ageUpscaling.utils.metrics import mef_gufunc
 
 
 class XGBoost:
