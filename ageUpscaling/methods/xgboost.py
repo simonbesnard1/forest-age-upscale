@@ -239,10 +239,8 @@ class XGBoost:
         first_model = xgb.train(hyper_params, dtrain, evals=vallist, callbacks = [pruning_callback],
                            verbose_eval=False, **training_params)
 
-        self.best_ntree = first_model.best_ntree_limit
-            
         if retrain_with_valid:
-            training_params['num_boost_round'] = self.best_ntree
+            training_params['num_boost_round'] = first_model.best_ntree_limit
             training_params['early_stopping_rounds'] = None 
             
             if oversampling and self.method == "XGBoostRegressor":
