@@ -309,7 +309,7 @@ class XGBoost:
                 elif self.method == "XGBoostClassifier":
                     #y_hat =  np.rint(self.best_model.predict(dpred))
                     y_hat_proba =  self.best_model.predict(dpred)                    
-                    y_hat = (y_hat_proba > 0.7).astype(int)                  
+                    y_hat = (y_hat_proba > 0.5).astype(int)                  
                     
                 preds = xr.Dataset()
                 
