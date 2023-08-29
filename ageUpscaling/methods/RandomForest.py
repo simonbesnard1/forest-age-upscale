@@ -21,7 +21,6 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import RandomForestClassifier
 
 from sklearn.metrics import mean_absolute_error, roc_auc_score
-from sklearn.utils.class_weight import compute_sample_weight
 
 
 import optuna
@@ -43,14 +42,15 @@ class RandomForest:
     """
     
     def __init__(self,
-                 tune_dir: str=None,
+                 study_dir: str=None,
                  DataConfig:dict=None,
                  method:str = 'RandomForestRegressor') -> None:
 
-        self.tune_dir = tune_dir
+        self.study_dir = study_dir
         
-        if not os.path.exists(tune_dir):
-            os.makedirs(tune_dir)
+        self.tune_dir = os.path.join(study_dir, "tune")
+        if not os.path.exists(self.tune_dir):
+            os.makedirs(self.tune_dir)
             
         self.DataConfig = DataConfig
         self.method = method
@@ -122,7 +122,7 @@ class RandomForest:
                                           DataConfig=self.DataConfig, 
                                           target=self.DataConfig['target'],
                                           features = self.DataConfig['features_selected'],
-                                          train_subset=train_subset,
+                                          train_subset= np.concatenate([train_subset, valid_subset]),
                                           valid_subset=valid_subset,
                                           test_subset=test_subset)
           
@@ -134,9 +134,9 @@ class RandomForest:
         
         study = optuna.create_study(study_name = 'hpo_ForestAge', 
                                     #storage='sqlite:///' + self.tune_dir + '/trial_model/hp_trial.db',
-                                    # pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
-                                    #                                                reduction_factor=4, 
-                                    #                                                min_early_stopping_rate=8),
+                                    pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
+                                                                                    reduction_factor=2, 
+                                                                                    min_early_stopping_rate=10),
                                     direction=['minimize' if self.method == 'RandomForestRegressor' else 'maximize'][0])
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                         n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
@@ -178,13 +178,10 @@ class RandomForest:
                         "min_samples_leaf": trial.suggest_int('min_samples_leaf', DataConfig['hyper_params']['min_samples_leaf']['min'], DataConfig['hyper_params']['min_samples_leaf']['max'], step=DataConfig['hyper_params']['min_samples_leaf']['step'])}
                                         
         if self.method == "RandomForestRegressor":
-            weight_ = None
-            model_ = RandomForestRegressor(**hyper_params, n_jobs=10)
+            model_ = RandomForestRegressor(**hyper_params, n_jobs=10, oob_score=True, bootstrap=True)
             
         elif self.method == "RandomForestClassifier":
-            weight_ = compute_sample_weight(class_weight='balanced',
-                                            y=val_data['target'])
-            model_ = RandomForestClassifier(**hyper_params, class_weight = "balanced", n_jobs=10)
+            model_ = RandomForestClassifier(**hyper_params, class_weight = "balanced", n_jobs=10, oob_score=True, bootstrap=True)
           
         if oversampling and self.method == "RandomForestRegressor":
             
@@ -216,15 +213,7 @@ class RandomForest:
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
         
-        if self.method == "RandomForestRegressor":
-            loss_ =   mean_absolute_error(val_data['target'], model_.predict(val_data['features']),
-                                          sample_weight = weight_) #/ (np.max(val_data['target']) - np.min(val_data['target']))
-            #loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(val_data['features']))
-        elif self.method == "RandomForestClassifier":
-            loss_ =  roc_auc_score(val_data['target'], np.rint(model_.predict(val_data['features'])),
-                                   sample_weight = weight_)
-        
-        return loss_
+        return model_.oob_score_
     
     def predict_clusters(self, 
                         save_cube:str) -> None:

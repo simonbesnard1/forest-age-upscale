@@ -1,7 +1,28 @@
-training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300.nc"
+training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300_subsetFIA_v4.nc"
 features:
-  - agb
+  - agb_gapfilled
   - AnnualMeanTemperature_WorlClim
+  - AnnualPrecipitation_WorlClim
+  - AnnualSrad_WorlClim
+  - AnnualVapr_WorlClim
+  - AnnualWind_WorlClim
+  - Isothermality_WorlClim
+  - MaxTemperatureofWarmestMonth_WorlClim
+  - MeanDiurnalRange_WorlClim
+  - MeanTemperatureofColdestQuarter_WorlClim
+  - MeanTemperatureofDriestQuarter_WorlClim
+  - MeanTemperatureofWarmestQuarter_WorlClim
+  - MeanTemperatureofWettestQuarter_WorlClim
+  - MinTemperatureofColdestMonth_WorlClim
+  - PrecipitationSeasonality_WorlClim
+  - PrecipitationofColdestQuarter_WorlClim
+  - PrecipitationofDriestMonth_WorlClim
+  - PrecipitationofDriestQuarter_WorlClim
+  - PrecipitationofWarmestQuarter_WorlClim
+  - PrecipitationofWettestMonth_WorlClim
+  - PrecipitationofWettestQuarter_WorlClim
+  - TemperatureAnnualRange_WorlClim
+  - TemperatureSeasonality_WorlClim
 
 target:
   - age
@@ -10,7 +31,7 @@ max_forest_age:
   - 300
   
 hyper_params:
-  number_trials: 2
+  number_trials: 10
   n_estimators: 
     min: 100
     max: 1000

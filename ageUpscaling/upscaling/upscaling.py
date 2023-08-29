@@ -257,7 +257,7 @@ class UpscaleAge(ABC):
                         pred_reg= best_regressor.predict(dpred)
                     
                     pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
-                    pred_reg[pred_reg<0] = 0
+                    pred_reg[pred_reg<1] = 1
                     RF_pred_reg[mask] = pred_reg
                     RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]            
                     out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
