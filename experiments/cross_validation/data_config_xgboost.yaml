@@ -1,9 +1,6 @@
 training_dataset: "/home/simon/Documents/science/GFZ/projects/forest-age-upscale/data/training_data/training_data_ageMap_OG300_subsetFIA_v4.nc"
 features:
-  - agb_gapfilled
-  - AnnualMeanTemperature_WorlClim
-  - AnnualPrecipitation_WorlClim
-  - AnnualSrad_WorlClim
+  ['agb', 'AnnualMeanTemperature_WorlClim', 'AnnualSrad_WorlClim', 'AnnualVapr_WorlClim', 'Isothermality_WorlClim', 'MeanDiurnalRange_WorlClim', 'MeanTemperatureofWettestQuarter_WorlClim', 'PrecipitationSeasonality_WorlClim', 'PrecipitationofWarmestQuarter_WorlClim', 'PrecipitationofWettestMonth_WorlClim']
   
 target:
   - age
