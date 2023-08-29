@@ -24,7 +24,6 @@ import xgboost as xgb
 import optuna
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 optuna.logging.set_verbosity(optuna.logging.INFO)
-from concurrent.futures import ThreadPoolExecutor
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
 #from ageUpscaling.utils.metrics import mef_gufunc
@@ -137,6 +136,9 @@ class XGBoost:
         
         
         study = optuna.create_study(study_name = 'hpo_ForestAge', 
+                                    pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
+                                                                                    reduction_factor=2, 
+                                                                                    min_early_stopping_rate=10),
                                     direction=["minimize" if self.method == 'XGBoostRegressor' else 'minimize'][0])
                 
         num_trials = self.DataConfig['hyper_params']['number_trials']
@@ -189,12 +191,12 @@ class XGBoost:
                         'lambda': trial.suggest_float('lambda ', DataConfig['hyper_params']['lambda']['min'], DataConfig['hyper_params']['lambda']['max']),
                         'alpha': trial.suggest_float('alpha ', DataConfig['hyper_params']['alpha']['min'], DataConfig['hyper_params']['alpha']['max']),
                         'tree_method': trial.suggest_categorical('tree_method', DataConfig['hyper_params']['tree_method']),
-                        'n_jobs': 20,
+                        'n_jobs': 1,
                         'num_parallel_tree':1,
                         'random_state':None}
         
         training_params = {'num_boost_round': trial.suggest_int('num_boost_round', DataConfig['hyper_params']['num_boost_round']['min'], DataConfig['hyper_params']['num_boost_round']['max'], step=DataConfig['hyper_params']['num_boost_round']['step'])}
-        training_params['early_stopping_rounds'] = 30
+        training_params['early_stopping_rounds'] = 10
         
         if self.method == "XGBoostRegressor":
             hyper_params['objective'] = "reg:pseudohubererror"
