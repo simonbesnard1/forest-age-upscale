@@ -134,11 +134,11 @@ class AutoML:
         if self.method == "AutoMLRegressor":
             self.best_model = TabularPredictor(self.DataConfig['target'][0], eval_metric='mean_squared_error', problem_type ='regression', 
                                                path = self.tune_dir).fit(train_data = TabularDataset(train_data), tuning_data = TabularDataset(val_data),
-                                                                                  presets='best_quality')
+                                                                                  presets='best_quality', use_bag_holdout=True)
         elif self.method == "AutoMLClassifier":
             self.best_model = TabularPredictor(self.DataConfig['target'][0], eval_metric='log_loss', problem_type ='binary', 
                                                path = self.tune_dir).fit(TabularDataset(train_data), tuning_data = TabularDataset(val_data),
-                                                                                  presets='best_quality')    
+                                                                                  presets='best_quality', use_bag_holdout=True)    
     def predict_clusters(self, 
                         save_cube:str) -> None:
         """Predict the target variables for the given data and save the results in a prediction zarr cube.
