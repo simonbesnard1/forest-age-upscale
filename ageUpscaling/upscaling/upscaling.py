@@ -35,7 +35,7 @@ from ageUpscaling.transformers.spatial import interpolate_worlClim
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 from ageUpscaling.methods.RandomForest import RandomForest
-from ageUpscaling.methods.autoML import TPOT
+from ageUpscaling.methods.autoML import AutoML
 from ageUpscaling.methods.feature_selection import FeatureSelection
 
 synchronizer = zarr.ProcessSynchronizer('.zarrsync')

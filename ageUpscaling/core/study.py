@@ -24,7 +24,7 @@ from ageUpscaling.core.cube import DataCube
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 from ageUpscaling.methods.RandomForest import RandomForest
-from ageUpscaling.methods.autoML import TPOT
+from ageUpscaling.methods.autoML import AutoML
 from ageUpscaling.methods.feature_selection import FeatureSelection
 
 class Study(ABC):
@@ -223,8 +223,8 @@ class Study(ABC):
                     ml_method = RandomForest(study_dir=self.study_dir, 
                                               DataConfig= self.DataConfig,
                                               method=self.algorithm + task_)
-                elif self.algorithm == "TPOT":
-                    ml_method = TPOT(study_dir=self.study_dir, 
+                elif self.algorithm == "AutoML":
+                    ml_method = AutoML(study_dir=self.study_dir, 
                                       DataConfig= self.DataConfig,
                                       method=self.algorithm + task_)
                     

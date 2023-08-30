@@ -10,18 +10,18 @@
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
 @Desc    :   A method class for training RF model
 """
-import os
 import numpy as np
 from typing import Any
+import os
 
 import xarray as xr
+import pandas as pd
 
-from tpot import TPOTRegressor
-from tpot import TPOTClassifier
+from autogluon.tabular import TabularDataset, TabularPredictor
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
 
-class TPOT:
+class AutoML:
     """A method class for training and evaluating an autoML models.
     
     Parameters
@@ -35,20 +35,24 @@ class TPOT:
     """
     
     def __init__(self,
-                 tune_dir: str=None,
+                 study_dir: str=None,
                  DataConfig:dict=None,
-                 method:str = 'TPOTRegressor') -> None:
-
-        self.tune_dir = tune_dir
+                 method:str = 'AutoGluonRegressor') -> None:
         
-        if not os.path.exists(tune_dir):
-            os.makedirs(tune_dir)
+        self.study_dir = study_dir
+        
+        self.tune_dir = os.path.join(study_dir, "tune")
+        if not os.path.exists(self.tune_dir):
+            os.makedirs(self.tune_dir)
+            
+        self.DataConfig = DataConfig
+        self.method = method
             
         self.DataConfig = DataConfig
         self.method = method
         
     def get_datamodule(self, 
-                       method:str = 'TPOTRegressor',
+                       method:str = 'AutoGluonRegressor',
                        DataConfig: dict[str, Any] = {},
                        target: dict[str, Any] = {},
                        features: dict[str, Any] = {},
@@ -123,16 +127,18 @@ class TPOT:
                                           test_subset=test_subset)
           
         train_data = self.mldata.train_dataloader().get_xy()
+        train_data = pd.DataFrame(np.concatenate([train_data['target'].reshape(-1, 1), train_data['features']], axis=1), columns =self.DataConfig['target']+ self.DataConfig['features_selected']) 
+        val_data = self.mldata.val_dataloader().get_xy()
+        val_data = pd.DataFrame(np.concatenate([val_data['target'].reshape(-1, 1), val_data['features']], axis=1), columns =self.DataConfig['target'] + self.DataConfig['features_selected']) 
         
-        if self.method == "TPOTRegressor":
-            model = TPOTRegressor(n_jobs=n_jobs, early_stop=15, max_eval_time_mins=10)
-        elif self.method == "TPOTClassifier":
-            model = TPOTClassifier(n_jobs=n_jobs, early_stop=15, max_eval_time_mins=10)
-        
-        model.fit(train_data['features'], train_data['target'])
-
-        self.best_model = model
-    
+        if self.method == "AutoMLRegressor":
+            self.best_model = TabularPredictor(self.DataConfig['target'][0], eval_metric='mean_squared_error', problem_type ='regression', 
+                                               path = self.tune_dir).fit(train_data = TabularDataset(train_data), tuning_data = TabularDataset(val_data),
+                                                                                  presets='best_quality')
+        elif self.method == "AutoMLClassifier":
+            self.best_model = TabularPredictor(self.DataConfig['target'][0], eval_metric='log_loss', problem_type ='binary', 
+                                               path = self.tune_dir).fit(TabularDataset(train_data), tuning_data = TabularDataset(val_data),
+                                                                                  presets='best_quality')    
     def predict_clusters(self, 
                         save_cube:str) -> None:
         """Predict the target variables for the given data and save the results in a prediction zarr cube.
@@ -152,18 +158,19 @@ class TPOT:
             Y_cluster = Y[:, cluster_, :].reshape(-1)
             mask_nan = (np.all(np.isfinite(X_cluster), axis=1)) & (np.isfinite(Y_cluster))
             if X_cluster[mask_nan, :].shape[0]>0:
-                y_hat = self.best_model.predict(X_cluster[mask_nan, :])
+                dpred = pd.DataFrame(np.concatenate([Y_cluster[mask_nan,].reshape(-1, 1), X_cluster[mask_nan, :]], axis=1), columns =self.DataConfig['target'] + self.DataConfig['features_selected']) 
+                y_hat = self.best_model.predict(dpred).values
                 preds = xr.Dataset()
                 
-                if self.method == "TPOTClassifier": 
+                if self.method == "AutoMLClassifier": 
                     out_var = 'oldGrowth'
-                elif self.method == "TPOTRegressor": 
+                elif self.method == "AutoMLRegressor": 
                     out_var = 'forestAge'
                 
                 preds["{out_var}_pred".format(out_var = out_var)] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
                 preds["{out_var}_obs".format(out_var = out_var)] = xr.DataArray([Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
                 
-                save_cube.update_cube(preds.transpose('sample', 'cluster'), initialize=True)
+                save_cube.CubeWriter(preds.transpose('sample', 'cluster'))
    
     
     
