@@ -320,10 +320,10 @@ class UpscaleAge(ABC):
             ml_method = RandomForest(study_dir=self.study_dir, 
                                      DataConfig= self.DataConfig,
                                      method=self.algorithm + task_)
-        elif self.algorithm == "TPOT":
-            ml_method = TPOT(study_dir=self.study_dir, 
-                             DataConfig= self.DataConfig,
-                             method=self.algorithm + task_)
+        elif self.algorithm == "AutoML":
+            ml_method = AutoML(study_dir=self.study_dir, 
+                               DataConfig= self.DataConfig,
+                               method=self.algorithm + task_)
         
         ml_method.train(train_subset=train_subset,
                         valid_subset=valid_subset,
