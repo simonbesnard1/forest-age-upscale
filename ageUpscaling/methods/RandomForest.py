@@ -174,10 +174,10 @@ class RandomForest:
                         "min_samples_leaf": trial.suggest_int('min_samples_leaf', DataConfig['hyper_params']['min_samples_leaf']['min'], DataConfig['hyper_params']['min_samples_leaf']['max'], step=DataConfig['hyper_params']['min_samples_leaf']['step'])}
                                         
         if self.method == "RandomForestRegressor":
-            model_ = RandomForestRegressor(**hyper_params, n_jobs=10, oob_score=True, bootstrap=True)
+            model_ = RandomForestRegressor(**hyper_params, n_jobs=10, oob_score=True)
             
         elif self.method == "RandomForestClassifier":
-            model_ = RandomForestClassifier(**hyper_params, class_weight = "balanced", n_jobs=10, oob_score=True, bootstrap=True)
+            model_ = RandomForestClassifier(**hyper_params, class_weight = "balanced", n_jobs=10, oob_score=True)
           
         if oversampling and self.method == "RandomForestRegressor":
             
