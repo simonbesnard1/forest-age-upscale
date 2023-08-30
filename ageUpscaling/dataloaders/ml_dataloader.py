@@ -74,7 +74,7 @@ class MLDataModule(MLData):
         """
         
         train_data = MLData(self.method,
-                            True,
+                            False,
                             self.DataConfig, 
                             self.target, 
                             self.features, 
