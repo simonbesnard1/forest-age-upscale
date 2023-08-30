@@ -62,7 +62,7 @@ setuptools.setup(
         "torch==1.13.1",
         "TPOT==0.11.7",
         "shap==0.41.0",
-        'tqdm==4.65.0',
+        'tqdm==4.65.2',
         "dask_jobqueue==0.8.1",
         "autogluon==0.8.2",
         "sklearn-genetic-opt==0.10.1"],
