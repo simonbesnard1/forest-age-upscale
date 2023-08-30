@@ -133,7 +133,7 @@ class RandomForest:
                                     pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
                                                                                     reduction_factor=2, 
                                                                                     min_early_stopping_rate=10),
-                                    direction=['minimize' if self.method == 'RandomForestRegressor' else 'maximize'][0])
+                                    direction=['maximize' if self.method == 'RandomForestRegressor' else 'maximize'][0])
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                         n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
