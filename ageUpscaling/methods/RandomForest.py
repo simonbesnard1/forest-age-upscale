@@ -171,7 +171,6 @@ class RandomForest:
         hyper_params = {"n_estimators": trial.suggest_int('n_estimators', DataConfig['hyper_params']['n_estimators']['min'], DataConfig['hyper_params']['n_estimators']['max'], step=DataConfig['hyper_params']['n_estimators']['step']),
                         "max_depth": trial.suggest_int('max_depth', DataConfig['hyper_params']['max_depth']['min'], DataConfig['hyper_params']['max_depth']['max'], step=DataConfig['hyper_params']['max_depth']['step']),
                         "min_samples_split": trial.suggest_int('min_samples_split', DataConfig['hyper_params']['min_samples_split']['min'], DataConfig['hyper_params']['min_samples_split']['max'], step=DataConfig['hyper_params']['min_samples_split']['step']),
-                        'max_features': trial.suggest_categorical('max_features', DataConfig['hyper_params']['max_features']),                        
                         "min_samples_leaf": trial.suggest_int('min_samples_leaf', DataConfig['hyper_params']['min_samples_leaf']['min'], DataConfig['hyper_params']['min_samples_leaf']['max'], step=DataConfig['hyper_params']['min_samples_leaf']['step'])}
                                         
         if self.method == "RandomForestRegressor":
