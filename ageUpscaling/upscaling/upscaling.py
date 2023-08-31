@@ -26,6 +26,7 @@ import xarray as xr
 import zarr
 import dask.array as da
 from shapely.geometry import Polygon
+import pandas as pd
 
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
@@ -237,6 +238,11 @@ class UpscaleAge(ABC):
                         dpred =  X_upscale_flattened[mask][:, index_mapping_class]
                         dpred = np.stack([self.norm(dpred[:, features_classifier.index(var_name)], norm_stats_classifier[var_name]) for var_name in features_classifier], axis=1)
                     
+                    elif self.algorithm == "AutoML":
+                        dpred =  X_upscale_flattened[mask][:, index_mapping_class]
+                        dpred = pd.DataFrame(dpred, columns = features_classifier)                         
+                        pred_reg= best_regressor.predict(dpred).values
+                    
                     else:
                         dpred =  X_upscale_flattened[mask][:, index_mapping_class]
                         pred_class = best_classifier.predict(dpred)
@@ -251,6 +257,11 @@ class UpscaleAge(ABC):
                         dpred =  X_upscale_flattened[mask][:, index_mapping_reg]
                         dpred = np.stack([self.norm(dpred[:, features_regressor.index(var_name)], norm_stats_regressor[var_name]) for var_name in features_regressor], axis=1)
                         pred_reg= best_regressor.predict(dpred)
+                        
+                    elif self.algorithm == "AutoML":
+                        dpred =  X_upscale_flattened[mask][:, index_mapping_reg]
+                        dpred = pd.DataFrame(dpred, columns = features_regressor)                         
+                        pred_reg= best_regressor.predict(dpred).values
                         
                     else:
                         dpred =  X_upscale_flattened[mask][:, index_mapping_reg]
