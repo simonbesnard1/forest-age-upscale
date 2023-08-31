@@ -37,7 +37,7 @@ class AutoML:
     def __init__(self,
                  study_dir: str=None,
                  DataConfig:dict=None,
-                 method:str = 'AutoGluonRegressor') -> None:
+                 method:str = 'AutoMLRegressor') -> None:
         
         self.study_dir = study_dir
         
@@ -52,7 +52,7 @@ class AutoML:
         self.method = method
         
     def get_datamodule(self, 
-                       method:str = 'AutoGluonRegressor',
+                       method:str = 'AutoMLRegressor',
                        DataConfig: dict[str, Any] = {},
                        target: dict[str, Any] = {},
                        features: dict[str, Any] = {},
@@ -98,7 +98,8 @@ class AutoML:
     def train(self,  
               train_subset:dict={},
               valid_subset:dict={}, 
-              test_subset:dict={}, 
+              test_subset:dict={},
+              oversampling:bool= True,
               n_jobs:int=10) -> None:
         
         """Trains an RF model using the specified training and validation datasets.
@@ -127,7 +128,33 @@ class AutoML:
                                           test_subset=test_subset)
           
         train_data = self.mldata.train_dataloader().get_xy()
-        train_data = pd.DataFrame(np.concatenate([train_data['target'].reshape(-1, 1), train_data['features']], axis=1), columns =self.DataConfig['target']+ self.DataConfig['features_selected']) 
+        
+        if oversampling and self.method == "AutoMLRegressor":
+            
+            age_classes, current_points = np.unique(np.round(train_data['target'], -1), return_counts=True)
+            desired_points_per_class = np.nanmax(current_points)
+            
+            Y_sample = []
+            X_sample = []
+            for a, b in zip(age_classes, current_points):
+                
+                required_samples = desired_points_per_class - b
+                
+                if required_samples > 0:
+                    idx_ =  np.where(np.round(train_data['target'], -1) == a)[0]   
+                    idx_sample = np.random.choice(idx_, required_samples)
+                    Y_sample.append(train_data['target'][idx_sample]), 
+                    X_sample.append(train_data['features'][idx_sample])
+                    
+            Y_sample = np.concatenate(Y_sample)
+            X_sample = np.concatenate(X_sample)
+            
+            train_data=  pd.DataFrame(np.concatenate([np.concatenate([train_data['target'], Y_sample]).reshape(-1, 1),                                         
+                                         np.concatenate([train_data['features'], X_sample])], axis=1), columns =self.DataConfig['target']+ self.DataConfig['features_selected'])
+        
+        else:        
+            train_data = pd.DataFrame(np.concatenate([train_data['target'].reshape(-1, 1), train_data['features']], axis=1), columns =self.DataConfig['target']+ self.DataConfig['features_selected'])
+        
         val_data = self.mldata.val_dataloader().get_xy()
         val_data = pd.DataFrame(np.concatenate([val_data['target'].reshape(-1, 1), val_data['features']], axis=1), columns =self.DataConfig['target'] + self.DataConfig['features_selected']) 
         

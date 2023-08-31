@@ -147,8 +147,12 @@ class MLData(ABC):
             X_impute = X[mask_nan, :].copy()
             imp.fit(X_impute)            
             X =  imp.transform(X)
-            
-        mask_nan = (np.all(np.isfinite(X), axis=1)) & (np.isfinite(Y))
+        
+        if 'AutoML' in self.method: 
+            mask_nan = np.isfinite(Y)    
+        
+        else:
+            mask_nan = (np.all(np.isfinite(X), axis=1)) & (np.isfinite(Y))
         
         X, Y = X[mask_nan, :], Y[mask_nan]    
         if 'Regressor' in self.method: 
