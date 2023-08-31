@@ -46,7 +46,7 @@ class XGBoost:
 
         self.study_dir = study_dir
         
-        self.tune_dir = os.path.join(study_dir, "tune")
+        self.tune_dir = os.path.join(study_dir, "tune/{method}".format(method= method))
         if not os.path.exists(self.tune_dir):
             os.makedirs(self.tune_dir)
         

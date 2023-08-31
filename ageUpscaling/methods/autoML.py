@@ -41,7 +41,7 @@ class AutoML:
         
         self.study_dir = study_dir
         
-        self.tune_dir = os.path.join(study_dir, "tune")
+        self.tune_dir = os.path.join(study_dir, "tune/{method}".format(method= method))
         if not os.path.exists(self.tune_dir):
             os.makedirs(self.tune_dir)
             
@@ -138,7 +138,9 @@ class AutoML:
         elif self.method == "AutoMLClassifier":
             self.best_model = TabularPredictor(self.DataConfig['target'][0], eval_metric='log_loss', problem_type ='binary', 
                                                path = self.tune_dir).fit(TabularDataset(train_data), tuning_data = TabularDataset(val_data),
-                                                                                  presets='best_quality', use_bag_holdout=True)    
+                                                                         presets='best_quality', use_bag_holdout=True)                                                            
+                                                                         
+                                                                         
     def predict_clusters(self, 
                         save_cube:str) -> None:
         """Predict the target variables for the given data and save the results in a prediction zarr cube.

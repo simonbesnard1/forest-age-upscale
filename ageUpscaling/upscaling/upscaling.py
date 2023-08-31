@@ -344,6 +344,7 @@ class UpscaleAge(ABC):
              os.makedirs(self.study_dir + '/save_model/')
              
         with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = task_, id_ = run_), "wb") as fout:
+            
             pickle.dump({'best_model': ml_method.best_model, 
                          'selected_features': self.DataConfig['features_selected'], 
                          'norm_stats' : ml_method.mldata.norm_stats}, fout)
@@ -382,7 +383,7 @@ class UpscaleAge(ABC):
                                       feature_selection_method = self.DataConfig['feature_selection_method'],     
                                       train_subset=train_subset, 
                                       valid_subset=valid_subset)
-                    shutil.rmtree(os.path.join(self.study_dir, "tune"))
+                    
             
         LatChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['latitude'], self.upscaling_config["num_chunks"])
         LonChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['longitude'], self.upscaling_config["num_chunks"])
@@ -399,8 +400,9 @@ class UpscaleAge(ABC):
                         
         else:
             for extent in tqdm(AllExtents, desc='Upscaling procedure'):
-                self._predict_func(extent)           
-            
+                self._predict_func(extent)   
+                
+        shutil.rmtree(os.path.join(self.study_dir, "tune"))
                             
     def norm(self, 
              x: np.array,
