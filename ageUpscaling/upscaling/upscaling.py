@@ -241,7 +241,7 @@ class UpscaleAge(ABC):
                     elif self.algorithm == "AutoML":
                         dpred =  X_upscale_flattened[mask][:, index_mapping_class]
                         dpred = pd.DataFrame(dpred, columns = features_classifier)                         
-                        pred_reg= best_regressor.predict(dpred).values
+                        pred_class = best_classifier.predict(dpred).values
                     
                     else:
                         dpred =  X_upscale_flattened[mask][:, index_mapping_class]
