@@ -156,7 +156,7 @@ class XGBoost:
                    DataConfig:dict,
                    tune_dir:str,
                    retrain_with_valid:bool= True,
-                   oversampling:bool= True) -> float:
+                   oversampling:bool= False) -> float:
         """Searches for the optimal hyperparameters for the machine learning model.
         
         Parameters
