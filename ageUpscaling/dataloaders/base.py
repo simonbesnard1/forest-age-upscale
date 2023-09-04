@@ -15,8 +15,6 @@ from numpy.typing import ArrayLike
 import numpy as np
 
 import xarray as xr
-from sklearn.experimental import enable_iterative_imputer
-from sklearn.impute import IterativeImputer
 
 from abc import ABC
 
@@ -41,7 +39,6 @@ class MLData(ABC):
     """
     def __init__(self,
                  method:str='MLPRegressor',
-                 imputing_:bool=True,
                  DataConfig: dict[str, Any] = {},
                  target: dict[str, Any] = {},
                  features: dict[str, Any] = {},     
@@ -58,7 +55,6 @@ class MLData(ABC):
         self.normalize = normalize 
         self.norm_stats = norm_stats
         self.method = method
-        self.imputing_ = imputing_
                 
     def get_x(self,
               method:str,
@@ -139,22 +135,12 @@ class MLData(ABC):
                             method = self.method, 
                             max_forest_age =self.DataConfig['max_forest_age'][0]).reshape(-1)
         
-        X = self.get_x(method = self.method, features= self.features).reshape(-1, len(self.features))        
+        X = self.get_x(method = self.method, features= self.features).reshape(-1, len(self.features))
+                    
+        mask_nan = (np.all(np.isfinite(X), axis=1)) & (np.isfinite(Y))
         
-        if self.imputing_:
-            mask_nan = np.isfinite(Y)            
-            imp = IterativeImputer(max_iter=100, random_state=0)
-            X_impute = X[mask_nan, :].copy()
-            imp.fit(X_impute)            
-            X =  imp.transform(X)
+        X, Y = X[mask_nan, :], Y[mask_nan] 
         
-        if 'AutoML' in self.method: 
-            mask_nan = np.isfinite(Y)    
-        
-        else:
-            mask_nan = (np.all(np.isfinite(X), axis=1)) & (np.isfinite(Y))
-        
-        X, Y = X[mask_nan, :], Y[mask_nan]    
         if 'Regressor' in self.method: 
             Y=Y.astype('float16')
         elif 'Classifier' in self.method: 

@@ -74,7 +74,6 @@ class MLDataModule(MLData):
         """
         
         train_data = MLData(self.method,
-                            True,
                             self.DataConfig, 
                             self.target, 
                             self.features, 
@@ -92,7 +91,6 @@ class MLDataModule(MLData):
         """
         
         valid_data = MLData(self.method, 
-                            True,
                             self.DataConfig, 
                             self.target, 
                             self.features, 
@@ -110,7 +108,6 @@ class MLDataModule(MLData):
         """
 
         test_data = MLData(self.method,
-                           True,
                            self.DataConfig,
                            self.target, 
                            self.features, 
