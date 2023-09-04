@@ -1,5 +1,6 @@
-from ageUpscaling.cubegen.cube import soilgrids
+from ageUpscaling.cubegen.cube import soilgrids, canopyHeight
 
 __all__ = [
     'soilgrids'
+    'canopyHeight'
 ]
