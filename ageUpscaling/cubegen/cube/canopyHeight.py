@@ -17,7 +17,7 @@ import xarray as xr
 import numpy as np
 from itertools import product
 
-class CanopyHeight(DataCube):
+class canopyHeight(DataCube):
     """CanopyHeight_potapov is a subclass of DataCube that is used to create a canopy height datacube from a base file and a cube configuration file.
     
     Parameters:
