@@ -59,7 +59,7 @@ class CanopyHeight(DataCube):
     
         """
         
-        ds_ = self.da.to_dataset(name = var_name)
+        ds_ = self.da.rename({'canopy_height':var_name})
         
         vars_to_proc = {}
         
