@@ -188,7 +188,7 @@ class UpscaleAge(ABC):
             
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
-            subset_canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=synchronizer).sel(buffer_IN).to_dataset(name= [x for x in self.DataConfig['features']  if "canopy_height" in x][0]).astype('float16')
+            subset_canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=synchronizer).sel(buffer_IN).to_array().to_dataset(name= [x for x in self.DataConfig['features']  if "canopy_height" in x][0]).astype('float16')
            
             subset_canopyHeight_cube =  interpolate_worlClim(source_ds = subset_canopyHeight_cube, target_ds = subset_agb_cube)
             
