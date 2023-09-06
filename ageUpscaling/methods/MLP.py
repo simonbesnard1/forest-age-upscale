@@ -37,17 +37,18 @@ class MLPmethod:
     """
     
     def __init__(self,
-                 tune_dir: str=None,
+                 study_dir: str=None,
                  DataConfig:dict=None,
                  method:str = 'MLPRegressor') -> None:
 
-        self.tune_dir = tune_dir
-        
-        if not os.path.exists(tune_dir):
-            os.makedirs(tune_dir)
-            
-        self.DataConfig = DataConfig
-        self.method = method
+         self.study_dir = study_dir
+         
+         self.tune_dir = os.path.join(study_dir, "tune/{method}".format(method= method))
+         if not os.path.exists(self.tune_dir):
+             os.makedirs(self.tune_dir)
+             
+         self.DataConfig = DataConfig
+         self.method = method
         
     def get_datamodule(self, 
                        method:str = 'MLPRegressor',
