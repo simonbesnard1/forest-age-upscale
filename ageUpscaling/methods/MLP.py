@@ -18,13 +18,10 @@ from typing import Any
 import xarray as xr
 
 from sklearn.neural_network import MLPRegressor, MLPClassifier
-from sklearn.metrics import mean_absolute_error, roc_auc_score
-from sklearn.utils.class_weight import compute_sample_weight
 
 import optuna
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
-#from ageUpscaling.utils.metrics import mef_gufunc
 
 class MLPmethod:
     """A method class for training and evaluating an MLP model.
@@ -121,7 +118,7 @@ class MLPmethod:
                                           DataConfig=self.DataConfig, 
                                           target=self.DataConfig['target'],
                                           features = self.DataConfig['features_selected'],
-                                          train_subset=train_subset,
+                                          train_subset=np.concatenate([train_subset, valid_subset]),
                                           valid_subset=valid_subset,
                                           test_subset=test_subset,
                                           normalize= True)
@@ -133,11 +130,10 @@ class MLPmethod:
             os.makedirs(self.tune_dir + '/trial_model/')
         
         study = optuna.create_study(study_name = 'hpo_ForestAge', 
-                                    #storage='sqlite:///' + self.tune_dir + '/trial_model/hp_trial.db',
-                                    # pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
-                                    #                                                reduction_factor=4, 
-                                    #                                                min_early_stopping_rate=8),
-                                    direction=['minimize' if self.method == 'MLPRegressor' else 'maximize'][0])
+                                    pruner= optuna.pruners.SuccessiveHalvingPruner(min_resource='auto', 
+                                                                                    reduction_factor=2, 
+                                                                                    min_early_stopping_rate=10),
+                                    direction=['maximize' if self.method == 'MLPRegressor' else 'maximize'][0])
         study.optimize(lambda trial: self.hp_search(trial, train_data, val_data, self.DataConfig, self.tune_dir), 
                        n_trials=self.DataConfig['hyper_params']['number_trials'], n_jobs=n_jobs)
         
@@ -247,17 +243,7 @@ class MLPmethod:
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
             
-        if self.method == "MLPRegressor":
-            weight_ = None
-            loss_ =   mean_absolute_error(val_data['target'], model_.predict(val_data['features']),
-                                          sample_weight = weight_) #/ (np.max(val_data['target']) - np.min(val_data['target']))
-            #loss_ += 1 - mef_gufunc(val_data['target'], model_.predict(val_data['features']))
-        elif self.method == "MLPClassifier":
-            weight_ = compute_sample_weight(class_weight='balanced',
-                                            y=val_data['target'])
-            loss_ =  roc_auc_score(val_data['target'], model_.predict(val_data['features']),
-                                          sample_weight = weight_)
-        return loss_ 
+        return model_.best_validation_score_ 
     
     def predict_clusters(self, 
                         save_cube:str) -> None:
@@ -286,12 +272,9 @@ class MLPmethod:
                 elif self.method == "MLPRegressor": 
                     out_var = 'forestAge'
                 
-                #preds["{out_var}_pred".format(out_var = out_var)] = xr.DataArray([self.denorm_target(y_hat) if self.method=='MLPRegressor' else y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-                #preds["{out_var}_obs".format(out_var = out_var)] = xr.DataArray([self.denorm_target(Y_cluster[mask_nan]) if self.method=='MLPRegressor' else Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-                
                 preds["{out_var}_pred".format(out_var = out_var)] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
                 preds["{out_var}_obs".format(out_var = out_var)] = xr.DataArray([Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
-                save_cube.update_cube(preds.transpose('sample', 'cluster'), initialize=True)
+                save_cube.CubeWriter(preds.transpose('sample', 'cluster'))
    
     def denorm_target(self, 
                       x: np.array) -> np.array:

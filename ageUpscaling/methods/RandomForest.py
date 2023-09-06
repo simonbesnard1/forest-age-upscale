@@ -146,7 +146,7 @@ class RandomForest:
                    val_data:dict,
                    DataConfig:dict,
                    tune_dir:str,
-                   oversampling:bool= False) -> float:
+                   oversampling:bool= True) -> float:
         """Searches for the optimal hyperparameters for the machine learning model.
         
         Parameters
