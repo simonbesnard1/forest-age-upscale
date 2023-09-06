@@ -55,7 +55,7 @@ setuptools.setup(
         "numpy==1.23.5",
         "optuna==3.0.3",
         "PyYAML==6.0",
-        "matplotlib==3.7.0",
+        "matplotlib==3.7.2",
         "bottleneck",
         "rasterio==1.3.4",
         "xgboost==1.7.2",

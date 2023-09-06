@@ -200,6 +200,9 @@ class Report:
         ax[1,1].text(0.05, 0.95, "D", transform=ax[1,1].transAxes,
                 fontsize=16, fontweight='bold', va='top')
         ax[1,1].set_xticks(range(len(age_classes)))
+        ax[1,1].set_ylim(-50, 120)
+        ax[1, 1].axhline(y=0, color='black', linestyle='--', linewidth =3)
+        ax[1,1].text(-0.3, 8, 'Perfect model', color='black', fontsize=12)       
         ax[1,1].set_xticklabels(age_class_labels, rotation=45)
         
         plt.savefig(os.path.join(self.report_dir, 'xval_diagnostic.png'), dpi=300)        

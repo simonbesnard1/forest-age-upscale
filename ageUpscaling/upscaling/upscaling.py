@@ -408,8 +408,9 @@ class UpscaleAge(ABC):
         else:
             for extent in tqdm(AllExtents, desc='Upscaling procedure'):
                 self._predict_func(extent)   
-                
-        shutil.rmtree(os.path.join(self.study_dir, "tune"))
+        
+        if os.path.exists(os.path.join(self.study_dir, "tune")):
+            shutil.rmtree(os.path.join(self.study_dir, "tune"))
                             
     def norm(self, 
              x: np.array,
