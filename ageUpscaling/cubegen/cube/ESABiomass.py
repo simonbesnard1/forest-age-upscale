@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 @author  : besnard 
-@File    :   canopyHeight.py
+@File    :   ESAcciBiomasss.py
 @Time    :   Wed Aug 9 10:47:17 2023
 @Author  :   Simon Besnard
 @Version :   1.0
@@ -14,13 +14,11 @@
 from ageUpscaling.core.cube import DataCube
 import yaml as yml
 import xarray as xr
-import rioxarray as rio 
 import numpy as np
-import os
 from itertools import product
 
-class canopyHeight(DataCube):
-    """canopyHeight is a subclass of DataCube that is used to create a canopy height datacube from a base file and a cube configuration file.
+class ESAcciBiomasss(DataCube):
+    """ESAcciBiomasss is a subclass of DataCube that is used to create a aboveground biomass datacube from a base file and a cube configuration file.
     
     Parameters:
         base_file: str
@@ -35,25 +33,18 @@ class canopyHeight(DataCube):
         self.base_file = base_file
         
         with open(cube_config_path, 'r') as f:
-            self.cube_config =  yml.safe_load(f)
+            self.cube_config =  yml.safe_load(f)        
         
-        if '.tif' in os.path.basename(base_file):
-            self.da =  rio.open_rasterio(base_file).isel(band=0)
-            self.cube_config['output_metadata']['scale_factor'] = self.da.scale_factor
-            self.cube_config['output_metadata']['add_offset'] = self.da.add_offset
-            self.cube_config['output_metadata']['_FillValue'] = self.da._FillValue
-            self.da =  self.da.rename({"x": 'longitude', "y": 'latitude'}).to_dataset(name = 'canopy_height')
-            
-        else:   
-            self.da = xr.open_dataset(self.base_file)
+        self.da = xr.open_mfdataset(self.base_file + '/*.nc')[["agb"]].rename({"lon": 'longitude', "lat": 'latitude'})
         
         self.cube_config['output_writer_params']['dims']['latitude'] = self.da.latitude.values
         self.cube_config['output_writer_params']['dims']['longitude'] = self.da.longitude.values
         
+        
         super().__init__(self.cube_config)
 
     def CreateCube(self, 
-                  var_name:str= 'canopy_height_potapov2019',
+                  var_name:str= 'aboveground_biomass',
                   chunk_data:bool = False,
                   n_workers:int=10) -> None:
         """Fill a data cube from input datasets.
@@ -68,7 +59,7 @@ class canopyHeight(DataCube):
     
         """
         
-        ds_ = self.da.rename({'canopy_height':var_name})
+        ds_ = self.da.rename({'agb':var_name})
         
         vars_to_proc = {}
         
