@@ -35,7 +35,7 @@ class ESAcciBiomasss(DataCube):
         with open(cube_config_path, 'r') as f:
             self.cube_config =  yml.safe_load(f)        
         
-        self.da = xr.open_mfdataset(self.base_file + '/*.nc')[["agb"]].rename({"lon": 'longitude', "lat": 'latitude'})
+        self.da = xr.open_dataset(self.base_file)[["agb"]].rename({"lon": 'longitude', "lat": 'latitude'})
         
         self.cube_config['output_writer_params']['dims']['latitude'] = self.da.latitude.values
         self.cube_config['output_writer_params']['dims']['longitude'] = self.da.longitude.values
