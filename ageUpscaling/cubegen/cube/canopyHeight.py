@@ -38,11 +38,12 @@ class canopyHeight(DataCube):
             self.cube_config =  yml.safe_load(f)
         
         if '.tif' in os.path.basename(base_file):
-            self.da =  rio.open_rasterio(base_file).isel(band=0).to_dataset(name = 'canopy_height')
-            self.da =  self.da.rename({"x": 'longitude', "y": 'latitude'})
+            self.da =  rio.open_rasterio(base_file).isel(band=0)
             self.cube_config['output_metadata']['scale_factor'] = self.da.scale_factor
             self.cube_config['output_metadata']['add_offset'] = self.da.add_offset
             self.cube_config['output_metadata']['_FillValue'] = self.da._FillValue
+            self.da =  self.da.rename({"x": 'longitude', "y": 'latitude'}).to_dataset(name = 'canopy_height')
+            
         else:   
             self.da = xr.open_dataset(self.base_file)
         
