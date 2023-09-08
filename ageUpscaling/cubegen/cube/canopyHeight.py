@@ -14,7 +14,9 @@
 from ageUpscaling.core.cube import DataCube
 import yaml as yml
 import xarray as xr
+import rioxarray as rio 
 import numpy as np
+import os
 from itertools import product
 
 class canopyHeight(DataCube):
@@ -32,12 +34,18 @@ class canopyHeight(DataCube):
         
         self.base_file = base_file
         
-        
-        self.da = xr.open_dataset(self.base_file)
-        
         with open(cube_config_path, 'r') as f:
             self.cube_config =  yml.safe_load(f)
-            
+        
+        if '.tif' in os.path.basename(base_file):
+            self.da =  rio.open_rasterio(base_file).isel(band=0).to_dataset(name = 'canopy_height')
+            self.da =  self.da.rename({"x": 'longitude', "y": 'latitude'})
+            self.cube_config['output_metadata']['scale_factor'] = self.da.scale_factor
+            self.cube_config['output_metadata']['add_offset'] = self.da.add_offset
+            self.cube_config['output_metadata']['_FillValue'] = self.da._FillValue
+        else:   
+            self.da = xr.open_dataset(self.base_file)
+        
         self.cube_config['output_writer_params']['dims']['latitude'] = self.da.latitude.values
         self.cube_config['output_writer_params']['dims']['longitude'] = self.da.longitude.values
         
