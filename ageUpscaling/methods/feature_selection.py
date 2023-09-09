@@ -107,8 +107,8 @@ class FeatureSelection(ABC):
                 
             feat_selector = GAFeatureSelectionCV(estimator=rf,
                                                  scoring=score_,
-                                                 population_size=30,
-                                                 generations=20,
+                                                 population_size=50,
+                                                 generations=50,
                                                  n_jobs=n_jobs,
                                                  verbose=False,
                                                  elitism=True)
