@@ -14,7 +14,6 @@
 from ageUpscaling.core.cube import DataCube
 import rioxarray as rio 
 import yaml as yml
-import os
 import numpy as np
 import pandas as pd
 from itertools import product
@@ -37,11 +36,10 @@ class LandsatDisturbanceTime(DataCube):
         
         self.base_file = base_file
         
-        if (os.path.basename(self.base_file).split('.')[-1] == 'tif'):    
-            self.da =  rio.open_rasterio(base_file)     
+        self.da =  rio.open_rasterio(base_file)     
             
         self.da =  self.da.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'})
-        self.da['time'] = [pd.to_datetime(self.cube_config['output_writer_params']['dims']['time'])]
+        self.da['time'] = pd.to_datetime(self.cube_config['output_writer_params']['dims']['time'])
                
         self.cube_config['output_writer_params']['dims']['latitude'] = self.da.latitude.values
         self.cube_config['output_writer_params']['dims']['longitude'] = self.da.longitude.values
