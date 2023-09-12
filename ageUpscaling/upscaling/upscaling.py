@@ -194,6 +194,8 @@ class UpscaleAge(ABC):
             
             subset_canopyHeight_cube = subset_canopyHeight_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
+            subset_LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=synchronizer).sel(buffer_IN).to_array().reshape(-1).astype('int16')
+                       
             subset_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube.sel(IN)])
             
             output_reg_xr = []
@@ -277,22 +279,47 @@ class UpscaleAge(ABC):
                     pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
                     pred_reg[pred_reg<1] = 1
                     RF_pred_reg[mask] = pred_reg
-                    RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]            
-                    out_reg = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
-                
-                    output_reg_xr.append(xr.DataArray(out_reg, 
-                                              coords={"latitude": subset_cube.latitude, 
-                                                      "longitude": subset_cube.longitude,
-                                                      "time": subset_cube.time,                                                          
-                                                      'members': [run_]}, 
-                                              dims=["latitude", "longitude", "time", "members"]))
+                    RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]
+                    RF_pred_reg = np.round(RF_pred_reg).astype("int16")
+                    
+                    if self.DataConfig['fuse_wLandsat']:
+                        out_fused = out_fused = np.empty(len(subset_LastTimeSinceDist_cube)) * np.nan
+                        
+                        mask_lossYear1 = (out_fused <= 20) and (RF_pred_reg>= out_fused)
+                        out_fused[mask_lossYear1] = subset_LastTimeSinceDist_cube[mask_lossYear1]
+                        
+                        mask_lossYear2 = (out_fused <= 20) and (RF_pred_reg < out_fused)
+                        out_fused[mask_lossYear2] = RF_pred_reg[mask_lossYear2]                        
+                        
+                        mask_regrowth = (out_fused == 21) and (RF_pred_reg> 20)
+                        out_fused[mask_regrowth] = 20
+                        
+                        mask_intact = (out_fused == 300)
+                        out_fused[mask_intact] = RF_pred_reg[mask_intact]
+                        
+                        out_fused = out_fused.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)                        
+                    
+                    out_reg   = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
+                    output_data = {"forest_age_ML":xr.DataArray(out_reg, 
+                                                                coords={"latitude": subset_cube.latitude, 
+                                                                        "longitude": subset_cube.longitude,
+                                                                        "time": subset_cube.time,                                                          
+                                                                        'members': [run_]}, 
+                                                                dims=["latitude", "longitude", "time", "members"])}
+                    if self.DataConfig['fuse_wLandsat']:
+                        output_data["forest_age_fused"] = xr.DataArray(out_fused, 
+                                                                       coords={"latitude": subset_cube.latitude, 
+                                                                               "longitude": subset_cube.longitude,
+                                                                               "time": subset_cube.time,                                                          
+                                                                               'members': [run_]}, 
+                                                                       dims=["latitude", "longitude", "time", "members"])
+                    
+                    output_reg_xr.append(xr.Dataset(output_data))
                             
             if len(output_reg_xr) >0:
-                output_reg_xr = xr.concat(output_reg_xr, dim = 'members')
-                output_reg_xr_mean = output_reg_xr.mean(dim = 'members').to_dataset(name="forest_age_mean")
+                output_reg_xr = xr.concat(output_reg_xr, dim = 'members').mean(dim = 'members')
                 #output_reg_xr_std = output_reg_xr.std(dim = 'members').to_dataset(name="forest_age_std")
-                self.pred_cube.CubeWriter(output_reg_xr_mean, n_workers=1)
-                #self.pred_cube.update_cube(output_reg_xr_std, initialize=False)
+                self.pred_cube.CubeWriter(output_reg_xr, n_workers=2)
                     
     def model_tuning(self,
                      run_: int=1,
