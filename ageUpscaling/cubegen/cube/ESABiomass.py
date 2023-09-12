@@ -13,9 +13,11 @@
 
 from ageUpscaling.core.cube import DataCube
 import yaml as yml
-import xarray as xr
+import rioxarray as rio 
 import numpy as np
 from itertools import product
+import pandas as pd
+import os
 
 class ESAcciBiomasss(DataCube):
     """ESAcciBiomasss is a subclass of DataCube that is used to create a aboveground biomass datacube from a base file and a cube configuration file.
@@ -35,11 +37,14 @@ class ESAcciBiomasss(DataCube):
         with open(cube_config_path, 'r') as f:
             self.cube_config =  yml.safe_load(f)        
         
-        self.da = xr.open_dataset(self.base_file)[["agb"]].rename({"lon": 'longitude', "lat": 'latitude'})
+        self.da =  rio.open_rasterio(base_file).rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'})
+        self.da['time'] = [pd.to_datetime(os.path.basename(base_file).split('100m-')[1].split('-')[0] + '-01-01')]
         
         self.cube_config['output_writer_params']['dims']['latitude'] = self.da.latitude.values
         self.cube_config['output_writer_params']['dims']['longitude'] = self.da.longitude.values
-        
+        self.cube_config['output_metadata']['scale_factor'] = self.da.scale_factor
+        self.cube_config['output_metadata']['add_offset'] = self.da.add_offset
+        self.cube_config['output_metadata']['_FillValue'] = self.da._FillValue
         
         super().__init__(self.cube_config)
 
@@ -59,7 +64,7 @@ class ESAcciBiomasss(DataCube):
     
         """
         
-        ds_ = self.da.rename({'agb':var_name})
+        ds_ = self.da.to_dataset(name = var_name)
         
         vars_to_proc = {}
         
