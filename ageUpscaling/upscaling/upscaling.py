@@ -177,26 +177,23 @@ class UpscaleAge(ABC):
         buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
                      'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
         
-        subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(buffer_IN).astype('float16')
-        subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
+        subset_LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=synchronizer).sel(buffer_IN).to_array()
+        subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).reshape(-1).astype('int16')
         
-        if not np.isnan(subset_agb_cube.to_array().values).all():
+        if not np.isnan(subset_LastTimeSinceDist_cube).all():
+            
+            subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(buffer_IN).astype('float16')
+            subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
             
             subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
-           
             subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
-            
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
             subset_canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=synchronizer).sel(buffer_IN).to_array().to_dataset(name= [x for x in self.DataConfig['features']  if "canopy_height" in x][0]).astype('float16')
-           
             subset_canopyHeight_cube =  interpolate_worlClim(source_ds = subset_canopyHeight_cube, target_ds = subset_agb_cube)
-            
             subset_canopyHeight_cube = subset_canopyHeight_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
-            subset_LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=synchronizer).sel(buffer_IN).to_array().reshape(-1).astype('int16')
-                       
-            subset_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube.sel(IN)])
+            subset_features_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube.sel(IN)])
             
             output_reg_xr = []
             for run_ in np.arange(self.upscaling_config['num_members']):
@@ -218,9 +215,9 @@ class UpscaleAge(ABC):
                 X_upscale = []
                 for var_name in all_features:
                     if self.algorithm == "MLP":
-                        X_upscale.append(self.norm(subset_cube[var_name], norm_stats_classifier[var_name]))
+                        X_upscale.append(self.norm(subset_features_cube[var_name], norm_stats_classifier[var_name]))
                     else:
-                        X_upscale.append(subset_cube[var_name])
+                        X_upscale.append(subset_features_cube[var_name])
                     
                 X_upscale_flattened = []
         
@@ -297,20 +294,20 @@ class UpscaleAge(ABC):
                         mask_intact = (subset_LastTimeSinceDist_cube == 300)
                         fused_pred_age[mask_intact] = ML_pred_age[mask_intact]
                         
-                        fused_pred_age = fused_pred_age.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)                        
+                        fused_pred_age = fused_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)                        
                     
-                    out_reg   = ML_pred_age.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
+                    out_reg   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
                     output_data = {"forest_age_ML":xr.DataArray(out_reg, 
-                                                                coords={"latitude": subset_cube.latitude, 
-                                                                        "longitude": subset_cube.longitude,
-                                                                        "time": subset_cube.time,                                                          
+                                                                coords={"latitude": subset_features_cube.latitude, 
+                                                                        "longitude": subset_features_cube.longitude,
+                                                                        "time": subset_features_cube.time,                                                          
                                                                         'members': [run_]}, 
                                                                 dims=["latitude", "longitude", "time", "members"])}
                     if self.DataConfig['fuse_wLandsat']:
                         output_data["forest_age_fused"] = xr.DataArray(fused_pred_age, 
-                                                                       coords={"latitude": subset_cube.latitude, 
-                                                                               "longitude": subset_cube.longitude,
-                                                                               "time": subset_cube.time,                                                          
+                                                                       coords={"latitude": subset_features_cube.latitude, 
+                                                                               "longitude": subset_features_cube.longitude,
+                                                                               "time": subset_features_cube.time,                                                          
                                                                                'members': [run_]}, 
                                                                        dims=["latitude", "longitude", "time", "members"])
                     

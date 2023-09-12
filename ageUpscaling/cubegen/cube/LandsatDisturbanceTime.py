@@ -37,8 +37,8 @@ class LandsatDisturbanceTime(DataCube):
         if (os.path.basename(self.base_file).split('.')[-1] == 'tif'):    
             self.da =  rio.open_rasterio(base_file)     
             
-        self.da =  self.da.sel(band=1).rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'})
-        self.da['time'] = pd.to_datetime(self.cube_config['output_writer_params']['dims']['time'])
+        self.da =  self.da.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'})
+        self.da['time'] = [pd.to_datetime(self.cube_config['output_writer_params']['dims']['time'])]
                
         with open(cube_config_path, 'r') as f:
             self.cube_config =  yml.safe_load(f)
