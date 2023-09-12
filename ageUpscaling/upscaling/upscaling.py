@@ -230,8 +230,8 @@ class UpscaleAge(ABC):
                     
                 X_upscale_flattened = da.array(X_upscale_flattened).transpose().compute()
                 
-                RF_pred_class = np.zeros(X_upscale_flattened.shape[0]) * np.nan
-                RF_pred_reg = np.zeros(X_upscale_flattened.shape[0]) * np.nan
+                ML_pred_class = np.zeros(X_upscale_flattened.shape[0]) * np.nan
+                ML_pred_age = np.zeros(X_upscale_flattened.shape[0]) * np.nan
                 
                 mask = (np.all(np.isfinite(X_upscale_flattened), axis=1)) 
                 
@@ -256,7 +256,7 @@ class UpscaleAge(ABC):
                         dpred =  X_upscale_flattened[mask][:, index_mapping_class]
                         pred_class = best_classifier.predict(dpred)
                         
-                    RF_pred_class[mask] = pred_class
+                    ML_pred_class[mask] = pred_class
                     
                     if self.algorithm == "XGBoost":
                         dpred =  xgb.DMatrix(X_upscale_flattened[mask][:, index_mapping_reg])
@@ -278,28 +278,28 @@ class UpscaleAge(ABC):
                     
                     pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
                     pred_reg[pred_reg<1] = 1
-                    RF_pred_reg[mask] = pred_reg
-                    RF_pred_reg[RF_pred_class==1] = self.DataConfig['max_forest_age'][0]
-                    RF_pred_reg = np.round(RF_pred_reg).astype("int16")
+                    ML_pred_age[mask] = pred_reg
+                    ML_pred_age[ML_pred_class==1] = self.DataConfig['max_forest_age'][0]
+                    ML_pred_age = np.round(ML_pred_age).astype("int16")
                     
                     if self.DataConfig['fuse_wLandsat']:
-                        out_fused = out_fused = np.empty(len(subset_LastTimeSinceDist_cube)) * np.nan
+                        fused_pred_age = np.empty(len(subset_LastTimeSinceDist_cube)) * np.nan
                         
-                        mask_lossYear1 = (out_fused <= 20) and (RF_pred_reg>= out_fused)
-                        out_fused[mask_lossYear1] = subset_LastTimeSinceDist_cube[mask_lossYear1]
+                        mask_lossYear1 = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age >= subset_LastTimeSinceDist_cube)
+                        fused_pred_age[mask_lossYear1] = subset_LastTimeSinceDist_cube[mask_lossYear1]
                         
-                        mask_lossYear2 = (out_fused <= 20) and (RF_pred_reg < out_fused)
-                        out_fused[mask_lossYear2] = RF_pred_reg[mask_lossYear2]                        
+                        mask_lossYear2 = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age < subset_LastTimeSinceDist_cube)
+                        fused_pred_age[mask_lossYear2] = ML_pred_age[mask_lossYear2]
                         
-                        mask_regrowth = (out_fused == 21) and (RF_pred_reg> 20)
-                        out_fused[mask_regrowth] = 20
+                        mask_regrowth = np.logical_and(subset_LastTimeSinceDist_cube == 21, ML_pred_age > 20)
+                        fused_pred_age[mask_regrowth] = 20
                         
-                        mask_intact = (out_fused == 300)
-                        out_fused[mask_intact] = RF_pred_reg[mask_intact]
+                        mask_intact = (subset_LastTimeSinceDist_cube == 300)
+                        fused_pred_age[mask_intact] = ML_pred_age[mask_intact]
                         
-                        out_fused = out_fused.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)                        
+                        fused_pred_age = fused_pred_age.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)                        
                     
-                    out_reg   = RF_pred_reg.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
+                    out_reg   = ML_pred_age.reshape(len(subset_cube.latitude), len(subset_cube.longitude), len(subset_cube.time), 1)
                     output_data = {"forest_age_ML":xr.DataArray(out_reg, 
                                                                 coords={"latitude": subset_cube.latitude, 
                                                                         "longitude": subset_cube.longitude,
@@ -307,7 +307,7 @@ class UpscaleAge(ABC):
                                                                         'members': [run_]}, 
                                                                 dims=["latitude", "longitude", "time", "members"])}
                     if self.DataConfig['fuse_wLandsat']:
-                        output_data["forest_age_fused"] = xr.DataArray(out_fused, 
+                        output_data["forest_age_fused"] = xr.DataArray(fused_pred_age, 
                                                                        coords={"latitude": subset_cube.latitude, 
                                                                                "longitude": subset_cube.longitude,
                                                                                "time": subset_cube.time,                                                          
