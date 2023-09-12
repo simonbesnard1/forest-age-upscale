@@ -32,6 +32,9 @@ class LandsatDisturbanceTime(DataCube):
                  base_file:str, 
                  cube_config_path:str):
         
+        with open(cube_config_path, 'r') as f:
+            self.cube_config =  yml.safe_load(f)
+        
         self.base_file = base_file
         
         if (os.path.basename(self.base_file).split('.')[-1] == 'tif'):    
@@ -40,9 +43,6 @@ class LandsatDisturbanceTime(DataCube):
         self.da =  self.da.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'})
         self.da['time'] = [pd.to_datetime(self.cube_config['output_writer_params']['dims']['time'])]
                
-        with open(cube_config_path, 'r') as f:
-            self.cube_config =  yml.safe_load(f)
-            
         self.cube_config['output_writer_params']['dims']['latitude'] = self.da.latitude.values
         self.cube_config['output_writer_params']['dims']['longitude'] = self.da.longitude.values
         self.cube_config['output_metadata']['scale_factor'] = self.da.scale_factor
