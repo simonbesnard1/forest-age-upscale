@@ -301,14 +301,14 @@ class UpscaleAge(ABC):
                                                                         "longitude": subset_features_cube.longitude,
                                                                         "time": subset_features_cube.time,                                                          
                                                                         'members': [run_]}, 
-                                                                dims=["latitude", "longitude", "time", "members"])}
+                                                                dims=["latitude", "longitude", "time", "members"]).astype('float32')}
                     if self.upscaling_config['fuse_wLandsat']:
                         output_data["forest_age_hybrid"] = xr.DataArray(fused_pred_age, 
                                                                        coords={"latitude": subset_features_cube.latitude, 
                                                                                "longitude": subset_features_cube.longitude,
                                                                                "time": subset_features_cube.time,                                                          
                                                                                'members': [run_]}, 
-                                                                       dims=["latitude", "longitude", "time", "members"])
+                                                                       dims=["latitude", "longitude", "time", "members"]).astype('float32')
                     
                     output_reg_xr.append(xr.Dataset(output_data))
                             
