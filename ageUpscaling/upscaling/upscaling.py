@@ -177,12 +177,12 @@ class UpscaleAge(ABC):
         buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
                      'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
         
-        subset_LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=synchronizer).sel(buffer_IN).to_array()
-        subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).reshape(-1).astype('int16')
+        subset_LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=synchronizer).sel(IN).isel(time =0).to_array()
+        subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).values.reshape(-1)
         
         if not np.isnan(subset_LastTimeSinceDist_cube).all():
             
-            subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(buffer_IN).astype('float16')
+            subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(buffer_IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
             subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
             
             subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
@@ -190,7 +190,7 @@ class UpscaleAge(ABC):
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
             subset_canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=synchronizer).sel(buffer_IN).to_array().to_dataset(name= [x for x in self.DataConfig['features']  if "canopy_height" in x][0]).astype('float16')
-            subset_canopyHeight_cube =  interpolate_worlClim(source_ds = subset_canopyHeight_cube, target_ds = subset_agb_cube)
+            subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0 )
             subset_canopyHeight_cube = subset_canopyHeight_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
             subset_features_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube.sel(IN)])
@@ -275,11 +275,10 @@ class UpscaleAge(ABC):
                     
                     pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
                     pred_reg[pred_reg<1] = 1
-                    ML_pred_age[mask] = pred_reg
+                    ML_pred_age[mask] = np.round(pred_reg).astype("int16")
                     ML_pred_age[ML_pred_class==1] = self.DataConfig['max_forest_age'][0]
-                    ML_pred_age = np.round(ML_pred_age).astype("int16")
                     
-                    if self.DataConfig['fuse_wLandsat']:
+                    if self.upscaling_config['fuse_wLandsat']:
                         fused_pred_age = np.empty(len(subset_LastTimeSinceDist_cube)) * np.nan
                         
                         mask_lossYear1 = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age >= subset_LastTimeSinceDist_cube)
@@ -303,7 +302,7 @@ class UpscaleAge(ABC):
                                                                         "time": subset_features_cube.time,                                                          
                                                                         'members': [run_]}, 
                                                                 dims=["latitude", "longitude", "time", "members"])}
-                    if self.DataConfig['fuse_wLandsat']:
+                    if self.upscaling_config['fuse_wLandsat']:
                         output_data["forest_age_fused"] = xr.DataArray(fused_pred_age, 
                                                                        coords={"latitude": subset_features_cube.latitude, 
                                                                                "longitude": subset_features_cube.longitude,
