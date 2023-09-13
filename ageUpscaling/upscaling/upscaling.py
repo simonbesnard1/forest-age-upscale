@@ -303,7 +303,7 @@ class UpscaleAge(ABC):
                                                                         'members': [run_]}, 
                                                                 dims=["latitude", "longitude", "time", "members"])}
                     if self.upscaling_config['fuse_wLandsat']:
-                        output_data["forest_age_fused"] = xr.DataArray(fused_pred_age, 
+                        output_data["forest_age_hybrid"] = xr.DataArray(fused_pred_age, 
                                                                        coords={"latitude": subset_features_cube.latitude, 
                                                                                "longitude": subset_features_cube.longitude,
                                                                                "time": subset_features_cube.time,                                                          
