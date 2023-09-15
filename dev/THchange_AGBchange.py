@@ -287,3 +287,36 @@ plt.legend(frameon=False, fontsize=12)
 plt.grid(True)
 plt.savefig('/home/simon/Documents/science/fig3.png', dpi=300)
 
+
+#%% Figure 4
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from scipy.spatial import Delaunay
+
+# Load your data
+dat_ = pd.read_csv('/home/simon/Downloads/pretty_data_for_simon.csv')
+Y = (dat_['agbTrue'].values / 10) * 0.5
+X = dat_['deltaHeight'].values / 10
+Z = dat_['H2010'].values
+
+# Create a Delaunay triangulation
+triangulation = Delaunay(np.column_stack((X, Y)))
+
+# Create a figure and a 3D axis
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
+# Create the surface plot using plot_trisurf
+surf = ax.plot_trisurf(X, Y, Z, cmap='viridis', triangles=triangulation.simplices)
+
+# Add labels and a color bar
+ax.set_xlabel('Canopy height changes [meter year$^{-1}$]')
+ax.set_ylabel('Biomass changes [MgC ha$^{-1}$ year$^{-1}$]')
+ax.set_zlabel('Canopy height [meter]')
+fig.colorbar(surf)
+
+# Show the plot
+plt.show()
+plt.savefig('/home/simon/Documents/science/fig4.png', dpi=300)
+
