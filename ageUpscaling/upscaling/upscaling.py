@@ -418,22 +418,22 @@ class UpscaleAge(ABC):
                                       valid_subset=valid_subset)
                     
             
-        # LatChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['latitude'], self.upscaling_config["num_chunks"])
-        # LonChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['longitude'], self.upscaling_config["num_chunks"])
+        LatChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['latitude'], self.upscaling_config["num_chunks"])
+        LonChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['longitude'], self.upscaling_config["num_chunks"])
         
-        # AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-        #                 "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-        #             for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
+        AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
+                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+                    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        # if (self.n_jobs_upscaling > 1):
+        if (self.n_jobs_upscaling > 1):
             
-        #     with multiprocessing.Pool(self.n_jobs_upscaling) as pool:
-        #         futures = pool.imap(self._predict_func, AllExtents)
-        #         _ = list(futures)
+            with multiprocessing.Pool(self.n_jobs_upscaling) as pool:
+                futures = pool.imap(self._predict_func, AllExtents)
+                _ = list(futures)
                         
-        # else:
-        #     for extent in tqdm(AllExtents, desc='Upscaling procedure'):
-        #         self._predict_func(extent)   
+        else:
+            for extent in tqdm(AllExtents, desc='Upscaling procedure'):
+                self._predict_func(extent)   
         
         if os.path.exists(os.path.join(self.study_dir, "tune")):
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
