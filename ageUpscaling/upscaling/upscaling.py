@@ -281,23 +281,29 @@ class UpscaleAge(ABC):
                     if self.upscaling_config['fuse_wLandsat']:
                         fused_pred_age = np.empty(len(subset_LastTimeSinceDist_cube)) * np.nan
                         
+                        # Stand replacement occured and age ML is higher than Hansen Loss year
                         mask_lossYear1 = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age > subset_LastTimeSinceDist_cube)
                         fused_pred_age[mask_lossYear1] = subset_LastTimeSinceDist_cube[mask_lossYear1]
                         
+                        # Stand replacement occured and age ML is lower or equal than Hansen Loss year
                         mask_lossYear2 = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age <= subset_LastTimeSinceDist_cube)
                         fused_pred_age[mask_lossYear2] = ML_pred_age[mask_lossYear2]
                         
+                        # No stand replacement occured but gain and age ML is higher than 20
                         mask_regrowth1 = np.logical_and(subset_LastTimeSinceDist_cube == 21, ML_pred_age > 20)
                         fused_pred_age[mask_regrowth1] = 20
                         
+                        # No stand replacement occured but gain and age ML is lower or equal than 20
                         mask_regrowth2 = np.logical_and(subset_LastTimeSinceDist_cube == 21, ML_pred_age <= 20)
                         fused_pred_age[mask_regrowth2] = ML_pred_age[mask_regrowth2]
                         
+                        # Forest has been stable for the between 2000 and 2020
                         mask_intact = (subset_LastTimeSinceDist_cube == 300)
                         fused_pred_age[mask_intact] = ML_pred_age[mask_intact]
                         
+                        ML_pred_age[np.isnan(fused_pred_age)] = np.nan
                         fused_pred_age = fused_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)                        
-                    
+                        
                     out_reg   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
                     output_data = {"forest_age_ML":xr.DataArray(out_reg, 
                                                                 coords={"latitude": subset_features_cube.latitude, 
