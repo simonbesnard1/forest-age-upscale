@@ -281,53 +281,34 @@ class UpscaleAge(ABC):
                     if self.upscaling_config['fuse_wLandsat']:
                         fused_pred_age = np.empty(len(subset_LastTimeSinceDist_cube)) * np.nan
                         
-                        # Stand replacement occured and age ML is higher than Hansen Loss year
-                        mask_lossYear1 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age > subset_LastTimeSinceDist_cube)
-                        fused_pred_age[mask_lossYear1] = subset_LastTimeSinceDist_cube[mask_lossYear1]
+                        # Stand replacement or afforestation occured and age ML is higher than Hansen Loss year
+                        mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age > subset_LastTimeSinceDist_cube)
+                        fused_pred_age[mask_Change1] = subset_LastTimeSinceDist_cube[mask_Change1]
                         
-                        # Stand replacement occured and age ML is lower or equal than Hansen Loss year
-                        mask_lossYear2 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age <= subset_LastTimeSinceDist_cube)
-                        fused_pred_age[mask_lossYear2] = ML_pred_age[mask_lossYear2]
+                        # Stand replacement or afforestation occured and age ML is lower or equal than Hansen Loss year
+                        mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age <= subset_LastTimeSinceDist_cube)
+                        fused_pred_age[mask_Change2] = ML_pred_age[mask_Change2]
                         
-                        # Stand replacement occured and age ML is missing
-                        mask_lossYear3 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, np.isnan(ML_pred_age) )
-                        fused_pred_age[mask_lossYear3] = subset_LastTimeSinceDist_cube[mask_lossYear3]
+                        # Stand replacement or afforestation occured and age ML is missing
+                        mask_Change3 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, np.isnan(ML_pred_age) )
+                        fused_pred_age[mask_Change3] = subset_LastTimeSinceDist_cube[mask_Change3]                        
                         
-                        # No stand replacement occured but planted between 2000-2020 and age ML is higher than 19
-                        mask_regrowth1 = np.logical_and(subset_LastTimeSinceDist_cube == 20, ML_pred_age > 19)
-                        fused_pred_age[mask_regrowth1] = 19
-                        
-                        # No stand replacement occured but planted between 2000-2020 and age ML is lower or equal than 19
-                        mask_regrowth2 = np.logical_and(subset_LastTimeSinceDist_cube == 20, ML_pred_age <= 19)
-                        fused_pred_age[mask_regrowth2] = ML_pred_age[mask_regrowth2]
-                        
-                        # No stand replacement occured but planted between 2000-2020 and age is missing
-                        mask_regrowth3 = np.logical_and(subset_LastTimeSinceDist_cube == 20, np.isnan(ML_pred_age))
-                        fused_pred_age[mask_regrowth3] = subset_LastTimeSinceDist_cube[mask_regrowth3] - 1
-                        
-                        # No stand replacement occured but planted before 2000
-                        mask_regrowth4 = (subset_LastTimeSinceDist_cube == 21)
-                        fused_pred_age[mask_regrowth4] = 20
-                        
-                        # Forest has been stable or growing since 2000 and age ML is higher or equal than 20
-                        mask_intact1 = np.logical_and(subset_LastTimeSinceDist_cube == 300, ML_pred_age > 20)
+                        # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
+                        mask_intact1 = np.logical_and(subset_LastTimeSinceDist_cube >= 20, ML_pred_age > 20)
                         fused_pred_age[mask_intact1] = ML_pred_age[mask_intact1]
                         
-                        # Forest has been stable or growing since 2000 and age ML is lower than 20
-                        mask_intact2 = np.logical_and(subset_LastTimeSinceDist_cube == 300, ML_pred_age <= 20)
+                        # Forest has been stable since 2000 or planted before 2000 and age ML is lower or equal than 20
+                        mask_intact2 = np.logical_and(subset_LastTimeSinceDist_cube >= 20, ML_pred_age <= 20)
                         fused_pred_age[mask_intact2] = 20
+                        
+                        # Forest has been stable or growing since 2000 or planted before 2000 and age ML is missing
+                        mask_intact3 = np.logical_and(subset_LastTimeSinceDist_cube >= 20, np.isnan(ML_pred_age))
+                        fused_pred_age[mask_intact3] = 20   
                         
                         # # Forest has been stable or growing since 2000
                         # mask_intact1 = (subset_LastTimeSinceDist_cube == 300)
                         # fused_pred_age[mask_intact1] = ML_pred_age[mask_intact1]
-                        
-                        # Forest has been stable or growing since 2000 and age ML is missing
-                        mask_intact3 = np.logical_and(subset_LastTimeSinceDist_cube == 300, np.isnan(ML_pred_age))
-                        fused_pred_age[mask_intact3] = 20   
-                        
-                        ML_pred_age[np.isnan(fused_pred_age)] = np.nan
-                        ML_pred_age[np.isnan(ML_pred_age)] = fused_pred_age[np.isnan(ML_pred_age)]                    
-                        
+                                              
                         ML_pred_age[np.isnan(fused_pred_age)] = np.nan
                         ML_pred_age[np.isnan(ML_pred_age)] = fused_pred_age[np.isnan(ML_pred_age)]                        
                         fused_pred_age = fused_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)                        
