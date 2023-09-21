@@ -145,7 +145,6 @@ class UpscaleAge(ABC):
             print(f"gdalwarp completed successfully. Output file: {output_tiff}")
             
             # Delete the input file
-            os.remove(input_tiff)
             print(f"Deleted input file: {input_tiff}")
             
         except subprocess.CalledProcessError as e:
@@ -156,7 +155,11 @@ class UpscaleAge(ABC):
         da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'})
         
         da_.to_zarr(self.config_file['age_fraction_cube'], mode= 'w')
+        
+        #Delete all temporary files
+        os.remove(input_tiff)
         os.remove(output_tiff)
+        shutil.rmtree(self.config_file['cube_location'])
         
         
         
