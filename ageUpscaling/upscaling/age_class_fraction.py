@@ -35,7 +35,7 @@ def cleanup():
         shutil.rmtree('.zarrsync')
 atexit.register(cleanup)
 
-class UpscaleAge(ABC):
+class AgeFraction(ABC):
     """Study abstract class used for cross validation, model training, prediction.
 
     Parameters
@@ -79,8 +79,6 @@ class UpscaleAge(ABC):
         for i in range(len(age_labels)):
             age_range = age_labels[i]
             lower_limit, upper_limit = map(int, age_range.split('-'))
-        
-            # Create a mask for this age class range
             age_class_mask = (subset_age_cube >= lower_limit) & (subset_age_cube < upper_limit)
             age_class_mask = age_class_mask.where(np.isfinite(subset_age_cube))
             if age_range == '300-1000':
@@ -90,6 +88,7 @@ class UpscaleAge(ABC):
                 
             age_class_fraction.append(age_class_mask)
         age_class_fraction = xr.concat(age_class_fraction, dim = 'age_class')
+        
         self.age_class_frac_cube.CubeWriter(age_class_fraction, n_workers=2)
             
     def AgeFractionCalc(self) -> None:
