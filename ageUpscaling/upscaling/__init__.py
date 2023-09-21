@@ -1,6 +1,8 @@
-from ageUpscaling.upscaling.upscaling import UpscaleAge
+from ageUpscaling.upscaling.upscaling import UpscaleAge age_class_fraction
 
 
 __all__ = [
-    'UpscaleAge'
+    'UpscaleAge',
+    'age_class_fraction'
+    
 ]
