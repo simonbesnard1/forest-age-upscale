@@ -65,7 +65,7 @@ class AgeFraction(ABC):
             self.config_file =  yml.safe_load(f)
         
         self.study_dir = study_dir
-        self.n_jobs = n_jobs 
+        self.n_jobs = n_jobs
         
     def _calc_func(self, 
                       IN) -> None:
@@ -103,7 +103,7 @@ class AgeFraction(ABC):
         self.config_file['output_writer_params']['dims']['age_class'] = age_labels
         self.age_class_frac_cube = DataCube(cube_config = self.config_file)
         self.age_class_frac_cube.init_variable(self.config_file['cube_variables'], 
-                                      njobs= len(self.config_file['cube_variables'].keys()))
+                                               njobs= len(self.config_file['cube_variables'].keys()))
         
         LatChunks = np.array_split(self.config_file['output_writer_params']['dims']['latitude'], self.config_file["num_chunks"])
         LonChunks = np.array_split(self.config_file['output_writer_params']['dims']['longitude'], self.config_file["num_chunks"])
@@ -122,10 +122,10 @@ class AgeFraction(ABC):
             for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
                 self._calc_func(extent)
                 
-        self.age_class_frac_cube.cube.rio.to_raster(raster_path=self.config_file['out_path'] + 'age_class.tif', driver="COG")
+        self.age_class_frac_cube.cube.rio.to_raster(raster_path=self.study_dir + 'age_class.tif', driver="COG")
         
-        input_tiff = self.config_file['out_path'] + 'age_class.tif'
-        output_tiff = self.config_file['out_path'] + f'age_class_fraction_{self.config_file["target_resolution"]}.tif'
+        input_tiff = self.config_file['study_dir'] + 'age_class.tif'
+        output_tiff = self.config_file['study_dir'] + f'age_class_fraction_{self.config_file["target_resolution"]}.tif'
 
         gdalwarp_command = [
             'gdalwarp',
@@ -153,7 +153,7 @@ class AgeFraction(ABC):
             
         da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'})
         
-        da_.to_zarr(self.config_file['age_fraction_cube'], mode= 'w')
+        da_.to_zarr(self.study_dir + 'age_fraction_cube_{resolution}'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
         #Delete all temporary files
         os.remove(input_tiff)
