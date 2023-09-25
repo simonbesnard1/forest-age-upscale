@@ -99,10 +99,8 @@ class AgeFraction(ABC):
         age_class = np.array(self.config_file['age_classes'])
         age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
         age_labels[-1] = '>=300'
-        self.config_file['output_writer_params']['dims']['latitude'] = xr.open_zarr(self.config_file['ForestAge_cube']).sel({"latitude":slice(0, -1),
-                                                                                                                             "longitude":slice(-50, -49)}).latitude.values
-        self.config_file['output_writer_params']['dims']['longitude'] =  xr.open_zarr(self.config_file['ForestAge_cube']).sel({"latitude":slice(0, -1),
-                                                                                                                               "longitude":slice(-50, -49)}).longitude.values
+        self.config_file['output_writer_params']['dims']['latitude'] = xr.open_zarr(self.config_file['ForestAge_cube']).latitude.values
+        self.config_file['output_writer_params']['dims']['longitude'] =  xr.open_zarr(self.config_file['ForestAge_cube']).longitude.values
         self.config_file['output_writer_params']['dims']['age_class'] = age_labels
         self.age_class_frac_cube = DataCube(cube_config = self.config_file)
         self.age_class_frac_cube.init_variable(self.config_file['cube_variables'], 
