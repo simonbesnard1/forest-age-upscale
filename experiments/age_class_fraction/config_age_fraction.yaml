@@ -1,30 +1,34 @@
-cube_location: '/home/simon/gfz_hpc/projects/forest-age-upscale/output/upscaling/Age_upscale_100m/XGBoost/version-1.0/AgeClass_100m'
-ForestAge_cube: "/home/simon/gfz_hpc/projects/forest-age-upscale/output/upscaling/Age_upscale_100m/XGBoost/version-1.0/AgeUpscale_100m"
+cube_location: '/home/simon/Documents/science/GFZ/projects/forest-age-upscale/output/AgeClass_1km'
+ForestAge_cube: "/home/simon/gfz_hpc/projects/forest-age-upscale/output/upscaling/Age_upscale_1km/XGBoost/version-1.0/AgeUpscale_1km"
 
 target_resolution: 0.05
 temporal_resolution: 'Y'
 
+spatial_resolution: '100m'
+
 output_writer_params:
   dims:
+    age_class: None
     latitude: None
     longitude: None
-    time: ["2020-01-01"]
-    age_class: None
+    time: ["2010-01-01"]
   chunksizes: 
+    age_class: -1
     latitude: 4000
     longitude: 4000
     time: -1
-    age_class: -1
-    
+        
 num_chunks: 5
 
+age_classes: [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 200, 250, 300, 1000]
+
 cube_variables:
-  forest_age_ML:
-    dims: ['latitude', 'longitude', 'time', 'age_class']
+  forest_age_mean:
+    dims: ['age_class','latitude', 'longitude', 'time']
     attrs: {'long_name': 'Forest age class with machine learning only - 0: class is present 1: class is absent', 'grid_mapping': 'crs', 'units': 'adimensional', 'valid_min': 0, 'valid_max': 1}
     dtype: float32
-  forest_age_hybrid:
-    dims: ['latitude', 'longitude', 'time', 'age_class']
+  forest_age_std:
+    dims: ['age_class','latitude', 'longitude', 'time']
     attrs: {'long_name': 'Forest age class with fusing machine learning and Landsat-based last time since disturbnance - 0: class is present 1: class is absent', 'grid_mapping': 'crs', 'units': 'adimensional', 'valid_min': 0, 'valid_max': 1}
     dtype: float32
     
