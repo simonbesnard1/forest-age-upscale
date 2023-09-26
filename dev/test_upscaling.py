@@ -176,7 +176,8 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
                 # fused_pred_age[mask_intact1] = ML_pred_age[mask_intact1]
                                       
                 ML_pred_age[np.isnan(fused_pred_age)] = np.nan
-                ML_pred_age[np.isnan(ML_pred_age)] = fused_pred_age[np.isnan(ML_pred_age)]     
+                fused_pred_age[np.isnan(ML_pred_age)] = np.nan                
+                #ML_pred_age[np.isnan(ML_pred_age)] = fused_pred_age[np.isnan(ML_pred_age)]     
                 fused_pred_age = fused_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)                    
             
             out_reg   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
