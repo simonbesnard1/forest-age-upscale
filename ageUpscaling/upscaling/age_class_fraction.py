@@ -122,6 +122,8 @@ class AgeFraction(ABC):
             with dask.config.set({'distributed.worker.threads': self.n_jobs}):
 
                 futures = [self._calc_func(extent) for extent in AllExtents]
+                with ProgressBar():
+                    dask.compute(*futures, num_workers=self.n_jobs)
                 # for done_work in as_completed(futures, with_results=False):
                 #     try:
                 #         _ = done_work.result()
@@ -129,8 +131,6 @@ class AgeFraction(ABC):
                 #         logging.exception(error)    
                 #     done_work.release()
                 
-                with ProgressBar():
-                    dask.compute(*futures, num_workers=self.n_jobs)
                         
         else:
             for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
