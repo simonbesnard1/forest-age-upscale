@@ -13,7 +13,6 @@
 import os
 import shutil
 from tqdm import tqdm
-import atexit
 from itertools import product
 from abc import ABC
 import logging
@@ -41,13 +40,6 @@ from ageUpscaling.methods.xgboost import XGBoost
 from ageUpscaling.methods.RandomForest import RandomForest
 from ageUpscaling.methods.autoML import AutoML
 from ageUpscaling.methods.feature_selection import FeatureSelection
-
-synchronizer = zarr.ProcessSynchronizer('.zarrsync')
-
-def cleanup():
-    if os.path.isdir('.zarrsync') and (len(os.listdir('.zarrsync')) == 0):
-        shutil.rmtree('.zarrsync')
-atexit.register(cleanup)
 
 class UpscaleAge(ABC):
     """Study abstract class used for cross validation, model training, prediction.
@@ -102,6 +94,13 @@ class UpscaleAge(ABC):
         self.feature_selection= self.DataConfig["feature_selection"]
         self.feature_selection_method= self.DataConfig["feature_selection_method"]      
         self.upscaling_config['cube_location'] =  os.path.join(self.study_dir, self.upscaling_config['cube_name'])
+        
+        sync_file = os.path.abspath(study_dir + '/features_sync.zarrsync')
+        
+        if os.path.isdir(sync_file):
+            shutil.rmtree(sync_file)
+            
+        self.sync = zarr.ProcessSynchronizer(sync_file)
         
     def version_dir(self, 
                     base_dir: str,
@@ -178,19 +177,19 @@ class UpscaleAge(ABC):
         buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
                      'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
         
-        subset_LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=synchronizer).sel(IN).isel(time =0).to_array()
+        subset_LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=self.sync).sel(IN).isel(time =0).to_array()
         subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).values.reshape(-1)
         
         if not np.isnan(subset_LastTimeSinceDist_cube).all():
             
-            subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=synchronizer).sel(buffer_IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
+            subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=self.sync).sel(buffer_IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
             subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
             
-            subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=synchronizer).sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
+            subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync).sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
             subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
-            subset_canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=synchronizer).sel(buffer_IN).to_array().to_dataset(name= [x for x in self.DataConfig['features']  if "canopy_height" in x][0]).astype('float16')
+            subset_canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=self.sync).sel(buffer_IN).to_array().to_dataset(name= [x for x in self.DataConfig['features']  if "canopy_height" in x][0]).astype('float16')
             subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0 )
             subset_canopyHeight_cube = subset_canopyHeight_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
@@ -445,6 +444,9 @@ class UpscaleAge(ABC):
         
         if os.path.exists(os.path.join(self.study_dir, "tune")):
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
+            
+        if os.path.isdir(self.sync):
+            shutil.rmtree(self.sync)
                             
     def norm(self, 
              x: np.array,
