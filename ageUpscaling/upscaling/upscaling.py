@@ -16,12 +16,15 @@ from tqdm import tqdm
 import atexit
 from itertools import product
 from abc import ABC
+import logging
 
 import numpy as np
 import yaml as yml
 import pickle
 
-import multiprocessing
+import dask
+from dask.distributed import as_completed
+
 import xarray as xr
 import zarr
 import dask.array as da
@@ -424,12 +427,20 @@ class UpscaleAge(ABC):
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        if (self.n_jobs_upscaling > 1):
+        if (self.n_jobs//2 > 1):
             
-            with multiprocessing.Pool(self.n_jobs_upscaling) as pool:
-                futures = pool.imap(self._predict_func, AllExtents)
-                _ = list(futures)
-                        
+            with dask.config.set({'distributed.worker.threads': self.n_jobs//2}):
+
+                futures = [self._predict_func(extent) for extent in AllExtents]
+                for done_work in as_completed(futures, with_results=False):
+                    try:
+                        _ = done_work.result()
+                    except Exception as error:
+                        logging.exception(error)    
+                    done_work.release()
+
+                dask.compute(*futures, num_workers=self.n_jobs//2)
+            
         else:
             for extent in tqdm(AllExtents, desc='Upscaling procedure'):
                 self._predict_func(extent)   
