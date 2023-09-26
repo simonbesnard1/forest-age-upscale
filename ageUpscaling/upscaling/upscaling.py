@@ -76,8 +76,7 @@ class UpscaleAge(ABC):
                  algorithm: str = 'MLP',
                  exp_name: str = None,
                  study_dir: str = None,
-                 n_jobs_training: int = 1,
-                 n_jobs_upscaling: int = 1,
+                 n_jobs: int = 1,
                  **kwargs):
 
         with open(DataConfig_path, 'r') as f:
@@ -98,8 +97,7 @@ class UpscaleAge(ABC):
                 raise ValueError(f'restore path does not exist:\n{study_dir}')
 
         self.study_dir = study_dir
-        self.n_jobs_training = n_jobs_training
-        self.n_jobs_upscaling = n_jobs_upscaling        
+        self.n_jobs = n_jobs       
         self.valid_fraction= self.DataConfig["valid_fraction"]
         self.feature_selection= self.DataConfig["feature_selection"]
         self.feature_selection_method= self.DataConfig["feature_selection_method"]      
@@ -348,7 +346,7 @@ class UpscaleAge(ABC):
             self.DataConfig['features_selected'] = FeatureSelection(method=task_, 
                                                                    feature_selection_method = feature_selection_method, 
                                                                    features = self.DataConfig['features'],
-                                                                   data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features(n_jobs = self.n_jobs_training)
+                                                                   data = xr.open_dataset(self.DataConfig['training_dataset'])).get_features(n_jobs = self.n_jobs)
                 
         else: 
             self.DataConfig['features_selected'] = self.DataConfig['features'].copy()
@@ -373,7 +371,7 @@ class UpscaleAge(ABC):
         
         ml_method.train(train_subset=train_subset,
                         valid_subset=valid_subset,
-                        n_jobs = self.n_jobs_training)
+                        n_jobs = self.n_jobs)
         
         if not os.path.exists(self.study_dir + '/save_model/'):
              os.makedirs(self.study_dir + '/save_model/')
