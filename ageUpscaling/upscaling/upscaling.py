@@ -23,6 +23,7 @@ import pickle
 
 import dask
 from dask.distributed import as_completed
+from dask.diagnostics import ProgressBar
 
 import xarray as xr
 import zarr
@@ -429,14 +430,15 @@ class UpscaleAge(ABC):
             with dask.config.set({'distributed.worker.threads': self.n_jobs//2}):
 
                 futures = [self._predict_func(extent) for extent in AllExtents]
-                for done_work in as_completed(futures, with_results=False):
-                    try:
-                        _ = done_work.result()
-                    except Exception as error:
-                        logging.exception(error)    
-                    done_work.release()
+                with ProgressBar():
+                    dask.compute(*futures, num_workers=self.n_jobs//2)
 
-                dask.compute(*futures, num_workers=self.n_jobs//2)
+                    # for done_work in as_completed(futures, with_results=False):
+                    #     try:
+                    #         _ = done_work.result()
+                    #     except Exception as error:
+                    #         logging.exception(error)    
+                    #     done_work.release()
             
         else:
             for extent in tqdm(AllExtents, desc='Upscaling procedure'):

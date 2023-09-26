@@ -18,11 +18,15 @@ import atexit
 from itertools import product
 from abc import ABC
 import subprocess
+import logging
 
 import numpy as np
 import yaml as yml
 
-import multiprocessing
+import dask
+from dask.distributed import as_completed
+from dask.diagnostics import ProgressBar
+
 import xarray as xr
 import zarr
 import rioxarray as rio 
@@ -115,9 +119,18 @@ class AgeFraction(ABC):
         
         if (self.n_jobs > 1):
             
-            with multiprocessing.Pool(self.n_jobs) as pool:
-                futures = pool.imap(self._calc_func, AllExtents)
-                _ = list(futures)
+            with dask.config.set({'distributed.worker.threads': self.n_jobs}):
+
+                futures = [self._calc_func(extent) for extent in AllExtents]
+                # for done_work in as_completed(futures, with_results=False):
+                #     try:
+                #         _ = done_work.result()
+                #     except Exception as error:
+                #         logging.exception(error)    
+                #     done_work.release()
+                
+                with ProgressBar():
+                    dask.compute(*futures, num_workers=self.n_jobs)
                         
         else:
             for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
