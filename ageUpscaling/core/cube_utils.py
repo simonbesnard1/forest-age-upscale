@@ -87,7 +87,7 @@ class ComputeCube(ABC):
                  dims   = dims,
                  name   = name,
                  attrs  = attrs
-            ).chunk({dim:self.chunksizes[dim] for dim in dims}).to_dataset().to_zarr(self.cube_location, mode='a', synchronizer = self.sync,
+            ).chunk({dim:self.chunksizes[dim] for dim in dims}).to_dataset().to_zarr(self.cube_location, mode='a', synchronizer = self.sync_cube,
                                                                                      consolidated=True, encoding=encoding)
 
     def init_variable(self, 
@@ -119,7 +119,7 @@ class ComputeCube(ABC):
         futures = [self._init_zarr_variable(da_var) for da_var in vars_to_proc]
         dask.compute(*futures, num_workers= njobs)
     
-        self.cube = xr.open_zarr(self.cube_location, synchronizer=self.sync) 
+        self.cube = xr.open_zarr(self.cube_location, synchronizer=self.sync_cube) 
     
     def initialize_data_cube(self) -> xr.Dataset:
         """Create a new empty cube with predefined coordinate variables and metadata.
@@ -149,7 +149,7 @@ class ComputeCube(ABC):
         ds_ = xr.Dataset(data_vars={}, coords=coords, attrs= self.output_metadata)
             
         ds_.to_zarr(self.cube_location, consolidated=True, 
-                    synchronizer = self.sync)
+                    synchronizer = self.sync_cube)
         
     @dask.delayed
     def write_chunck(self, 
@@ -177,7 +177,7 @@ class ComputeCube(ABC):
         """
 
         try:
-            _zarr = zarr.open_group(self.cube_location, synchronizer = self.sync)[da.name]
+            _zarr = zarr.open_group(self.cube_location, synchronizer = self.sync_cube)[da.name]
 
         except (IOError, ValueError, TypeError) as e:
             raise FileExistsError("cube_location already exists but is not a zarr group. Delete existing directory or choose a different cube_location: "+self.cube_location) from e
