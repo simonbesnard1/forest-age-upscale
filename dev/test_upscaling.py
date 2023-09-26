@@ -159,16 +159,17 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
                 fused_pred_age[mask_Change3] = subset_LastTimeSinceDist_cube[mask_Change3]                        
                 
                 # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
-                mask_intact1 = np.logical_and(subset_LastTimeSinceDist_cube >= 20, ML_pred_age > 20)
+                #mask_intact1 = np.logical_and(subset_LastTimeSinceDist_cube >= 20, ML_pred_age > 20)
+                mask_intact1 = (subset_LastTimeSinceDist_cube >= 20)                
                 fused_pred_age[mask_intact1] = ML_pred_age[mask_intact1]
                 
                 # Forest has been stable since 2000 or planted before 2000 and age ML is lower or equal than 20
-                mask_intact2 = np.logical_and(subset_LastTimeSinceDist_cube >= 20, ML_pred_age <= 20)
-                fused_pred_age[mask_intact2] = 20
+                #mask_intact2 = np.logical_and(subset_LastTimeSinceDist_cube >= 20, ML_pred_age <= 20)
+                #fused_pred_age[mask_intact2] = 20
                 
                 # Forest has been stable or growing since 2000 or planted before 2000 and age ML is missing
-                mask_intact3 = np.logical_and(subset_LastTimeSinceDist_cube >= 20, np.isnan(ML_pred_age))
-                fused_pred_age[mask_intact3] = 20   
+                mask_intact2 = np.logical_and(subset_LastTimeSinceDist_cube >= 20, np.isnan(ML_pred_age))
+                fused_pred_age[mask_intact2] = 20   
                 
                 # # Forest has been stable or growing since 2000
                 # mask_intact1 = (subset_LastTimeSinceDist_cube == 300)
