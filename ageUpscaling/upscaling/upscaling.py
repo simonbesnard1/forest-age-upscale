@@ -15,14 +15,12 @@ import shutil
 from tqdm import tqdm
 from itertools import product
 from abc import ABC
-import logging
 
 import numpy as np
 import yaml as yml
 import pickle
 
 import dask
-from dask.distributed import as_completed
 from dask.diagnostics import ProgressBar
 
 import xarray as xr
@@ -447,9 +445,12 @@ class UpscaleAge(ABC):
         if os.path.exists(os.path.join(self.study_dir, "tune")):
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
-        if os.path.isdir(self.sync_feature):
-            shutil.rmtree(self.sync_feature)
-                            
+        if os.path.exists(os.path.join(self.study_dir, '/features_sync.zarrsync')):
+            shutil.rmtree(os.path.join(self.study_dir, '/features_sync.zarrsync'))
+        
+        if os.path.exists(os.path.join(self.study_dir, '/cube.zarrsync')):
+            shutil.rmtree(os.path.join(self.study_dir, '/cube.zarrsync'))
+        
     def norm(self, 
              x: np.array,
              norm_stats:dict) -> np.array:
