@@ -84,8 +84,8 @@ class AgeFraction(ABC):
             lower_limit, upper_limit = map(int, age_range.split('-'))
             age_class_mask = (subset_age_cube >= lower_limit) & (subset_age_cube < upper_limit)
             age_class_mask = age_class_mask.where(np.isfinite(subset_age_cube))
-            if age_range == '300-1000':
-                age_class_mask = age_class_mask.assign_coords(age_class= '>=300')
+            if age_range == '150-1000':
+                age_class_mask = age_class_mask.assign_coords(age_class= '>=150')
             else:
                 age_class_mask = age_class_mask.assign_coords(age_class= age_range)
                 
@@ -100,7 +100,7 @@ class AgeFraction(ABC):
         """
         age_class = np.array(self.config_file['age_classes'])
         age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
-        age_labels[-1] = '>=300'
+        age_labels[-1] = '>=150'
         self.config_file['output_writer_params']['dims']['latitude'] = xr.open_zarr(self.config_file['ForestAge_cube']).isel(latitude = slice(0, 10000), longitude = slice(0, 10000)).latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  xr.open_zarr(self.config_file['ForestAge_cube']).isel(latitude = slice(0, 10000), longitude = slice(0, 10000)).longitude.values
         self.config_file['output_writer_params']['dims']['age_class'] = age_labels
