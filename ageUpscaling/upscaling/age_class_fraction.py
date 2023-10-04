@@ -101,8 +101,8 @@ class AgeFraction(ABC):
         age_class = np.array(self.config_file['age_classes'])
         age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
         age_labels[-1] = '>=300'
-        self.config_file['output_writer_params']['dims']['latitude'] = xr.open_zarr(self.config_file['ForestAge_cube']).latitude.values
-        self.config_file['output_writer_params']['dims']['longitude'] =  xr.open_zarr(self.config_file['ForestAge_cube']).longitude.values
+        self.config_file['output_writer_params']['dims']['latitude'] = xr.open_zarr(self.config_file['ForestAge_cube']).isel(latitude = slice(0, 10000), longitude = slice(0, 10000)).latitude.values
+        self.config_file['output_writer_params']['dims']['longitude'] =  xr.open_zarr(self.config_file['ForestAge_cube']).isel(latitude = slice(0, 10000), longitude = slice(0, 10000)).longitude.values
         self.config_file['output_writer_params']['dims']['age_class'] = age_labels
         self.age_class_frac_cube = DataCube(cube_config = self.config_file)
         self.age_class_frac_cube.init_variable(self.config_file['cube_variables'], 
@@ -127,48 +127,48 @@ class AgeFraction(ABC):
             for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
                 self._calc_func(extent)
                 
-        out_ = [] 
+        # out_ = [] 
         
-        for class_ in self.age_class_frac_cube.cube.age_class.values:
+        # for class_ in self.age_class_frac_cube.cube.age_class.values:
             
-            self.age_class_frac_cube.cube.forest_age_mean.sel(age_class = class_).transpose('time', 'latitude', 'longitude').rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}.tif'.format(class_ =class_), driver="COG")
+        #     self.age_class_frac_cube.cube.forest_age_mean.sel(age_class = class_).transpose('time', 'latitude', 'longitude').rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}.tif'.format(class_ =class_), driver="COG")
         
-            input_tiff = self.config_file['study_dir'] + 'age_class.tif'
-            output_tiff = self.config_file['study_dir'] + f'age_class_fraction_{self.config_file["target_resolution"]}.tif'
+        #     input_tiff = self.config_file['study_dir'] + 'age_class.tif'
+        #     output_tiff = self.config_file['study_dir'] + f'age_class_fraction_{self.config_file["target_resolution"]}.tif'
     
-            gdalwarp_command = [
-                'gdalwarp',
-                input_tiff,
-                output_tiff,
-                '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
-                '-t_srs', 'EPSG:4326',
-                '-of', 'Gtiff',
-                '-te', '-180', '-60', '180', '80',
-                '-r', 'average',
-                '-ot', 'Float32'
-            ]
+        #     gdalwarp_command = [
+        #         'gdalwarp',
+        #         input_tiff,
+        #         output_tiff,
+        #         '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
+        #         '-t_srs', 'EPSG:4326',
+        #         '-of', 'Gtiff',
+        #         '-te', '-180', '-60', '180', '80',
+        #         '-r', 'average',
+        #         '-ot', 'Float32'
+        #     ]
     
-            try:
-                subprocess.run(gdalwarp_command, check=True)
-                print(f"gdalwarp completed successfully. Output file: {output_tiff}")
+        #     try:
+        #         subprocess.run(gdalwarp_command, check=True)
+        #         print(f"gdalwarp completed successfully. Output file: {output_tiff}")
                 
-            except subprocess.CalledProcessError as e:
-                print(f"Error running gdalwarp: {e}")
+        #     except subprocess.CalledProcessError as e:
+        #         print(f"Error running gdalwarp: {e}")
                 
-            da_ =  rio.open_rasterio(output_tiff)     
+        #     da_ =  rio.open_rasterio(output_tiff)     
                 
-            da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_)
-            da_['time'] = self.age_class_frac_cube.cube.time
-            out_.append(da_)
+        #     da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_)
+        #     da_['time'] = self.age_class_frac_cube.cube.time
+        #     out_.append(da_)
         
-        out_ = xr.concat(out_, dim = 'age_class')
-        da_.to_zarr(self.study_dir + 'age_fraction_cube_{resolution}'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        # out_ = xr.concat(out_, dim = 'age_class')
+        # da_.to_zarr(self.study_dir + 'age_fraction_cube_{resolution}'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
-        #Delete all temporary files
-        tif_files = glob.glob(os.path.join(self.config_file['study_dir'], '*.tif'))
-        for tif_file in tif_files:
-            os.remove(tif_file)
-        shutil.rmtree(self.config_file['cube_location'])
+        # #Delete all temporary files
+        # tif_files = glob.glob(os.path.join(self.config_file['study_dir'], '*.tif'))
+        # for tif_file in tif_files:
+        #     os.remove(tif_file)
+        # shutil.rmtree(self.config_file['cube_location'])
     
         
         
