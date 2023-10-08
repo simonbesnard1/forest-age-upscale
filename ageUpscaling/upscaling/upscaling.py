@@ -179,8 +179,7 @@ class UpscaleAge(ABC):
         subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=self.sync_feature).sel(buffer_IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
         subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
         
-        if not np.isnan(subset_agb_cube).all():
-            
+        if not np.isnan(subset_agb_cube.to_array().values).all():            
             subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync_feature).sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
             subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
