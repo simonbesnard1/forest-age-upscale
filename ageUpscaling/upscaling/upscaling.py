@@ -318,6 +318,9 @@ class UpscaleAge(ABC):
                 result_xr = output_reg_xr.copy()
                 difference_2020_2010 = result_xr.sel(time='2020-01-01') - 10
                 result_xr = xr.where(difference_2020_2010 >= 0, difference_2020_2010, output_reg_xr.sel(time='2010-01-01'))
+                print({"result_xr": result_xr})
+                print({"other": output_reg_xr.sel(time='2020-01-01')})
+                
                 output_reg_xr = xr.concat([result_xr, output_reg_xr.sel(time='2020-01-01')], dim= 'time')                
                 #output_reg_xr_std = output_reg_xr.std(dim = 'members').to_dataset(name="forest_age_std")
                 self.pred_cube.CubeWriter(output_reg_xr.mean(dim = 'members'), n_workers=2)
