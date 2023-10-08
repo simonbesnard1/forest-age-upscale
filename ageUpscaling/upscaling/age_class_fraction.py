@@ -85,7 +85,7 @@ class AgeFraction(ABC):
             age_class_mask = (subset_age_cube >= lower_limit) & (subset_age_cube < upper_limit)
             age_class_mask = age_class_mask.where(np.isfinite(subset_age_cube))
             if i == len(age_labels) - 1:
-                age_class_mask = age_class_mask.assign_coords(age_class= '>=' + age_range[-1].split('-')[0])
+                age_class_mask = age_class_mask.assign_coords(age_class= '>=' + age_range.split('-')[0])
             else:
                 age_class_mask = age_class_mask.assign_coords(age_class= age_range)
                 
