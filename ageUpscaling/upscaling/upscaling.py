@@ -318,10 +318,10 @@ class UpscaleAge(ABC):
                 result_xr = output_reg_xr.copy()
                 difference_2020_2010 = result_xr.sel(time='2020-01-01') - 10
                 result_xr = xr.where(difference_2020_2010 >= 0, difference_2020_2010, output_reg_xr.sel(time='2010-01-01'))
-                result_xr['time'] = np.array(["2010-01-01"], dtype="datetime64[ns]")
-                output_reg_xr = xr.concat([result_xr, output_reg_xr.sel(time='2020-01-01')], dim= 'time')                
+                result_xr['time'] = xr.DataArray(np.array(["2010-01-01"], dtype="datetime64[ns]"), dims="time")
+                output_reg_xr = xr.concat([result_xr, output_reg_xr.sel(time='2020-01-01')], dim= 'time')               
                 #output_reg_xr_std = output_reg_xr.std(dim = 'members').to_dataset(name="forest_age_std")
-                self.pred_cube.CubeWriter(output_reg_xr.mean(dim = 'members'), n_workers=2)
+                self.pred_cube.CubeWriter(output_reg_xr.mean(dim = 'members').transpose('latitude', 'longitude', 'time'), n_workers=2)
                     
     def model_tuning(self,
                      run_: int=1,
