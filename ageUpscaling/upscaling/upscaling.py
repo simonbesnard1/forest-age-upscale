@@ -176,13 +176,10 @@ class UpscaleAge(ABC):
         buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
                      'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
         
-        subset_LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=self.sync_feature).sel(IN).isel(time =0).to_array()
-        subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).values.reshape(-1)
+        subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=self.sync_feature).sel(buffer_IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
+        subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
         
-        if not np.isnan(subset_LastTimeSinceDist_cube).all():
-            
-            subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=self.sync_feature).sel(buffer_IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
-            subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
+        if not np.isnan(subset_agb_cube).all():
             
             subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync_feature).sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
             subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
@@ -193,6 +190,10 @@ class UpscaleAge(ABC):
             subset_canopyHeight_cube = subset_canopyHeight_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
             subset_features_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube.sel(IN)])
+            
+            subset_LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=self.sync_feature).sel(IN).to_array()
+            subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
+            subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).values.reshape(-1)
             
             output_reg_xr = []
             for run_ in np.arange(self.upscaling_config['num_members']):
@@ -314,9 +315,13 @@ class UpscaleAge(ABC):
                     output_reg_xr.append(xr.Dataset(output_data))
                             
             if len(output_reg_xr) >0:
-                output_reg_xr = xr.concat(output_reg_xr, dim = 'members').mean(dim = 'members')
+                output_reg_xr = xr.concat(output_reg_xr, dim = 'members')
+                result_xr = output_reg_xr.copy()
+                difference_2020_2010 = result_xr.sel(time='2020-01-01') - 10
+                result_xr = xr.where(difference_2020_2010 >= 0, difference_2020_2010, output_reg_xr.sel(time='2010-01-01'))
+                output_reg_xr = xr.concat([result_xr, output_reg_xr.sel(time='2020-01-01')], dim= 'time')                
                 #output_reg_xr_std = output_reg_xr.std(dim = 'members').to_dataset(name="forest_age_std")
-                self.pred_cube.CubeWriter(output_reg_xr, n_workers=2)
+                self.pred_cube.CubeWriter(output_reg_xr.mean(dim = 'members'), n_workers=2)
                     
     def model_tuning(self,
                      run_: int=1,
