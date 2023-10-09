@@ -11,13 +11,11 @@
 @Desc    :   A method class for upscaling MLP model
 """
 import os
-import glob
 import shutil
 from tqdm import tqdm
 import atexit
 from itertools import product
 from abc import ABC
-import subprocess
 
 import numpy as np
 import yaml as yml
@@ -27,7 +25,7 @@ from dask.diagnostics import ProgressBar
 
 import xarray as xr
 import zarr
-import rioxarray as rio 
+from rasterio.enums import Resampling
 
 from ageUpscaling.core.cube import DataCube
 
@@ -126,54 +124,24 @@ class AgeFraction(ABC):
         else:
             for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
                 self._calc_func(extent)
-                
-        
+                        
         for var_ in self.config_file['cube_variables'].keys():
             out_ = [] 
             
             for class_ in self.age_class_frac_cube.cube.age_class.values:
                 
-                data_class = self.age_class_frac_cube.cube[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude')
-                
-                
-                data_class.rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}.tif'.format(class_ =class_), 
-                                         driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")
-            
-                input_tiff = self.config_file['study_dir'] + 'age_class.tif'
-                output_tiff = self.config_file['study_dir'] + f'age_class_fraction_{self.config_file["target_resolution"]}.tif'
-        
-                gdalwarp_command = [
-                    'gdalwarp',
-                    input_tiff,
-                    output_tiff,
-                    '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
-                    '-t_srs', 'EPSG:4326',
-                    '-of', 'Gtiff',
-                    '-te', '-180', '-90', '180', '90',
-                    '-r', 'average',
-                    '-ot', 'Float32'
-                ]
-        
-                try:
-                    subprocess.run(gdalwarp_command, check=True)
-                    print(f"gdalwarp completed successfully. Output file: {output_tiff}")
-                    
-                except subprocess.CalledProcessError as e:
-                    print(f"Error running gdalwarp: {e}")
-                    
-                da_ =  rio.open_rasterio(output_tiff)     
-                    
-                da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_)
-                da_['time'] = self.age_class_frac_cube.cube.time
+                data_class = self.age_class_frac_cube.cube[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude')                
+                data_class.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
+                data_class.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
+                data_class = data_class.rio.write_crs("epsg:4326", inplace=True)
+                da_ = data_class.rio.reproject('EPSG:4326', 
+                                               resolution=(self.config_file['target_resolution'], self.config_file['target_resolution']),
+                                               resampling=Resampling.average)                
+                da_ =  da_.rename({'x': 'longitude', 'y': 'latitude'})
                 out_.append(da_)
             
             out_ = xr.concat(out_, dim = 'age_class')
             da_.to_zarr(self.study_dir + 'age_fraction_{var_}_{resolution}'.format(var_ = var_, resolution = str(self.config_file['target_resolution'])), mode= 'w')
-            
-            #Delete all temporary files
-            tif_files = glob.glob(os.path.join(self.config_file['study_dir'], '*.tif'))
-            for tif_file in tif_files:
-                os.remove(tif_file)            
             
         shutil.rmtree(self.config_file['cube_location'])
     
