@@ -136,8 +136,7 @@ class AgeFraction(ABC):
                 data_class = data_class.rio.write_crs("epsg:4326", inplace=True)
                 da_ = data_class.rio.reproject('EPSG:4326', 
                                                resolution=(self.config_file['target_resolution'], self.config_file['target_resolution']),
-                                               resampling=Resampling.average)                
-                da_ =  da_.rename({'x': 'longitude', 'y': 'latitude'})
+                                               resampling=Resampling.average).rename({'x': 'longitude', 'y': 'latitude'})        
                 out_.append(da_)
             
             out_ = xr.concat(out_, dim = 'age_class')
