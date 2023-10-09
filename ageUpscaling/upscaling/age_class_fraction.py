@@ -133,7 +133,11 @@ class AgeFraction(ABC):
             
             for class_ in self.age_class_frac_cube.cube.age_class.values:
                 
-                self.age_class_frac_cube.cube[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude').rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}.tif'.format(class_ =class_), driver="COG")
+                data_class = self.age_class_frac_cube.cube[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude')
+                
+                
+                data_class.rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}.tif'.format(class_ =class_), 
+                                         driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")
             
                 input_tiff = self.config_file['study_dir'] + 'age_class.tif'
                 output_tiff = self.config_file['study_dir'] + f'age_class_fraction_{self.config_file["target_resolution"]}.tif'
