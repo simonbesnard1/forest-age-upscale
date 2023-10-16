@@ -79,7 +79,8 @@ class MLDataModule(MLData):
                             self.features, 
                             self.train_subset,
                             self.normalize,
-                            self.norm_stats)        
+                            self.norm_stats,
+                            training=True)        
             
         return train_data
 
@@ -96,7 +97,8 @@ class MLDataModule(MLData):
                             self.features, 
                             self.valid_subset, 
                             self.normalize,
-                            self.norm_stats)
+                            self.norm_stats,
+                            training=False)
             
         return valid_data  
 
@@ -113,7 +115,8 @@ class MLDataModule(MLData):
                            self.features, 
                            self.test_subset, 
                            self.normalize,
-                           self.norm_stats)
+                           self.norm_stats,
+                           training=False)
             
         return test_data
 

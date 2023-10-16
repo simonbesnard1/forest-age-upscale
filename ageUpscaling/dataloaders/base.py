@@ -44,7 +44,8 @@ class MLData(ABC):
                  features: dict[str, Any] = {},     
                  subset: dict[str, Any] = {},
                  normalize:str = False,
-                 norm_stats: dict[str, dict[str, float]] = {}):
+                 norm_stats: dict[str, dict[str, float]] = {},
+                 training:bool=True):
     
         super().__init__()
         
@@ -55,6 +56,7 @@ class MLData(ABC):
         self.normalize = normalize 
         self.norm_stats = norm_stats
         self.method = method
+        self.training = training
                 
     def get_x(self,
               method:str,
@@ -117,7 +119,8 @@ class MLData(ABC):
         #     Y = self.norm(Y, self.norm_stats).to_array().values
             
         else :
-            Y = Y.where(Y<max_forest_age).to_array().values
+            if not self.training:
+                Y = Y.where(Y<max_forest_age).to_array().values
             Y[Y<1] = 1 ## set min age to 1
             
         return Y
