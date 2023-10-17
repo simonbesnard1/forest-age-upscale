@@ -136,7 +136,7 @@ class AgeFraction(ABC):
                 data_class.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
                 data_class.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
                 data_class = data_class.rio.write_crs("epsg:4326", inplace=True)
-                data_class.rio.to_raster(raster_path=input_tiff, driver="COG")       
+                data_class.rio.to_raster(raster_path=input_tiff, driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
                 
                 gdalwarp_command = [
                     'gdalwarp',
