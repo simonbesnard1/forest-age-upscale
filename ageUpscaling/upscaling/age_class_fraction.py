@@ -16,16 +16,17 @@ from tqdm import tqdm
 import atexit
 from itertools import product
 from abc import ABC
+import subprocess
+
 
 import numpy as np
 import yaml as yml
 
 import dask
-from dask.diagnostics import ProgressBar
 
 import xarray as xr
 import zarr
-from rasterio.enums import Resampling
+import rioxarray as rio 
 
 from ageUpscaling.core.cube import DataCube
 
@@ -113,36 +114,59 @@ class AgeFraction(ABC):
                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        if (self.n_jobs > 1):
+        # if (self.n_jobs > 1):
             
-            with dask.config.set({'distributed.worker.threads': self.n_jobs}):
+        #     with dask.config.set({'distributed.worker.threads': self.n_jobs}):
 
-                futures = [self._calc_func(extent) for extent in AllExtents]
-                with ProgressBar():
-                    dask.compute(*futures, num_workers=self.n_jobs)
+        #         futures = [self._calc_func(extent) for extent in AllExtents]
+        #         dask.compute(*futures, num_workers=self.n_jobs)
                         
-        else:
-            for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-                self._calc_func(extent)
+        # else:
+        #     for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
+        #         self._calc_func(extent)
                         
         for var_ in self.config_file['cube_variables'].keys():
             out_ = [] 
             
             for class_ in self.age_class_frac_cube.cube.age_class.values:
                 
-                data_class = self.age_class_frac_cube.cube[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude')                
+                input_tiff = self.study_dir + '/age_class_{class_}.tif'.format(class_ =class_)
+                output_tiff = self.study_dir + f'age_class_fraction_{self.config_file["target_resolution"]}.tif'
+                data_class = xr.open_zarr(self.config_file['cube_location'])[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude')         
                 data_class.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
                 data_class.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
                 data_class = data_class.rio.write_crs("epsg:4326", inplace=True)
-                da_ = data_class.rio.reproject('EPSG:4326', 
-                                               resolution=(self.config_file['target_resolution'], self.config_file['target_resolution']),
-                                               resampling=Resampling.average).rename({'x': 'longitude', 'y': 'latitude'})        
+                data_class.rio.to_raster(raster_path=input_tiff, driver="COG")       
+                
+                gdalwarp_command = [
+                    'gdalwarp',
+                    input_tiff,
+                    output_tiff,
+                    '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
+                    '-t_srs', 'EPSG:4326',
+                    '-of', 'Gtiff',
+                    '-te', '-180', '-60', '180', '80',
+                    '-r', 'average',
+                    '-ot', 'Float32'
+                ]
+        
+                try:
+                    subprocess.run(gdalwarp_command, check=True)
+                    print(f"gdalwarp completed successfully. Output file: {output_tiff}")
+                    
+                except subprocess.CalledProcessError as e:
+                    print(f"Error running gdalwarp: {e}")
+                    
+                da_ =  rio.open_rasterio(output_tiff)     
+                    
+                da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_)
+                da_['time'] = self.age_class_frac_cube.cube.time
                 out_.append(da_)
             
             out_ = xr.concat(out_, dim = 'age_class')
             da_.to_zarr(self.study_dir + 'age_fraction_{var_}_{resolution}'.format(var_ = var_, resolution = str(self.config_file['target_resolution'])), mode= 'w')
-            
-        shutil.rmtree(self.config_file['cube_location'])
+                
+        #shutil.rmtree(self.config_file['cube_location'])
     
         
         
