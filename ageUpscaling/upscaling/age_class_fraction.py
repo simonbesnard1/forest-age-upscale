@@ -136,6 +136,10 @@ class AgeFraction(ABC):
                 data_class.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
                 data_class.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
                 data_class = data_class.rio.write_crs("epsg:4326", inplace=True)
+                data_class.attrs = {'long_name': 'Forest age fraction',
+                                    'units': 'adimensional',
+                                    'valid_max': 1,
+                                    'valid_min': 0}
                 data_class.rio.to_raster(raster_path=input_tiff, driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
                 
                 gdalwarp_command = [
@@ -160,7 +164,7 @@ class AgeFraction(ABC):
                 da_ =  rio.open_rasterio(output_tiff)     
                     
                 da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_)
-                da_['time'] = self.age_class_frac_cube.cube.time
+                da_['time'] = data_class.time
                 out_.append(da_)
             
             out_ = xr.concat(out_, dim = 'age_class')
