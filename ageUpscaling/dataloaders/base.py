@@ -121,6 +121,9 @@ class MLData(ABC):
         else :
             if not self.training:
                 Y = Y.where(Y<max_forest_age).to_array().values
+            else:
+                Y = Y.to_array().values
+                
             Y[Y<1] = 1 ## set min age to 1
             
         return Y
