@@ -129,22 +129,32 @@ class AgeFraction(ABC):
             out_ = [] 
             
             for class_ in self.age_class_frac_cube.cube.age_class.values:
-                
-                input_tiff = self.study_dir + '/age_class_{class_}.tif'.format(class_ =class_)
+                 
                 output_tiff = self.study_dir + f'age_class_fraction_{self.config_file["target_resolution"]}.tif'
                 data_class = xr.open_zarr(self.config_file['cube_location'])[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude').astype("int16")         
                 data_class.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
                 data_class.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
                 data_class = data_class.rio.write_crs("epsg:4326", inplace=True)
-                data_class.attrs = {'long_name': 'Forest age fraction',
+                data_class.attrs = {'long_name': 'Forest age fraction - {class_}'.format(class_ = class_),
                                     'units': 'adimensional',
                                     'valid_max': 1,
                                     'valid_min': 0}
-                data_class.rio.to_raster(raster_path=input_tiff, driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
                 
+                n_chunks = 4 
+                LatChunks = np.array_split(data_class.latitude.values, n_chunks)
+                LonChunks = np.array_split(data_class.longitude.values, n_chunks)
+                chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
+            		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+                              for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
+                
+                iter_ = 0
+                for chunck in chunk_dict:
+	
+                    data_class.sel(chunck).rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
+                    iter_ += 1
                 gdalwarp_command = [
                     'gdalwarp',
-                    input_tiff,
+                    '',
                     output_tiff,
                     '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
                     '-t_srs', 'EPSG:4326',
