@@ -132,7 +132,7 @@ class AgeFraction(ABC):
                 
                 input_tiff = self.study_dir + '/age_class_{class_}.tif'.format(class_ =class_)
                 output_tiff = self.study_dir + f'age_class_fraction_{self.config_file["target_resolution"]}.tif'
-                data_class = xr.open_zarr(self.config_file['cube_location'])[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude')         
+                data_class = xr.open_zarr(self.config_file['cube_location'])[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude').astype("int16")         
                 data_class.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
                 data_class.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
                 data_class = data_class.rio.write_crs("epsg:4326", inplace=True)
