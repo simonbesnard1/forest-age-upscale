@@ -80,7 +80,7 @@ class MLDataModule(MLData):
                             self.train_subset,
                             self.normalize,
                             self.norm_stats,
-                            training=True)        
+                            training=False)        
             
         return train_data
 

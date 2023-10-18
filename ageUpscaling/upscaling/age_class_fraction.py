@@ -165,7 +165,8 @@ class AgeFraction(ABC):
                     '-of', 'Gtiff',
                     '-te', '-180', '-90', '180', '90',
                     '-r', 'average',
-                    '-ot', 'Float32'
+                    '-ot', 'Float32',
+                    '-srcnodata NaN'
                 ]
         
                 subprocess.run(gdalwarp_command, check=True)
