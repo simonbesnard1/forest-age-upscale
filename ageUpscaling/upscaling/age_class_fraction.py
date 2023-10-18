@@ -114,16 +114,16 @@ class AgeFraction(ABC):
                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        if (self.n_jobs > 1):
+        # if (self.n_jobs > 1):
             
-            with dask.config.set({'distributed.worker.threads': self.n_jobs}):
+        #     with dask.config.set({'distributed.worker.threads': self.n_jobs}):
 
-                futures = [self._calc_func(extent) for extent in AllExtents]
-                dask.compute(*futures, num_workers=self.n_jobs)
+        #         futures = [self._calc_func(extent) for extent in AllExtents]
+        #         dask.compute(*futures, num_workers=self.n_jobs)
                         
-        else:
-            for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-                self._calc_func(extent)
+        # else:
+        #     for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
+        #         self._calc_func(extent)
                         
         for var_ in self.config_file['cube_variables'].keys():
             out_ = [] 
@@ -145,10 +145,10 @@ class AgeFraction(ABC):
                               for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
                 
                 iter_ = 0
-                for chunck in chunk_dict:
+                #for chunck in chunk_dict:
 	
-                    data_class.sel(chunck).rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
-                    iter_ += 1
+                #    data_class.sel(chunck).rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
+                #    iter_ += 1
                 
                 gdalwarp_command = [
                                     'gdalbuildvrt',
@@ -167,9 +167,9 @@ class AgeFraction(ABC):
                     '-r', 'average',
                     '-ot', 'Float32',
                     '-srcnodata NaN'
-                ]
-        
+                ]        
                 subprocess.run(gdalwarp_command, check=True)
+                
                 tif_files = glob.glob(os.path.join(self.study_dir, 'age_class_{class_}*.tif'.format(class_=class_)))
                 for tif_file in tif_files:
                     os.remove(tif_file)
