@@ -147,6 +147,9 @@ class AgeFraction(ABC):
                 
                 iter_ = 0
                 for chunck in chunk_dict:
+                    
+                    if not os.path.exists(self.study_dir + '/age_class_{class_}/'.format(class_ =class_)):
+                        os.makedirs(self.study_dir + '/age_class_{class_}/'.format(class_ =class_))
 	
                     data_class.sel(chunck).rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
                     iter_ += 1
