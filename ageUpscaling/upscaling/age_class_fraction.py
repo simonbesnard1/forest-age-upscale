@@ -150,27 +150,31 @@ class AgeFraction(ABC):
                     
                     if not os.path.exists(self.study_dir + '/age_class_{class_}/'.format(class_ =class_)):
                         os.makedirs(self.study_dir + '/age_class_{class_}/'.format(class_ =class_))
-	
-                    data_class.sel(chunck).rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
+                    
+                    if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_))):
+                        data_class.sel(chunck).rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
                     iter_ += 1
                 
+            for class_ in self.age_class_frac_cube.cube.age_class.values:
+
                 if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}.vrt'.format(class_=class_)):
-                    print("VRT file does not exist. Stopping the script.")
+                    print("VRT file for age class {class_} does not exist. Stopping the script.".format(class_=class_))
                     sys.exit(1)
                     
                 tif_files = glob.glob(os.path.join(self.study_dir, '/age_class_{class_}/age_class_{class_}*.tif'.format(class_=class_)))
                 for tif_file in tif_files:
                     os.remove(tif_file)
-                os.remove(self.study_dir + 'age_class_{class_}.vrt'.format(class_=class_))                    
-                da_ =  rio.open_rasterio(self.study_dir + f'/age_class_fraction_{self.config_file["target_resolution"]}deg.tif')     
+                os.remove(self.study_dir + 'age_class_{class_}.vrt'.format(class_=class_))
+                    
+                da_ =  rio.open_rasterio(self.study_dir + f'/age_class_{class_}/age_class_fraction_{self.config_file["target_resolution"]}deg.tif')     
                     
                 da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_)
                 da_['time'] = data_class.time
                 out_.append(da_)
-                            
-            out_ = xr.concat(out_, dim = 'age_class').to_dataset(name = 'forestAge_fraction').transpose('latitude', 'longitude', 'time', 'age_class')
-            da_.to_zarr(self.study_dir + '/age_fraction_{var_}_{resolution}'.format(var_ = var_, resolution = str(self.config_file['target_resolution'])), mode= 'w')
-                
+                        
+        out_ = xr.concat(out_, dim = 'age_class').to_dataset(name = 'forestAge_fraction').transpose('latitude', 'longitude', 'time', 'age_class')
+        da_.to_zarr(self.study_dir + '/age_fraction_{var_}_{resolution}'.format(var_ = var_, resolution = str(self.config_file['target_resolution'])), mode= 'w')
+            
         tif_files = glob.glob(os.path.join(self.study_dir, '*.tif'))
         for tif_file in tif_files:
             os.remove(tif_file)
