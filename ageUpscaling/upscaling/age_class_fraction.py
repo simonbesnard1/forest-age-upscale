@@ -18,6 +18,7 @@ from itertools import product
 from abc import ABC
 import subprocess
 import glob
+import sys
 
 import numpy as np
 import yaml as yml
@@ -26,8 +27,7 @@ import dask
 
 import xarray as xr
 import zarr
-import rioxarray as rio 
-from osgeo import gdal
+import rioxarray as rio
 
 from ageUpscaling.core.cube import DataCube
 
@@ -146,57 +146,32 @@ class AgeFraction(ABC):
                               for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
                 
                 iter_ = 0
-                #for chunck in chunk_dict:
+                for chunck in chunk_dict:
 	
-                #    data_class.sel(chunck).rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
-                #    iter_ += 1
+                    data_class.sel(chunck).rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
+                    iter_ += 1
                 
-                # Create a VRT dataset
-                vrt_dataset = gdal.BuildVRT(elf.study_dir + '/age_class_{class_}.vrt'.format(class_=class_), glob.glob(self.study_dir + '/*.tif'))
-                
-                # Update the VRT dataset
-                vrt_dataset.FlushCache()
-                
-                # Optionally, close the VRT dataset when you're done
-                vrt_dataset = None
-                
-                # gdalwarp_command = [
-                #                     'gdalbuildvrt',
-                #                     self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
-                #                     ] + glob.glob(self.study_dir + '/*.tif')
-                # subprocess.run(gdalwarp_command, check=True)
-                
-                gdalwarp_command = [
-                    'gdalwarp',
-                    self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
-                    self.study_dir + f'/age_class_fraction_{self.config_file["target_resolution"]}deg.tif',
-                    '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
-                    '-t_srs', 'EPSG:4326',
-                    '-of', 'Gtiff',
-                    '-te', '-180', '-90', '180', '90',
-                    '-r', 'average',
-                    '-ot', 'Float32',
-                    '-srcnodata NaN'
-                ]        
-                subprocess.run(gdalwarp_command, check=True)
-                
-                tif_files = glob.glob(os.path.join(self.study_dir, 'age_class_{class_}*.tif'.format(class_=class_)))
+                if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}.vrt'.format(class_=class_)):
+                    print("VRT file does not exist. Stopping the script.")
+                    sys.exit(1)
+                    
+                tif_files = glob.glob(os.path.join(self.study_dir, '/age_class_{class_}/age_class_{class_}*.tif'.format(class_=class_)))
                 for tif_file in tif_files:
                     os.remove(tif_file)
                 os.remove(self.study_dir + 'age_class_{class_}.vrt'.format(class_=class_))                    
-                da_ =  rio.open_rasterio(self.study_dir + f'age_class_fraction_{self.config_file["target_resolution"]}.tif')     
+                da_ =  rio.open_rasterio(self.study_dir + f'/age_class_fraction_{self.config_file["target_resolution"]}deg.tif')     
                     
                 da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_)
                 da_['time'] = data_class.time
                 out_.append(da_)
                             
             out_ = xr.concat(out_, dim = 'age_class').to_dataset(name = 'forestAge_fraction').transpose('latitude', 'longitude', 'time', 'age_class')
-            da_.to_zarr(self.study_dir + 'age_fraction_{var_}_{resolution}'.format(var_ = var_, resolution = str(self.config_file['target_resolution'])), mode= 'w')
+            da_.to_zarr(self.study_dir + '/age_fraction_{var_}_{resolution}'.format(var_ = var_, resolution = str(self.config_file['target_resolution'])), mode= 'w')
                 
         tif_files = glob.glob(os.path.join(self.study_dir, '*.tif'))
         for tif_file in tif_files:
             os.remove(tif_file)
-        shutil.rmtree(self.config_file['cube_location'])
+        #shutil.rmtree(self.config_file['cube_location'])
     
         
         
