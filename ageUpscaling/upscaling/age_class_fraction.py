@@ -18,7 +18,6 @@ from itertools import product
 from abc import ABC
 import subprocess
 import glob
-import sys
 
 import numpy as np
 import yaml as yml
@@ -91,7 +90,7 @@ class AgeFraction(ABC):
                 
             age_class_fraction.append(age_class_mask)
         age_class_fraction = xr.concat(age_class_fraction, dim = 'age_class')
-        
+        age_class_fraction = age_class_fraction.where(np.isfinite(age_class_fraction), -9999)        
         self.age_class_frac_cube.CubeWriter(age_class_fraction, n_workers=2)
             
     def AgeFractionCalc(self) -> None:
@@ -115,16 +114,16 @@ class AgeFraction(ABC):
                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        # if (self.n_jobs > 1):
+        if (self.n_jobs > 1):
             
-        #     with dask.config.set({'distributed.worker.threads': self.n_jobs}):
+            with dask.config.set({'distributed.worker.threads': self.n_jobs}):
 
-        #         futures = [self._calc_func(extent) for extent in AllExtents]
-        #         dask.compute(*futures, num_workers=self.n_jobs)
+                futures = [self._calc_func(extent) for extent in AllExtents]
+                dask.compute(*futures, num_workers=self.n_jobs)
                         
-        # else:
-        #     for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-        #         self._calc_func(extent)
+        else:
+            for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
+                self._calc_func(extent)
                         
         for var_ in self.config_file['cube_variables'].keys():
             out_ = [] 
@@ -170,35 +169,30 @@ class AgeFraction(ABC):
                     '-of', 'Gtiff',
                     '-te', '-180', '-90', '180', '90',
                     '-r', 'average',
-                    '-ot', 'Float32'
+                    '-ot', 'Float32',
+                    '-srcnodata', '-9999',
+                    '-dstnodata', '-9999' 
                 ]        
                 subprocess.run(gdalwarp_command, check=True)
-
                 
-        #     for class_ in self.age_class_frac_cube.cube.age_class.values:
+                tif_files = glob.glob(os.path.join(self.study_dir, '/age_class_{class_}/*.tif'.format(class_=class_)))
+                for tif_file in tif_files:
+                    os.remove(tif_file)
+                os.remove(self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_))                    
+                da_ =  rio.open_rasterio(self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}.tif'.format(class_=class_))     
+                    
+                da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_)
+                da_['time'] = data_class.time
+                out_.append(da_)
+                            
+            out_ = xr.concat(out_, dim = 'age_class').to_dataset(name = 'forestAge_fraction').transpose('latitude', 'longitude', 'time', 'age_class')
+            da_.to_zarr(self.study_dir + '/age_fraction_{var_}_{resolution}deg'.format(var_ = var_, resolution = str(self.config_file['target_resolution'])), mode= 'w')
+                
+        tif_files = glob.glob(os.path.join(self.study_dir, '/*.tif'))
+        for tif_file in tif_files:
+            os.remove(tif_file)
+        shutil.rmtree(self.config_file['cube_location'])
 
-        #         if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}.vrt'.format(class_=class_)):
-        #             print("VRT file for age class {class_} does not exist. Stopping the script.".format(class_=class_))
-        #             sys.exit(1)
-                    
-        #         tif_files = glob.glob(os.path.join(self.study_dir, '/age_class_{class_}/age_class_{class_}*.tif'.format(class_=class_)))
-        #         for tif_file in tif_files:
-        #             os.remove(tif_file)
-        #         os.remove(self.study_dir + 'age_class_{class_}.vrt'.format(class_=class_))
-                    
-        #         da_ =  rio.open_rasterio(self.study_dir + f'/age_class_{class_}/age_class_fraction_{self.config_file["target_resolution"]}deg.tif')     
-                    
-        #         da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_)
-        #         da_['time'] = data_class.time
-        #         out_.append(da_)
-                        
-        # out_ = xr.concat(out_, dim = 'age_class').to_dataset(name = 'forestAge_fraction').transpose('latitude', 'longitude', 'time', 'age_class')
-        # da_.to_zarr(self.study_dir + '/age_fraction_{var_}_{resolution}'.format(var_ = var_, resolution = str(self.config_file['target_resolution'])), mode= 'w')
-            
-        # tif_files = glob.glob(os.path.join(self.study_dir, '*.tif'))
-        # for tif_file in tif_files:
-        #     os.remove(tif_file)
-        #shutil.rmtree(self.config_file['cube_location'])
     
         
         
