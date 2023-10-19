@@ -150,17 +150,16 @@ class AgeFraction(ABC):
                 #    data_class.sel(chunck).rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
                 #    iter_ += 1
                 
-                os.environ['PATH'] = '/cluster/eb/haswell/software/GDAL/3.3.2-foss-2021b/bin:' + os.environ['PATH']
                 gdalwarp_command = [
                                     'gdalbuildvrt',
                                     self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
                                     ] + glob.glob(self.study_dir + '/*.tif')
-                subprocess.run(gdalwarp_command, check=True, shell=True)
+                subprocess.run(gdalwarp_command, check=True)
                 
                 gdalwarp_command = [
                     'gdalwarp',
-                    self.study_dir + 'age_class_{class_}.vrt'.format(class_=class_),
-                    self.study_dir + f'age_class_fraction_{self.config_file["target_resolution"]}deg.tif',
+                    self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
+                    self.study_dir + f'/age_class_fraction_{self.config_file["target_resolution"]}deg.tif',
                     '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
                     '-t_srs', 'EPSG:4326',
                     '-of', 'Gtiff',
@@ -169,7 +168,7 @@ class AgeFraction(ABC):
                     '-ot', 'Float32',
                     '-srcnodata NaN'
                 ]        
-                subprocess.run(gdalwarp_command, check=True, shell=True)
+                subprocess.run(gdalwarp_command, check=True)
                 
                 tif_files = glob.glob(os.path.join(self.study_dir, 'age_class_{class_}*.tif'.format(class_=class_)))
                 for tif_file in tif_files:
