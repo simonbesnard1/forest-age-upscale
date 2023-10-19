@@ -65,6 +65,8 @@ setuptools.setup(
         'tqdm==4.65.2',
         "dask_jobqueue==0.8.1",
         "autogluon==0.8.2",
+        "cartopy==0.22.0",
+        "shapely==2.0.2",
         "sklearn-genetic-opt==0.10.1"],
     include_package_data=True,
 )
