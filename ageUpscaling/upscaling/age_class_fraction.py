@@ -27,6 +27,7 @@ import dask
 import xarray as xr
 import zarr
 import rioxarray as rio 
+from osgeo import gdal
 
 from ageUpscaling.core.cube import DataCube
 
@@ -150,11 +151,20 @@ class AgeFraction(ABC):
                 #    data_class.sel(chunck).rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
                 #    iter_ += 1
                 
-                gdalwarp_command = [
-                                    'gdalbuildvrt',
-                                    self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
-                                    ] + glob.glob(self.study_dir + '/*.tif')
-                subprocess.run(gdalwarp_command, check=True)
+                # Create a VRT dataset
+                vrt_dataset = gdal.BuildVRT(elf.study_dir + '/age_class_{class_}.vrt'.format(class_=class_), glob.glob(self.study_dir + '/*.tif'))
+                
+                # Update the VRT dataset
+                vrt_dataset.FlushCache()
+                
+                # Optionally, close the VRT dataset when you're done
+                vrt_dataset = None
+                
+                # gdalwarp_command = [
+                #                     'gdalbuildvrt',
+                #                     self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
+                #                     ] + glob.glob(self.study_dir + '/*.tif')
+                # subprocess.run(gdalwarp_command, check=True)
                 
                 gdalwarp_command = [
                     'gdalwarp',
