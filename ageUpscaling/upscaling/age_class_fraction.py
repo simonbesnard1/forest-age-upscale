@@ -153,7 +153,7 @@ class AgeFraction(ABC):
                 gdalwarp_command = [
                                     'gdalbuildvrt',
                                     self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
-                                    ] + glob.glob(self.study_dir + '*.tif')
+                                    ] + glob.glob(self.study_dir + '/*.tif')
                 subprocess.run(gdalwarp_command, check=True)
                 
                 gdalwarp_command = [
