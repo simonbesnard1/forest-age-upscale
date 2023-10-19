@@ -150,8 +150,9 @@ class AgeFraction(ABC):
                 #    data_class.sel(chunck).rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
                 #    iter_ += 1
                 
+                os.environ['PATH'] = '/cluster/eb/haswell/software/GDAL/3.3.2-foss-2021b/bin:' + os.environ['PATH']
                 gdalwarp_command = [
-                                    '/cluster/eb/haswell/software/GDAL/3.3.2-foss-2021b/bin/gdalbuildvrt',
+                                    'gdalbuildvrt',
                                     self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
                                     ] + glob.glob(self.study_dir + '/*.tif')
                 subprocess.run(gdalwarp_command, check=True, shell=True)
