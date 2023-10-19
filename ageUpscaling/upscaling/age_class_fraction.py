@@ -151,7 +151,7 @@ class AgeFraction(ABC):
                 #    iter_ += 1
                 
                 gdalwarp_command = [
-                                    'gdalbuildvrt',
+                                    '/cluster/eb/haswell/software/GDAL/3.3.2-foss-2021b/bin/gdalbuildvrt',
                                     self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
                                     ] + glob.glob(self.study_dir + '/*.tif')
                 subprocess.run(gdalwarp_command, check=True, shell=True)
