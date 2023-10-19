@@ -164,7 +164,7 @@ class AgeFraction(ABC):
                 gdalwarp_command = [
                     'gdalwarp',
                     self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
-                    self.study_dir + f'/age_class_fraction_{self.config_file["target_resolution"]}deg.tif',
+                    self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_),
                     '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
                     '-t_srs', 'EPSG:4326',
                     '-of', 'Gtiff',
