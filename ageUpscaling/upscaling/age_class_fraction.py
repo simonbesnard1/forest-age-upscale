@@ -154,7 +154,7 @@ class AgeFraction(ABC):
                                     'gdalbuildvrt',
                                     self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
                                     ] + glob.glob(self.study_dir + '/*.tif')
-                subprocess.run(gdalwarp_command, check=True)
+                subprocess.run(gdalwarp_command, check=True, shell=True)
                 
                 gdalwarp_command = [
                     'gdalwarp',
@@ -168,7 +168,7 @@ class AgeFraction(ABC):
                     '-ot', 'Float32',
                     '-srcnodata NaN'
                 ]        
-                subprocess.run(gdalwarp_command, check=True)
+                subprocess.run(gdalwarp_command, check=True, shell=True)
                 
                 tif_files = glob.glob(os.path.join(self.study_dir, 'age_class_{class_}*.tif'.format(class_=class_)))
                 for tif_file in tif_files:
