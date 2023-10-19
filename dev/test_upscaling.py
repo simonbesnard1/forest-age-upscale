@@ -36,8 +36,9 @@ from ageUpscaling.methods.feature_selection import FeatureSelection
 
 
 algorithm = "XGBoost"
-IN = {"latitude":slice(0, -1),
-      "longitude":slice(-50, -49)}
+IN = {"latitude":slice(2, 0.5),
+      "longitude":slice(-70, -68)}
+
 
 study_dir = '/home/simon/gfz_hpc/projects/forest-age-upscale/output/upscaling/Age_upscale_100m/XGBoost/version-1.0'
 
@@ -143,43 +144,6 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             ML_pred_age[mask] = np.round(pred_reg).astype("int16")
             ML_pred_age[ML_pred_class==1] = DataConfig['max_forest_age'][0]
             
-            if upscaling_config['fuse_wLandsat']:
-                fused_pred_age = np.empty(len(subset_LastTimeSinceDist_cube)) * np.nan
-                
-                # Stand replacement or afforestation occured and age ML is higher than Hansen Loss year
-                mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age > subset_LastTimeSinceDist_cube)
-                fused_pred_age[mask_Change1] = subset_LastTimeSinceDist_cube[mask_Change1]
-                
-                # Stand replacement or afforestation occured and age ML is lower or equal than Hansen Loss year
-                mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age <= subset_LastTimeSinceDist_cube)
-                fused_pred_age[mask_Change2] = ML_pred_age[mask_Change2]
-                
-                # Stand replacement or afforestation occured and age ML is missing
-                mask_Change3 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, np.isnan(ML_pred_age) )
-                fused_pred_age[mask_Change3] = subset_LastTimeSinceDist_cube[mask_Change3]                        
-                
-                # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
-                #mask_intact1 = np.logical_and(subset_LastTimeSinceDist_cube >= 20, ML_pred_age > 20)
-                mask_intact1 = (subset_LastTimeSinceDist_cube >= 20)                
-                fused_pred_age[mask_intact1] = ML_pred_age[mask_intact1]
-                
-                # Forest has been stable since 2000 or planted before 2000 and age ML is lower or equal than 20
-                #mask_intact2 = np.logical_and(subset_LastTimeSinceDist_cube >= 20, ML_pred_age <= 20)
-                #fused_pred_age[mask_intact2] = 20
-                
-                # Forest has been stable or growing since 2000 or planted before 2000 and age ML is missing
-                mask_intact2 = np.logical_and(subset_LastTimeSinceDist_cube >= 20, np.isnan(ML_pred_age))
-                fused_pred_age[mask_intact2] = 20   
-                
-                # # Forest has been stable or growing since 2000
-                # mask_intact1 = (subset_LastTimeSinceDist_cube == 300)
-                # fused_pred_age[mask_intact1] = ML_pred_age[mask_intact1]
-                                      
-                ML_pred_age[np.isnan(fused_pred_age)] = np.nan
-                fused_pred_age[np.isnan(ML_pred_age)] = np.nan                
-                #ML_pred_age[np.isnan(ML_pred_age)] = fused_pred_age[np.isnan(ML_pred_age)]     
-                fused_pred_age = fused_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)                    
-            
             out_reg   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
             output_data = {"forest_age_ML":xr.DataArray(out_reg, 
                                                         coords={"latitude": subset_features_cube.latitude, 
@@ -187,12 +151,4 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
                                                                 "time": subset_features_cube.time,                                                          
                                                                 'members': [run_]}, 
                                                         dims=["latitude", "longitude", "time", "members"]).astype('float32')}
-            if upscaling_config['fuse_wLandsat']:
-                output_data["forest_age_hybrid"] = xr.DataArray(fused_pred_age, 
-                                                               coords={"latitude": subset_features_cube.latitude, 
-                                                                       "longitude": subset_features_cube.longitude,
-                                                                       "time": subset_features_cube.time,                                                          
-                                                                       'members': [run_]}, 
-                                                               dims=["latitude", "longitude", "time", "members"]).astype('float32')
             
-            output_reg_xr.append(xr.Dataset(output_data))
