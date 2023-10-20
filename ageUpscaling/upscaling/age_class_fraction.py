@@ -171,7 +171,7 @@ class AgeFraction(ABC):
                     '-r', 'average',
                     '-ot', 'Float32',
                     '-srcnodata', '-9999',
-                    '-dstnodata', '-9999' 
+                    '-dstnodata', '0' 
                 ]        
                 subprocess.run(gdalwarp_command, check=True)
                 
@@ -179,7 +179,7 @@ class AgeFraction(ABC):
                 for tif_file in tif_files:
                     os.remove(tif_file)
                 os.remove(self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_))                    
-                da_ =  rio.open_rasterio(self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}.tif'.format(class_=class_))     
+                da_ =  rio.open_rasterio(self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_))     
                     
                 da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_)
                 da_['time'] = data_class.time
