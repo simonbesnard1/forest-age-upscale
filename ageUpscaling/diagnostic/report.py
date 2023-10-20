@@ -15,6 +15,7 @@ import os
 
 import numpy as np
 import xarray as xr
+import pandas as pd
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -75,7 +76,8 @@ class Report:
     """
     
     def __init__(self, 
-                 study_dir:str) -> None:
+                 study_dir:str=None,
+                 nfi_data:str = None) -> None:
         
         """
         Initializes a new instance of the `Report` class.
@@ -86,6 +88,7 @@ class Report:
         """
         
         self.study_dir = study_dir
+        self.nfi_data = nfi_data
                 
         self.report_dir = os.path.join(study_dir, 'report')
         
@@ -210,7 +213,7 @@ class Report:
         
     def EI_diagnostic(self):
         
-        ds = xr.open_zarr(os.path.join(self.study_dir, 'ExtrapolationIndex_1km')).isel(time=0)
+        ds = xr.open_zarr(os.path.join(self.study_dir, 'ExtrapolationIndex_100m')).isel(time=0)
         
         fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(10,7), constrained_layout = True,
                       subplot_kw={'projection': ccrs.PlateCarree()})
@@ -280,12 +283,12 @@ class Report:
         
     def GlobalAge_diagnostic(self):
         
-        ds = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_1km')).isel(time=0, members=0)
+        ds = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_100m')).isel(time=1).forest_age_hybrid
         
-        fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(10,7), constrained_layout = True,
+        fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(6,7), constrained_layout = True,
                       subplot_kw={'projection': ccrs.PlateCarree()})
-        
-        dat_= ds.sel(latitude = slice(15, -30), longitude = slice(-90, -30)).forest_age_TC020
+
+        dat_= ds.sel(latitude = slice(2, 0), longitude = slice(-70, -68))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[0,0], cmap= "afmhot_r", vmin=0, vmax =150,
                          cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
@@ -293,8 +296,8 @@ class Report:
         ax[0,0].gridlines()
         ax[0,0].add_feature(cartopy.feature.LAND, facecolor='0.7')
         ax[0,0].set_title("Amazon basin")
-        
-        dat_= ds.sel(latitude = slice(15, -20), longitude = slice(-10, 35)).forest_age_TC020
+
+        dat_= ds.sel(latitude = slice(-2, -4), longitude = slice(20, 22))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[0,1], cmap= "afmhot_r", vmin=0, vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
@@ -302,8 +305,8 @@ class Report:
         ax[0,1].gridlines()
         ax[0,1].add_feature(cartopy.feature.LAND, facecolor='0.7')
         ax[0,1].set_title("Congo basin")
-        
-        dat_= ds.sel(latitude = slice(80, 30), longitude = slice(-20, 50)).forest_age_TC020
+
+        dat_= ds.sel(latitude = slice(44, 42), longitude = slice(1, 3))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[1,0], cmap= "afmhot_r", vmin=0, vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
@@ -311,8 +314,8 @@ class Report:
         ax[1,0].gridlines()
         ax[1,0].add_feature(cartopy.feature.LAND, facecolor='0.7')
         ax[1,0].set_title("Europe")
-        
-        dat_= ds.sel(latitude = slice(90, 30), longitude = slice(70, 180)).forest_age_TC020
+
+        dat_= ds.sel(latitude = slice(65, 63), longitude = slice(50, 52))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[1,1], cmap= "afmhot_r", vmin=0, vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
@@ -320,8 +323,8 @@ class Report:
         ax[1,1].gridlines()
         ax[1,1].add_feature(cartopy.feature.LAND, facecolor='0.7')
         ax[1,1].set_title("Siberia")
-       
-        dat_= ds.sel(latitude = slice(75, 10), longitude = slice(-170, -50)).forest_age_TC020
+
+        dat_= ds.sel(latitude = slice(54, 52), longitude = slice(-113, -111))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[2,0], cmap= "afmhot_r", vmin=0,vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
@@ -329,17 +332,91 @@ class Report:
         ax[2,0].gridlines()
         ax[2,0].add_feature(cartopy.feature.LAND, facecolor='0.7')
         ax[2,0].set_title("North America")
-        
-        dat_= ds.sel(latitude = slice(50, -15), longitude = slice(90, 160)).forest_age_TC020
+
+        dat_= ds.sel(latitude = slice(30, 28), longitude = slice(110, 112))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[2,1], cmap= "afmhot_r", vmin=0, vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
         ax[2,1].coastlines()
         ax[2,1].gridlines()
         ax[2,1].add_feature(cartopy.feature.LAND, facecolor='0.7')
-        ax[2,1].set_title("Southeast Asia")
+        ax[2,1].set_title("China")
         plt.savefig(os.path.join(self.report_dir, 'GlobalAge_diagnostic.png'), dpi=300)        
         plt.close("all")
+
+    def NFI_diagnostic(self):
+        
+        #%% Extract predicted age for nfi data
+        global_age = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_100m'))
+        nfi_data = pd.read_csv(self.nfi_data)
+        nfi_data['year_of_measurement'] = np.round(nfi_data['year_of_measurement'].values).astype('int16')
+        nfi_data['age'] = np.round(nfi_data['age'].values).astype('int16')
+        nfi_data['age'] = nfi_data['age'] + (2020 - nfi_data['year_of_measurement']) 
+        nfi_data['age'][nfi_data['age']> 300] = 300
+    
+        age_extract = []
+        for index, row in nfi_data.iterrows():
+            age_extract.append(global_age.forest_age_hybrid.sel(time = '2020-01-01', latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values)
+        extracted_df = pd.DataFrame(age_extract, columns=['forest_age_hybrid'])
+        nfi_data = pd.concat([nfi_data, extracted_df], axis=1)
+    
+        #%% Plot data
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5), constrained_layout= True)
+        
+        obs_ = nfi_data['age'].values.astype("float32")
+        pred_ = nfi_data['forest_age_hybrid'].values.astype("float32")
+        valid_values = np.isfinite(pred_) & np.isfinite(obs_)
+        pred_ = pred_[valid_values]
+        obs_ = obs_[valid_values]
+        im = ax[0].hexbin(pred_,obs_, bins='log', gridsize=100, mincnt=3)
+        ax[0].set_xlabel('Predicted forest age [years]', size=12)   
+        ax[0].set_ylabel('NFI forest age [years]', size=12)
+        ax[0].spines['top'].set_visible(False)
+        ax[0].spines['right'].set_visible(False)
+        fig.colorbar(im, ax=ax[0])
+        ax[0].set_ylim(0,310)
+        ax[0].set_xlim(0,310)
+        slope_, intercept_ = np.polyfit(pred_, obs_, 1)
+        ax[0].plot(obs_, slope_*obs_ + intercept_, color='black', linewidth = 2, linestyle='dashed')
+        rmse = rmse_gufunc(pred_, obs_)
+        nrmse = nrmse_gufunc(pred_, obs_) *100
+        text_box = dict(facecolor='white', edgecolor='none', pad=4, alpha=.9)
+        title=''
+        ax[0].text(0.55, 0.16, f'{title}  RMSE={rmse:.2f} yr', horizontalalignment='left',
+            verticalalignment='top', transform=ax[0].transAxes, bbox=text_box, size=12)
+        ax[0].text(0.55, 0.08, f'{title}  NRMSE={nrmse:.2f} %', horizontalalignment='left',
+            verticalalignment='top', transform=ax[0].transAxes, bbox=text_box, size=12)
+        ax[0].plot([0, 310], [0, 310], linestyle='--', color='red', linewidth=2)
+        ax[0].text(0.05, 0.95, "A", transform=ax[0].transAxes,
+                fontsize=16, fontweight='bold', va='top')
+
+        residual = obs_ - pred_
+        age_classes = [(0, 10), (10, 20), (20, 30), (30, 40), (40, 50), (50, 100), (100, 150), (150, 200), (200, 300)]
+        for j in range(len(age_classes)):
+            
+            Agemask = (obs_ >= age_classes[j][0]) & (obs_ < age_classes[j][1])
+            
+            residual_masked = residual[Agemask]
+            IQ_mask = (residual_masked > np.quantile(residual_masked, 0.25)) & (residual_masked < np.quantile(residual_masked, 0.75))
+            pointx,pointy,fillx,filly = violins(residual_masked[IQ_mask],pos=j,spread=0.3,max_num_points=1000)
+            ax[1].scatter(pointy, pointx, color='darkblue',alpha=0.1, marker='.') 
+            ax[1].scatter(j, np.nanquantile(residual_masked[IQ_mask], 0.5), marker='d', s=200, color='red', alpha=0.5)
+
+        # Extract age class labels for x-axis
+        age_class_labels = [f'{lower}-{upper}' for (lower, upper) in age_classes]
+
+        # Create the bar plot
+        ax[1].spines['top'].set_visible(False)
+        ax[1].spines['right'].set_visible(False)
+        ax[1].set_ylabel('Residuals [years]', size=12)
+        ax[1].text(0.05, 0.95, "B", transform=ax[1].transAxes,
+                fontsize=16, fontweight='bold', va='top')
+        ax[1].set_xticks(range(len(age_classes)))
+        ax[1].axhline(y=0, color='black', linestyle='--', linewidth =3)
+        ax[1].set_xticklabels(age_class_labels, rotation=45)
+        
+        plt.savefig(os.path.join(self.report_dir, 'nfi_validation.png'), dpi=300)        
+        plt.close("all")   
 
     def generate_diagnostic(self,
                             diagnostic_type: dict = {'cross-validation'}):
@@ -351,6 +428,10 @@ class Report:
             self.EI_diagnostic()
         elif 'global-age' in diagnostic_type:
             print('Computing global forest age diagnostic')
-            self.GlobalAge_diagnostic()
+            self.GlobalAge_diagnostic()    
+        elif 'nfi-valid' in diagnostic_type:
+            print('Computing validation with NFI data')
+            self.NFI_diagnostic()
+            
         
         
