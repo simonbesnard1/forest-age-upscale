@@ -19,8 +19,6 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import cartopy
-import cartopy.crs as ccrs
 import scipy.stats as st
 
 from sklearn.metrics import classification_report
@@ -211,135 +209,46 @@ class Report:
         plt.savefig(os.path.join(self.report_dir, 'xval_diagnostic.png'), dpi=300)        
         plt.close("all")
         
-    def EI_diagnostic(self):
-        
-        ds = xr.open_zarr(os.path.join(self.study_dir, 'ExtrapolationIndex_100m')).isel(time=0)
-        
-        fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(10,7), constrained_layout = True,
-                      subplot_kw={'projection': ccrs.PlateCarree()})
-        
-        dat_= ds.sel(latitude = slice(15, -30), longitude = slice(-90, -30)).Extrapolation_Index
-        dat_.attrs['long_name'] = 'Euclidean distance'
-        dat_.attrs['units'] = '-'
-        dat_.plot.imshow(ax=ax[0,0], cmap= "afmhot_r", vmin=0, vmax =3,
-                         cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
-        ax[0,0].coastlines()
-        ax[0,0].gridlines()
-        ax[0,0].add_feature(cartopy.feature.LAND, facecolor='0.7')
-        ax[0,0].set_title("Amazon basin")
-        
-        dat_= ds.sel(latitude = slice(15, -20), longitude = slice(-10, 35)).Extrapolation_Index
-        dat_.attrs['long_name'] = 'Euclidean distance'
-        dat_.attrs['units'] = '-'
-        dat_.plot.imshow(ax=ax[0,1], cmap= "afmhot_r", vmin=0, vmax =3,
-                             cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
-        ax[0,1].coastlines()
-        ax[0,1].gridlines()
-        ax[0,1].add_feature(cartopy.feature.LAND, facecolor='0.7')
-        ax[0,1].set_title("Congo basin")
-        
-        dat_= ds.sel(latitude = slice(80, 30), longitude = slice(-20, 50)).Extrapolation_Index
-        dat_.attrs['long_name'] = 'Euclidean distance'
-        dat_.attrs['units'] = '-'
-        dat_.plot.imshow(ax=ax[1,0], cmap= "afmhot_r", vmin=0, vmax =3,
-                             cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
-        ax[1,0].coastlines()
-        ax[1,0].gridlines()
-        ax[1,0].add_feature(cartopy.feature.LAND, facecolor='0.7')
-        ax[1,0].set_title("Europe")
-       
-        dat_= ds.sel(latitude = slice(90, 30), longitude = slice(70, 180)).Extrapolation_Index
-        dat_.attrs['long_name'] = 'Euclidean distance'
-        dat_.attrs['units'] = '-'
-        dat_.plot.imshow(ax=ax[1,1], cmap= "afmhot_r", vmin=0, vmax =3,
-                             cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
-        ax[1,1].coastlines()
-        ax[1,1].gridlines()
-        ax[1,1].add_feature(cartopy.feature.LAND, facecolor='0.7')
-        ax[1,1].set_title("Siberia")
-        
-        dat_= ds.sel(latitude = slice(75, 10), longitude = slice(-170, -50)).Extrapolation_Index
-        dat_.attrs['long_name'] = 'Euclidean distance'
-        dat_.attrs['units'] = '-'
-        dat_.plot.imshow(ax=ax[2,0], cmap= "afmhot_r", vmin=0, vmax =3,
-                             cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
-        ax[2,0].coastlines()
-        ax[2,0].gridlines()
-        ax[2,0].add_feature(cartopy.feature.LAND, facecolor='0.7')
-        ax[2,0].set_title("North America")
-        
-        dat_= ds.sel(latitude = slice(50, -15), longitude = slice(90, 160)).Extrapolation_Index
-        dat_.attrs['long_name'] = 'Euclidean distance'
-        dat_.attrs['units'] = '-'
-        dat_.plot.imshow(ax=ax[2,1], cmap= "afmhot_r", vmin=0,vmax =3,
-                             cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
-        ax[2,1].coastlines()
-        ax[2,1].gridlines()
-        ax[2,1].add_feature(cartopy.feature.LAND, facecolor='0.7')
-        ax[2,1].set_title("Southeast Asia")
-
-        plt.savefig(os.path.join(self.report_dir, 'EI_diagnostic.png'), dpi=300)        
-        plt.close("all")
-        
     def GlobalAge_diagnostic(self):
         
         ds = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_100m')).isel(time=1).forest_age_hybrid
         
-        fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(6,7), constrained_layout = True,
-                      subplot_kw={'projection': ccrs.PlateCarree()})
+        fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(6,7), constrained_layout = True)
 
-        dat_= ds.sel(latitude = slice(2, 0), longitude = slice(-70, -68))
+        dat_= ds.sel(latitude = slice(3, -1), longitude = slice(-71, -67))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[0,0], cmap= "afmhot_r", vmin=0, vmax =150,
                          cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
-        ax[0,0].coastlines()
-        ax[0,0].gridlines()
-        ax[0,0].add_feature(cartopy.feature.LAND, facecolor='0.7')
         ax[0,0].set_title("Amazon basin")
 
-        dat_= ds.sel(latitude = slice(-2, -4), longitude = slice(20, 22))
+        dat_= ds.sel(latitude = slice(-1, -5), longitude = slice(19, 23))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[0,1], cmap= "afmhot_r", vmin=0, vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
-        ax[0,1].coastlines()
-        ax[0,1].gridlines()
-        ax[0,1].add_feature(cartopy.feature.LAND, facecolor='0.7')
         ax[0,1].set_title("Congo basin")
 
-        dat_= ds.sel(latitude = slice(44, 42), longitude = slice(1, 3))
+        dat_= ds.sel(latitude = slice(45, 41), longitude = slice(0, 4))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[1,0], cmap= "afmhot_r", vmin=0, vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
-        ax[1,0].coastlines()
-        ax[1,0].gridlines()
-        ax[1,0].add_feature(cartopy.feature.LAND, facecolor='0.7')
         ax[1,0].set_title("Europe")
 
-        dat_= ds.sel(latitude = slice(65, 63), longitude = slice(50, 52))
+        dat_= ds.sel(latitude = slice(66, 62), longitude = slice(49, 53))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[1,1], cmap= "afmhot_r", vmin=0, vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
-        ax[1,1].coastlines()
-        ax[1,1].gridlines()
-        ax[1,1].add_feature(cartopy.feature.LAND, facecolor='0.7')
         ax[1,1].set_title("Siberia")
 
-        dat_= ds.sel(latitude = slice(54, 52), longitude = slice(-113, -111))
+        dat_= ds.sel(latitude = slice(55, 51), longitude = slice(-114, -110))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[2,0], cmap= "afmhot_r", vmin=0,vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
-        ax[2,0].coastlines()
-        ax[2,0].gridlines()
-        ax[2,0].add_feature(cartopy.feature.LAND, facecolor='0.7')
         ax[2,0].set_title("North America")
 
-        dat_= ds.sel(latitude = slice(30, 28), longitude = slice(110, 112))
+        dat_= ds.sel(latitude = slice(31, 27), longitude = slice(109, 113))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[2,1], cmap= "afmhot_r", vmin=0, vmax =150,
                              cbar_kwargs = dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
-        ax[2,1].coastlines()
-        ax[2,1].gridlines()
-        ax[2,1].add_feature(cartopy.feature.LAND, facecolor='0.7')
         ax[2,1].set_title("China")
         plt.savefig(os.path.join(self.report_dir, 'GlobalAge_diagnostic.png'), dpi=300)        
         plt.close("all")
@@ -423,13 +332,10 @@ class Report:
         if 'cross-validation' in diagnostic_type:
             print('Computing cross-validation diagnostic')
             self.xval_diagnostic()
-        elif 'extrapolation-index' in diagnostic_type:
-            print('Computing extrapolation-index diagnostic')
-            self.EI_diagnostic()
-        elif 'global-age' in diagnostic_type:
+        if 'global-age' in diagnostic_type:
             print('Computing global forest age diagnostic')
             self.GlobalAge_diagnostic()    
-        elif 'nfi-valid' in diagnostic_type:
+        if 'nfi-valid' in diagnostic_type:
             print('Computing validation with NFI data')
             self.NFI_diagnostic()
             
