@@ -427,17 +427,17 @@ class UpscaleAge(ABC):
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        if (self.n_jobs//2 > 1):
+        # if (self.n_jobs//2 > 1):
             
-            with dask.config.set({'distributed.worker.threads': self.n_jobs//2}):
+        #     with dask.config.set({'distributed.worker.threads': self.n_jobs//2}):
 
-                futures = [self._predict_func(extent) for extent in AllExtents]
-                dask.compute(*futures, num_workers=self.n_jobs//2)
+        #         futures = [self._predict_func(extent) for extent in AllExtents]
+        #         dask.compute(*futures, num_workers=self.n_jobs//2)
             
-        else:
-            for extent in tqdm(AllExtents, desc='Upscaling procedure'):
-                self._predict_func(extent)   
-        
+        # else:
+        for extent in tqdm(AllExtents, desc='Upscaling procedure'):
+            self._predict_func(extent)   
+   
         if os.path.exists(os.path.join(self.study_dir, "tune")):
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
             

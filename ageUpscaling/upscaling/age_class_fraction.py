@@ -90,7 +90,7 @@ class AgeFraction(ABC):
                 
             age_class_fraction.append(age_class_mask)
         age_class_fraction = xr.concat(age_class_fraction, dim = 'age_class')
-        age_class_fraction = age_class_fraction.where(np.isfinite(age_class_fraction), -9999)        
+        #age_class_fraction = age_class_fraction.where(np.isfinite(age_class_fraction), -9999)        
         self.age_class_frac_cube.CubeWriter(age_class_fraction, n_workers=2)
             
     def AgeFractionCalc(self) -> None:
@@ -157,25 +157,27 @@ class AgeFraction(ABC):
                 gdalwarp_command = [
                                     'gdalbuildvrt',
                                     self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
-                                    ] + glob.glob(self.study_dir + '/age_class_{class_}/*.tif'.format(class_=class_))
+                                    ] + glob.glob(os.path.join(self.study_dir, 'age_class_{class_}/*.tif'.format(class_=class_)))
                 subprocess.run(gdalwarp_command, check=True)
                 
                 gdalwarp_command = [
                     'gdalwarp',
-                    self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
-                    self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_),
                     '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
                     '-t_srs', 'EPSG:4326',
                     '-of', 'Gtiff',
                     '-te', '-180', '-90', '180', '90',
                     '-r', 'average',
                     '-ot', 'Float32',
-                    '-srcnodata', '-9999',
-                    '-dstnodata', '0' 
+                    '-co', 'COMPRESS=LZW',
+                    '-co', 'BIGTIFF=YES',
+                    '-overwrite',
+                    self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
+                    self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_),
+                    
                 ]        
                 subprocess.run(gdalwarp_command, check=True)
                 
-                tif_files = glob.glob(os.path.join(self.study_dir, '/age_class_{class_}/*.tif'.format(class_=class_)))
+                tif_files = glob.glob(os.path.join(self.study_dir, 'age_class_{class_}/*.tif'.format(class_=class_)))
                 for tif_file in tif_files:
                     os.remove(tif_file)
                 os.remove(self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_))                    
@@ -188,7 +190,7 @@ class AgeFraction(ABC):
             out_ = xr.concat(out_, dim = 'age_class').to_dataset(name = 'forestAge_fraction').transpose('latitude', 'longitude', 'time', 'age_class')
             da_.to_zarr(self.study_dir + '/age_fraction_{var_}_{resolution}deg'.format(var_ = var_, resolution = str(self.config_file['target_resolution'])), mode= 'w')
                 
-        tif_files = glob.glob(os.path.join(self.study_dir, '/*.tif'))
+        tif_files = glob.glob(os.path.join(self.study_dir, '*.tif'))
         for tif_file in tif_files:
             os.remove(tif_file)
         shutil.rmtree(self.config_file['cube_location'])
