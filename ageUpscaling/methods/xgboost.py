@@ -208,14 +208,9 @@ class XGBoost:
 
         dtrain = xgb.DMatrix(train_data['features'], label=train_data['target'])
         
-        if oversampling:
+        if oversampling and self.method == "XGBoostRegressor":
             
-            if self.method == "XGBoostRegressor":
-                age_classes, current_points = np.unique(np.round(train_data['target'], -1), return_counts=True)
-            
-            elif self.method == "XGBoostClassifier":
-                age_classes, current_points = np.unique(train_data['target'], return_counts=True)
-            
+            age_classes, current_points = np.unique(np.round(train_data['target'], -1), return_counts=True)
             desired_points_per_class = np.nanmax(current_points)
             
             Y_sample = []
@@ -250,14 +245,9 @@ class XGBoost:
             training_params['num_boost_round'] = first_model.best_ntree_limit
             training_params['early_stopping_rounds'] = None 
             
-            if oversampling:
+            if oversampling and self.method == "XGBoostRegressor":
                 
-                if self.method == "XGBoostRegressor":
-                    age_classes, current_points = np.unique(np.round(np.concatenate([train_data['target'], val_data['target']]), -1), return_counts=True)
-                
-                elif self.method == "XGBoostClassifier":
-                    age_classes, current_points = np.unique(np.concatenate([train_data['target'], val_data['target']]), return_counts=True)
-                    
+                age_classes, current_points = np.unique(np.round(np.concatenate([train_data['target'], val_data['target']]), -1), return_counts=True)
                 desired_points_per_class = np.nanmax(current_points)
                 
                 Y_sample = []
