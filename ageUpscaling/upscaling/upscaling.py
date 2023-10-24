@@ -343,7 +343,7 @@ class UpscaleAge(ABC):
                 #output_reg_quantile = output_reg_xr.quantile([0.25, 0.75], dim="members")
                 #output_reg_iqr = output_reg_quantile.sel(quantile = 0.75) - output_reg_quantile.sel(quantile = 0.25)
                 
-                self.pred_cube.CubeWriter(output_reg_xr.median(dim = 'members').transpose('latitude', 'longitude', 'time'), n_workers=2)
+                self.pred_cube.CubeWriter(output_reg_xr.isel(members=0).transpose('latitude', 'longitude', 'time'), n_workers=2)
                 #self.pred_cube.CubeWriter(output_reg_iqr.transpose('latitude', 'longitude', 'time'), n_workers=2)
                     
     def model_tuning(self,
