@@ -34,6 +34,9 @@ from ageUpscaling.methods.RandomForest import RandomForest
 from ageUpscaling.methods.autoML import AutoML
 from ageUpscaling.methods.feature_selection import FeatureSelection
 
+import geopandas as gpd
+from rasterio.features import geometry_mask
+
 
 algorithm = "XGBoost"
 IN = {"latitude":slice(2, 0.5),
@@ -47,6 +50,9 @@ with open('/home/simon/gfz_hpc/projects/forest-age-upscale/config_files/upscalin
 
 with open('/home/simon/gfz_hpc/projects/forest-age-upscale/config_files/upscaling/100m/config_upscaling.yaml', 'r') as f:
     upscaling_config =  yml.safe_load(f)
+
+intact_forest = gpd.read_file(DataConfig['intact_forest_df'])
+intact_tropical_forest = intact_forest[intact_forest['IFL_ID'].str.contains('|'.join(['SAM', 'SEA', 'AFR']))]
 
 lat_start, lat_stop = IN['latitude'].start, IN['latitude'].stop
 lon_start, lon_stop = IN['longitude'].start, IN['longitude'].stop
@@ -145,10 +151,31 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             ML_pred_age[ML_pred_class==1] = DataConfig['max_forest_age'][0]
             
             out_reg   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
-            output_data = {"forest_age_ML":xr.DataArray(out_reg, 
+            output_reg_xr = xr.Dataset({"forest_age_ML":xr.DataArray(out_reg, 
                                                         coords={"latitude": subset_features_cube.latitude, 
                                                                 "longitude": subset_features_cube.longitude,
                                                                 "time": subset_features_cube.time,                                                          
                                                                 'members': [run_]}, 
-                                                        dims=["latitude", "longitude", "time", "members"]).astype('float32')}
+                                                        dims=["latitude", "longitude", "time", "members"]).astype('float32')})
             
+            mask = ~np.zeros(output_reg_xr['forest_age_ML'].isel(time=1, members=0).shape, dtype=bool)
+            for index, row in intact_tropical_forest.iterrows():
+                polygon = row.geometry
+                polygon_mask = geometry_mask([polygon], out_shape=mask.shape, transform=output_reg_xr.rio.transform())
+                
+                if False in polygon_mask:
+                    mask[polygon_mask==False] = False
+                
+            mask= mask.reshape(output_reg_xr.latitude.shape[0], output_reg_xr.longitude.shape[0] , 1)
+            result_xr = output_reg_xr.copy()
+            out_2020 = result_xr.sel(time='2020-01-01')
+            out_2010 = result_xr.sel(time='2020-01-01') - 10
+            out_2010 = xr.where(out_2010 >= 0, out_2010, output_reg_xr.sel(time='2010-01-01'))
+            out_2010 = out_2010.where(mask, DataConfig['max_forest_age'][0])
+            out_2020 = out_2020.where(mask, DataConfig['max_forest_age'][0])                
+            out_2010 = out_2010.where(out_2020<DataConfig['max_forest_age'][0], DataConfig['max_forest_age'][0])
+            out_2010 = out_2010.where(np.isfinite(output_reg_xr.sel(time = '2020-01-01')))
+            out_2020 = out_2020.where(np.isfinite(output_reg_xr.sel(time = '2020-01-01')))
+            out_2010['time'] = xr.DataArray(np.array(["2010-01-01"], dtype="datetime64[ns]"), dims="time")
+                         
+            output_reg_xr = xr.concat([out_2010, out_2020], dim= 'time')     
