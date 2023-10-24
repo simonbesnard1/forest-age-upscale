@@ -67,6 +67,7 @@ setuptools.setup(
         "autogluon==0.8.2",
         "cartopy==0.22.0",
         "shapely==2.0.2",
+        "geopandas==0.14.0",
         "sklearn-genetic-opt==0.10.1"],
     include_package_data=True,
 )
