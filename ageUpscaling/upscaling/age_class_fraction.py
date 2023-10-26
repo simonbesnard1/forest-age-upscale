@@ -114,16 +114,16 @@ class AgeFraction(ABC):
                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        # if (self.n_jobs > 1):
+        if (self.n_jobs > 1):
             
-        #     with dask.config.set({'distributed.worker.threads': self.n_jobs}):
+            with dask.config.set({'distributed.worker.threads': self.n_jobs}):
 
-        #         futures = [self._calc_func(extent) for extent in AllExtents]
-        #         dask.compute(*futures, num_workers=self.n_jobs)
+                futures = [self._calc_func(extent) for extent in AllExtents]
+                dask.compute(*futures, num_workers=self.n_jobs)
                         
-        # else:
-        #     for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-        #         self._calc_func(extent)
+        else:
+            for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
+                self._calc_func(extent)
                         
         for var_ in self.config_file['cube_variables'].keys():
             out_ = [] 
