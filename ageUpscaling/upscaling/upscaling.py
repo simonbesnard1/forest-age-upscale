@@ -451,9 +451,6 @@ class UpscaleAge(ABC):
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        AllExtents = [{"latitude":slice(5, 4.5),
-                      "longitude":slice(-63.5, -62.5)}]
-        
         # if (self.n_jobs//2 > 1):
             
         #     with dask.config.set({'distributed.worker.threads': self.n_jobs//2}):
