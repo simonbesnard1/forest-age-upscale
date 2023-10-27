@@ -177,23 +177,21 @@ class AgeFraction(ABC):
                 ]        
                 subprocess.run(gdalwarp_command, check=True)
                 
-                tif_files = glob.glob(os.path.join(self.study_dir, 'age_class_{class_}/*.tif'.format(class_=class_)))
-                for tif_file in tif_files:
-                    os.remove(tif_file)
+                shutil.rmtree(os.path.join(self.study_dir, 'age_class_{class_}'.format(class_=class_)))
                 os.remove(self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_))                    
                 da_ =  rio.open_rasterio(self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_))     
                     
-                da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_)
+                da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_).to_dataset(name = var_)
                 da_['time'] = data_class.time
                 out_.append(da_)
                             
             out_ = xr.concat(out_, dim = 'age_class').to_dataset(name = 'forestAge_fraction').transpose('latitude', 'longitude', 'time', 'age_class')
             da_.to_zarr(self.study_dir + '/age_fraction_{var_}_{resolution}deg'.format(var_ = var_, resolution = str(self.config_file['target_resolution'])), mode= 'w')
                 
-        tif_files = glob.glob(os.path.join(self.study_dir, '*.tif'))
-        for tif_file in tif_files:
-            os.remove(tif_file)
-        shutil.rmtree(self.config_file['cube_location'])
+        # tif_files = glob.glob(os.path.join(self.study_dir, '*.tif'))
+        # for tif_file in tif_files:
+        #     os.remove(tif_file)
+        # shutil.rmtree(self.config_file['cube_location'])
 
     
         

@@ -339,11 +339,11 @@ class UpscaleAge(ABC):
                 out_2020 = out_2020.where(np.isfinite(output_reg_xr.sel(time = '2020-01-01')))
                 out_2010['time'] = xr.DataArray(np.array(["2010-01-01"], dtype="datetime64[ns]"), dims="time")
                              
-                output_reg_xr = xr.concat([out_2010, out_2020], dim= 'time')                
+                output_reg_xr = xr.concat([out_2010, out_2020], dim= 'time').mean(dim= "members").transpose('latitude', 'longitude', 'time')                
                 #output_reg_quantile = output_reg_xr.quantile([0.25, 0.75], dim="members")
                 #output_reg_iqr = output_reg_quantile.sel(quantile = 0.75) - output_reg_quantile.sel(quantile = 0.25)
                 
-                self.pred_cube.CubeWriter(output_reg_xr.isel(members=0).transpose('latitude', 'longitude', 'time'), n_workers=2)
+                self.pred_cube.CubeWriter(output_reg_xr, n_workers=2)
                 #self.pred_cube.CubeWriter(output_reg_iqr.transpose('latitude', 'longitude', 'time'), n_workers=2)
                     
     def model_tuning(self,
@@ -451,6 +451,9 @@ class UpscaleAge(ABC):
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
+        AllExtents = [{"latitude":slice(5, 4.5),
+                      "longitude":slice(-63.5, -62.5)}]
+        
         # if (self.n_jobs//2 > 1):
             
         #     with dask.config.set({'distributed.worker.threads': self.n_jobs//2}):
@@ -465,11 +468,11 @@ class UpscaleAge(ABC):
         if os.path.exists(os.path.join(self.study_dir, "tune")):
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
             
-        if os.path.exists(os.path.join(self.study_dir, '/features_sync.zarrsync')):
-            shutil.rmtree(os.path.join(self.study_dir, '/features_sync.zarrsync'))
+        if os.path.exists(os.path.join(self.study_dir, 'features_sync.zarrsync')):
+            shutil.rmtree(os.path.join(self.study_dir, 'features_sync.zarrsync'))
         
-        if os.path.exists(os.path.join(self.study_dir, '/cube.zarrsync')):
-            shutil.rmtree(os.path.join(self.study_dir, '/cube.zarrsync'))
+        if os.path.exists(os.path.join(self.study_dir, 'cube.zarrsync')):
+            shutil.rmtree(os.path.join(self.study_dir, 'cube.zarrsync'))
         
     def norm(self, 
              x: np.array,
