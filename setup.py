@@ -43,7 +43,7 @@ setuptools.setup(
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         "Operating System :: OS Independent",
     ],
-    python_requires='==3.11.5',
+    python_requires='>=3.10',
     install_requires=[
         "xarray==2023.10.1",
         "zarr==2.10.3",
