@@ -43,7 +43,7 @@ setuptools.setup(
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.10',
+    python_requires='>=3.11.5',
     install_requires=[
         "xarray==2023.10.1",
         "zarr==2.10.3",
@@ -64,7 +64,7 @@ setuptools.setup(
         "shap==0.43.0",
         'tqdm==4.66.1',
         "dask_jobqueue==0.8.2",
-        "autogluon==0.8.2",
+        #"autogluon==0.8.2",
         "cartopy==0.22.0",
         "shapely==2.0.2",
         "geopandas==0.14.0",
