@@ -104,7 +104,6 @@ class UpscaleAge(ABC):
             shutil.rmtree(sync_file)
             
         self.sync_feature = zarr.ProcessSynchronizer(sync_file)
-        
         self.agb_cube   = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=self.sync_feature)
         self.clim_cube  = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync_feature)
         self.canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=self.sync_feature)
@@ -186,12 +185,17 @@ class UpscaleAge(ABC):
         buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
                      'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
         
-        subset_agb_cube        = self.agb_cube.sel(buffer_IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
-        subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
         
-        if not np.isnan(subset_agb_cube.to_array().values).all():            
+        subset_LastTimeSinceDist_cube = self.LastTimeSinceDist_cube.sel(IN).to_array()
+        subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).values.reshape(-1)
+        
+        if not np.isnan(subset_LastTimeSinceDist_cube).all():            
+            
+            subset_agb_cube        = self.agb_cube.sel(buffer_IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
+            subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
+            
             subset_clim_cube = self.clim_cube.sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
-            subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
+            subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
             subset_canopyHeight_cube = self.canopyHeight_cube.sel(buffer_IN).to_array().to_dataset(name= [x for x in self.DataConfig['features']  if "canopy_height" in x][0]).astype('float16')
@@ -199,10 +203,6 @@ class UpscaleAge(ABC):
             subset_canopyHeight_cube = subset_canopyHeight_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
             subset_features_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube.sel(IN)])
-            
-            subset_LastTimeSinceDist_cube = self.LastTimeSinceDist_cube.sel(IN).mean(dim = "time").to_array()
-            subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
-            subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).values.reshape(-1)
             
             output_reg_xr = []
             for run_ in np.arange(self.upscaling_config['num_members']):
@@ -291,35 +291,35 @@ class UpscaleAge(ABC):
                         fused_pred_age = np.empty(len(subset_LastTimeSinceDist_cube)) * np.nan
                         
                         # Stand replacement or afforestation occured and age ML is higher than Hansen Loss year
-                        mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age > subset_LastTimeSinceDist_cube)
+                        mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age[len(subset_LastTimeSinceDist_cube):] > subset_LastTimeSinceDist_cube)
                         fused_pred_age[mask_Change1] = subset_LastTimeSinceDist_cube[mask_Change1]
                         
                         # Stand replacement or afforestation occured and age ML is lower or equal than Hansen Loss year
-                        mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age <= subset_LastTimeSinceDist_cube)
-                        fused_pred_age[mask_Change2] = ML_pred_age[mask_Change2]
+                        mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age[len(subset_LastTimeSinceDist_cube):] <= subset_LastTimeSinceDist_cube)
+                        fused_pred_age[mask_Change2] = ML_pred_age[len(subset_LastTimeSinceDist_cube):][mask_Change2]
                                                 
                         # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
                         mask_intact1 = (subset_LastTimeSinceDist_cube >= 20)
-                        fused_pred_age[mask_intact1] = ML_pred_age[mask_intact1]
+                        fused_pred_age[mask_intact1] = ML_pred_age[len(subset_LastTimeSinceDist_cube):][mask_intact1]
                                               
-                        ML_pred_age[np.isnan(fused_pred_age)] = np.nan
-                        fused_pred_age[np.isnan(ML_pred_age)] = np.nan                
-                        fused_pred_age = fused_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)                        
+                        ML_pred_age[len(subset_LastTimeSinceDist_cube):][np.isnan(fused_pred_age)] = np.nan
+                        fused_pred_age[np.isnan(ML_pred_age[len(subset_LastTimeSinceDist_cube):])] = np.nan                
+                        fused_pred_age = fused_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1)                        
                         
                     out_reg   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
                     output_data = {"forest_age_ML":xr.DataArray(out_reg, 
                                                                 coords={"latitude": subset_features_cube.latitude, 
                                                                         "longitude": subset_features_cube.longitude,
-                                                                        "time": subset_features_cube.time,                                                          
+                                                                        "time": subset_features_cube.time.values,                                                          
                                                                         'members': [run_]}, 
-                                                                dims=["latitude", "longitude", "time", "members"]).astype('float32')}
+                                                                dims=["latitude", "longitude", "time", "members"]).astype('int16')}
                     if self.upscaling_config['fuse_wLandsat']:
                         output_data["forest_age_hybrid"] = xr.DataArray(fused_pred_age, 
                                                                        coords={"latitude": subset_features_cube.latitude, 
                                                                                "longitude": subset_features_cube.longitude,
-                                                                               "time": subset_features_cube.time,                                                          
+                                                                               "time": [subset_features_cube.time[-1].values],                                                          
                                                                                'members': [run_]}, 
-                                                                       dims=["latitude", "longitude", "time", "members"]).astype('float32')
+                                                                       dims=["latitude", "longitude", "time", "members"]).astype('int16')
                     
                     output_reg_xr.append(xr.Dataset(output_data))
                             

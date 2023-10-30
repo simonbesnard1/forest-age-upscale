@@ -216,7 +216,7 @@ class Report:
         
         fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(6,7), constrained_layout = True)
 
-        dat_= ds.sel(latitude = slice(3, -1), longitude = slice(-71, -67))
+        dat_= ds.sel(latitude = slice(6, 2), longitude = slice(-65, -61))
         dat_.attrs['long_name'] = 'Forest Age'
         dat_.plot.imshow(ax=ax[0,0], cmap= "afmhot_r", vmin=0, vmax =150,
                          cbar_kwargs = dict(orientation='vertical', shrink=0.7, aspect=10, pad=0.05))
