@@ -69,10 +69,29 @@ class AgeFraction(ABC):
         self.study_dir = study_dir
         self.n_jobs = n_jobs
         
+        sync_file = os.path.abspath(study_dir + '/features_sync.zarrsync')
+        
+        if os.path.isdir(sync_file):
+            shutil.rmtree(sync_file)
+            
+        self.sync_feature = zarr.ProcessSynchronizer(sync_file)        
+        self.age_cube = xr.open_zarr(self.config_file['ForestAge_cube'], synchronizer=self.sync_feature)
+     
+    @dask.delayed
     def _calc_func(self, 
                    IN) -> None:
         
-        subset_age_cube = xr.open_zarr(self.config_file['ForestAge_cube']).sel(IN)
+        """
+          Calculate the fraction of data for each age category based on the age_cube and the age_classes from config_file.
+        
+          Args:
+          - IN: Dictionary for subsetting the age_cube.
+        
+          Returns:
+          - age_class_fraction: xarray DataArray with fractions for each age class.
+       """
+       
+        subset_age_cube = self.age_cube.sel(IN)
         
         age_class = np.array(self.config_file['age_classes'])
         age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
@@ -100,8 +119,8 @@ class AgeFraction(ABC):
         age_class = np.array(self.config_file['age_classes'])
         age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
         age_labels[-1] = '>=' + age_labels[-1].split('-')[0]
-        self.config_file['output_writer_params']['dims']['latitude'] = xr.open_zarr(self.config_file['ForestAge_cube']).latitude.values
-        self.config_file['output_writer_params']['dims']['longitude'] =  xr.open_zarr(self.config_file['ForestAge_cube']).longitude.values
+        self.config_file['output_writer_params']['dims']['latitude'] = self.age_cube.latitude.values
+        self.config_file['output_writer_params']['dims']['longitude'] =  self.age_cube.longitude.values
         self.config_file['output_writer_params']['dims']['age_class'] = age_labels
         self.age_class_frac_cube = DataCube(cube_config = self.config_file)
         self.age_class_frac_cube.init_variable(self.config_file['cube_variables'], 
@@ -116,14 +135,12 @@ class AgeFraction(ABC):
         
         if (self.n_jobs > 1):
             
-            with dask.config.set({'distributed.worker.threads': self.n_jobs}):
-
-                futures = [self._calc_func(extent) for extent in AllExtents]
-                dask.compute(*futures, num_workers=self.n_jobs)
+            futures = [self._calc_func(extent) for extent in AllExtents]
+            dask.compute(*futures, num_workers=self.n_jobs)
                         
         else:
             for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-                self._calc_func(extent)
+                self._calc_func(extent).compute()
                         
         for var_ in self.config_file['cube_variables'].keys():
             out_ = [] 
@@ -141,7 +158,7 @@ class AgeFraction(ABC):
                 LatChunks = np.array_split(data_class.latitude.values, 2)
                 LonChunks = np.array_split(data_class.longitude.values, 2)
                 chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-            		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+            		           "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                               for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
                 
                 iter_ = 0
