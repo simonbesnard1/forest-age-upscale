@@ -53,7 +53,7 @@ setuptools.setup(
         "scikit-learn==1.1.3",
         "Boruta==0.3",
         "numpy==1.23.5",
-        "optuna==3.0.3",
+        "optuna==3.4.0",
         "PyYAML==6.0",
         "matplotlib==3.7.2",
         "bottleneck",
@@ -68,6 +68,7 @@ setuptools.setup(
         "cartopy==0.22.0",
         "shapely==2.0.2",
         "geopandas==0.14.0",
+        "scipy==1.11.3",
         "sklearn-genetic-opt==0.10.1"],
     include_package_data=True,
 )
