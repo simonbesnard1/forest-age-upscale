@@ -105,6 +105,12 @@ class UpscaleAge(ABC):
             
         self.sync_feature = zarr.ProcessSynchronizer(sync_file)
         
+        self.agb_cube   = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=self.sync_feature)
+        self.clim_cube  = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync_feature)
+        self.canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=self.sync_feature)
+        self.LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=self.sync_feature)
+        
+        
     def version_dir(self, 
                     base_dir: str,
                     exp_name:str,
@@ -180,21 +186,21 @@ class UpscaleAge(ABC):
         buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
                      'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
         
-        subset_agb_cube        = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=self.sync_feature).sel(buffer_IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
+        subset_agb_cube        = self.agb_cube.sel(buffer_IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
         subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
         
         if not np.isnan(subset_agb_cube.to_array().values).all():            
-            subset_clim_cube       = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync_feature).sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
+            subset_clim_cube = self.clim_cube.sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
             subset_clim_cube =  interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
-            subset_canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=self.sync_feature).sel(buffer_IN).to_array().to_dataset(name= [x for x in self.DataConfig['features']  if "canopy_height" in x][0]).astype('float16')
+            subset_canopyHeight_cube = self.canopyHeight_cube.sel(buffer_IN).to_array().to_dataset(name= [x for x in self.DataConfig['features']  if "canopy_height" in x][0]).astype('float16')
             subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0 )
             subset_canopyHeight_cube = subset_canopyHeight_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
             subset_features_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube.sel(IN)])
             
-            subset_LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=self.sync_feature).sel(IN).mean(dim = "time").to_array()
+            subset_LastTimeSinceDist_cube = self.LastTimeSinceDist_cube.sel(IN).mean(dim = "time").to_array()
             subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).values.reshape(-1)
             
@@ -423,8 +429,10 @@ class UpscaleAge(ABC):
             Boolean indicating whether to perform high resolution prediction, default is False
         """
         
-        self.upscaling_config['output_writer_params']['dims']['latitude'] = xr.open_zarr(self.DataConfig['agb_cube']).latitude.values
-        self.upscaling_config['output_writer_params']['dims']['longitude'] =  xr.open_zarr(self.DataConfig['agb_cube']).longitude.values
+        
+        
+        self.upscaling_config['output_writer_params']['dims']['latitude']  = self.agb_cube.latitude.values
+        self.upscaling_config['output_writer_params']['dims']['longitude'] = self.agb_cube.longitude.values
         self.pred_cube = DataCube(cube_config = self.upscaling_config)
         self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
                                       njobs= len(self.upscaling_config['cube_variables'].keys()))
@@ -450,6 +458,9 @@ class UpscaleAge(ABC):
         AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
+        
+        AllExtents = [{'latitude': slice(8.99955555555556, 0.00044444444444025066, None),
+                       'longitude': slice(-71.99955555555556, -54.00044444444444, None)}]
         
         # if (self.n_jobs//2 > 1):
             
