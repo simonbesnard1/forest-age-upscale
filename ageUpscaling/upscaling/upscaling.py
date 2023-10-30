@@ -38,7 +38,7 @@ from ageUpscaling.transformers.spatial import interpolate_worlClim
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 from ageUpscaling.methods.RandomForest import RandomForest
-from ageUpscaling.methods.autoML import AutoML
+#from ageUpscaling.methods.autoML import AutoML
 from ageUpscaling.methods.feature_selection import FeatureSelection
 
 class UpscaleAge(ABC):
@@ -402,10 +402,10 @@ class UpscaleAge(ABC):
             ml_method = RandomForest(study_dir=self.study_dir, 
                                      DataConfig= self.DataConfig,
                                      method=self.algorithm + task_)
-        elif self.algorithm == "AutoML":
-            ml_method = AutoML(study_dir=self.study_dir, 
-                               DataConfig= self.DataConfig,
-                               method=self.algorithm + task_)
+        # elif self.algorithm == "AutoML":
+        #     ml_method = AutoML(study_dir=self.study_dir, 
+        #                        DataConfig= self.DataConfig,
+        #                        method=self.algorithm + task_)
         
         ml_method.train(train_subset=train_subset,
                         valid_subset=valid_subset,
