@@ -177,20 +177,28 @@ class ComputeCube(ABC):
         """
 
         try:
-            _zarr = zarr.open_group(self.cube_location, synchronizer = self.sync_cube)[da.name]
+            _zarr_group = zarr.open_group(self.cube_location, synchronizer = self.sync_cube)[da.name]
 
         except (IOError, ValueError, TypeError) as e:
-            raise FileExistsError("cube_location already exists but is not a zarr group. Delete existing directory or choose a different cube_location: "+self.cube_location) from e
+            raise FileExistsError(
+                                    f"cube_location already exists but is not a zarr group. Delete existing directory or choose a different cube_location: {self.cube_location}"
+                                 ) from e
+            
+        # Finding the alignment indices
+        alignment_indices = tuple([np.where(np.isin(self.cube[dim].values, da[dim].values))[0] for dim in da.dims])
         
-        indx = tuple([np.where( np.isin(self.cube[dim].values, da[dim].values ) )[0] for dim in da.dims])
-        
-        if len(_zarr.shape) != len(da.shape):
-            raise ValueError("Inconsistent dimensions. Array `{0}` to be saved has dimensions of {1}, but target dataset expected {2}.".format(da.name, da.dims, self.cube[da.name].dims))
+        # Checking consistency in dimensions
+        if len(_zarr_group.shape) != len(da.shape):
+            raise ValueError(
+                f"Inconsistent dimensions. Array `{da.name}` to be saved has dimensions of {da.dims}, but target dataset expected {self.cube[da.name].dims if da.name in self.cube else 'unknown'}."
+                            )
+        # Attempt to write the data to the Zarr group
         try:
-            _zarr.set_orthogonal_selection(indx, da.data)
-        except Exception as e:
-            raise RuntimeError("Failed to write variable to cube: " + str(da)) from e
+            _zarr_group.set_orthogonal_selection(alignment_indices, da.data)
+        except Exception as e:  # Consider replacing with a more specific exception if known
+            raise RuntimeError(f"Failed to write variable to cube: {str(da)}") from e
         
+        # Consolidate metadata for the Zarr dataset
         zarr.consolidate_metadata(self.cube_location)
 
     def _update(self, 

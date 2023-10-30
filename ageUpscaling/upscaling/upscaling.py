@@ -176,6 +176,7 @@ class UpscaleAge(ABC):
         
         return f"{base_dir}/{exp_name}/{algorithm}/version-{version}"
     
+    @dask.delayed
     def _predict_func(self, 
                       IN) -> None:
           
@@ -467,17 +468,15 @@ class UpscaleAge(ABC):
         AllExtents = [{'latitude': slice(8.99955555555556, 0.00044444444444025066, None),
                        'longitude': slice(-71.99955555555556, -54.00044444444444, None)}]
         
-        # if (self.n_jobs//2 > 1):
+        if (self.n_jobs//2 > 1):
             
-        #     with dask.config.set({'distributed.worker.threads': self.n_jobs//2}):
-
-        #         futures = [self._predict_func(extent) for extent in AllExtents]
-        #         dask.compute(*futures, num_workers=self.n_jobs//2)
+            futures = [self._predict_func(extent) for extent in AllExtents]
+            dask.compute(*futures, num_workers=self.n_jobs//2)
             
-        # else:
-        for extent in tqdm(AllExtents, desc='Upscaling procedure'):
-            self._predict_func(extent)   
-   
+        else:
+            for extent in tqdm(AllExtents, desc='Upscaling procedure'):
+                self._predict_func(extent).compute()   
+       
         if os.path.exists(os.path.join(self.study_dir, "tune")):
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
             

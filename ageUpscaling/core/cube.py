@@ -102,13 +102,11 @@ class DataCube(ComputeCube):
         
         if chunks is not None:
             
-            with dask.config.set({'distributed.worker.threads': n_workers//2}):
-
-                futures = [self._update(da.sel(latitude = chunk['latitude'], 
-                                              longitude = chunk['longitude']))
-                          for chunk in chunks]
-                dask.compute(*futures, num_workers=n_workers)
-                
+            futures = [self._update(da.sel(latitude = chunk['latitude'], 
+                                          longitude = chunk['longitude']))
+                      for chunk in chunks]
+            dask.compute(*futures, num_workers=n_workers)
+            
         else:
             self._update(da)
          
