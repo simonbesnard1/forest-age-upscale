@@ -16,6 +16,7 @@ You can install the python package as follows:
 ***Important: a personal token has to be entered as password for the package installation***
 ```
 pip install git+https://git.gfz-potsdam.de/global-land-monitoring/forest-age-upscale.git
+mamba install gdal
 ```
 
 ## :notebook_with_decorative_cover: &nbsp;Getting started
