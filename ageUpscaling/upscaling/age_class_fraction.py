@@ -143,8 +143,7 @@ class AgeFraction(ABC):
                 self._calc_func(extent).compute()
                         
         for var_ in self.config_file['cube_variables'].keys():
-            out_ = [] 
-            
+             
             for class_ in self.age_class_frac_cube.cube.age_class.values:
                  
                 data_class = xr.open_zarr(self.config_file['cube_location'])[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude').astype("int16")         
@@ -196,19 +195,21 @@ class AgeFraction(ABC):
                 
                 shutil.rmtree(os.path.join(self.study_dir, 'age_class_{class_}'.format(class_=class_)))
                 os.remove(self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_))                    
-                da_ =  rio.open_rasterio(self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_))     
-                    
-                da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= class_).to_dataset(name = var_)
+            
+            out_ = []
+            tif_files = glob.glob(os.path.join(self.study_dir, 'age_class_*.tif'))
+            for tif_file in tif_files:
+                da_ =  rio.open_rasterio(tif_file)     
+                da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).assign_coords(age_class= os.path.basename(tif_file).split('fraction_')[1].split('_')[0]).to_dataset(name = var_)
                 da_['time'] = data_class.time
                 out_.append(da_)
                             
-            out_ = xr.concat(out_, dim = 'age_class').to_dataset(name = 'forestAge_fraction').transpose('latitude', 'longitude', 'time', 'age_class')
+            out_ = xr.concat(out_, dim = 'age_class').transpose('latitude', 'longitude', 'time', 'age_class')
             da_.to_zarr(self.study_dir + '/age_fraction_{var_}_{resolution}deg'.format(var_ = var_, resolution = str(self.config_file['target_resolution'])), mode= 'w')
                 
-        # tif_files = glob.glob(os.path.join(self.study_dir, '*.tif'))
-        # for tif_file in tif_files:
-        #     os.remove(tif_file)
-        # shutil.rmtree(self.config_file['cube_location'])
+            for tif_file in tif_files:
+                 os.remove(tif_file)
+        shutil.rmtree(self.config_file['cube_location'])
 
     
         
