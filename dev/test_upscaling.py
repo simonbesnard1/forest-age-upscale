@@ -39,6 +39,8 @@ from rasterio.features import geometry_mask
 
 
 algorithm = "XGBoost"
+IN = {'latitude': slice(8.99955555555556, 0.00044444444444025066, None),
+      'longitude': slice(-71.99955555555556, -54.00044444444444, None)}
 IN = {"latitude":slice(5, 4.5),
       "longitude":slice(-63.5, -62.5)}
 
