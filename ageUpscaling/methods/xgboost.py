@@ -155,7 +155,7 @@ class XGBoost:
                    val_data:dict,
                    DataConfig:dict,
                    tune_dir:str,
-                   retrain_with_valid:bool= False,
+                   retrain_with_valid:bool= True,
                    oversampling:bool= True) -> float:
         """Searches for the optimal hyperparameters for the machine learning model.
         
@@ -239,10 +239,10 @@ class XGBoost:
         vallist = [(dtrain, 'train'), (deval, 'eval')]
         
         first_model = xgb.train(hyper_params, dtrain, evals=vallist, callbacks = [pruning_callback],
-                           verbose_eval=False, **training_params)
+                                verbose_eval=False, **training_params)
 
         if retrain_with_valid:
-            training_params['num_boost_round'] = first_model.best_ntree_limit
+            training_params['num_boost_round'] = first_model.best_iteration
             training_params['early_stopping_rounds'] = None 
             
             if oversampling and self.method == "XGBoostRegressor":
