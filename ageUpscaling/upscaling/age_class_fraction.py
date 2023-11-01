@@ -135,7 +135,7 @@ class AgeFraction(ABC):
         
         if (self.n_jobs > 1):
             
-            batch_size = 10
+            batch_size = 3
             for i in range(0, len(AllExtents), batch_size):
                 batch_futures = [self._calc_func(extent) for extent in AllExtents[i:i+batch_size]]
                 dask.compute(*batch_futures, num_workers=self.n_jobs)
