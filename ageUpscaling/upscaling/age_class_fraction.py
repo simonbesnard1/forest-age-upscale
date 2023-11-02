@@ -133,18 +133,18 @@ class AgeFraction(ABC):
                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        if (self.n_jobs > 1):
+        # if (self.n_jobs > 1):
             
-            batch_size = 3
-            for i in range(0, len(AllExtents), batch_size):
-                batch_futures = [self._calc_func(extent) for extent in AllExtents[i:i+batch_size]]
-                dask.compute(*batch_futures, num_workers=self.n_jobs)
-            #futures = [self._calc_func(extent) for extent in AllExtents]
-            #dask.compute(*futures, num_workers=self.n_jobs)
+        #     batch_size = 3
+        #     for i in range(0, len(AllExtents), batch_size):
+        #         batch_futures = [self._calc_func(extent) for extent in AllExtents[i:i+batch_size]]
+        #         dask.compute(*batch_futures, num_workers=self.n_jobs)
+        #     #futures = [self._calc_func(extent) for extent in AllExtents]
+        #     #dask.compute(*futures, num_workers=self.n_jobs)
                         
-        else:
-            for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-                self._calc_func(extent).compute()
+        # else:
+        #     for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
+        #         self._calc_func(extent).compute()
                         
         zarr_out_ = []
         for var_ in self.config_file['cube_variables'].keys():
@@ -172,7 +172,7 @@ class AgeFraction(ABC):
                         os.makedirs(self.study_dir + '/age_class_{class_}/'.format(class_ =class_))
                     
                     if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_))):
-                        data_class.sel(chunck).rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
+                        data_class.sel(chunck).astype('int16').rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
                     iter_ += 1
                 
                 gdalwarp_command = [
