@@ -746,6 +746,10 @@ class ImportAndSave(ABC):
         self.variables = variables
         self.units = units
 
+    @staticmethod    
+    def round_to_10_degree(coord):
+        return np.floor(coord / 10.0) * 10.0
+    
     def compute_cube(self, 
                      variables: dict[str, Any] = 'default') -> xr.Dataset:
         """
@@ -762,6 +766,11 @@ class ImportAndSave(ABC):
             var_names = DEFAULT_VARS
         
         df_ = pd.read_csv(self.input_csv)
+        df_['Latitude_Cluster'] = df_['latitude'].apply(ImportAndSave.round_to_10_degree)
+        df_['Longitude_Cluster'] = df_['longitude'].apply(ImportAndSave.round_to_10_degree)
+        df_['cluster'] = df_['Latitude_Cluster'].astype(str) + '_' + df_['Longitude_Cluster'].astype(str)
+        df_.drop(['Latitude_Cluster', 'Longitude_Cluster'], axis=1, inplace=True)
+        df_['cluster'], _ = pd.factorize(df_['cluster'])
         
         sites = df_.cluster.values
         plot_ds = []

@@ -197,7 +197,7 @@ class XGBoost:
         
         if self.method == "XGBoostRegressor":
             hyper_params['objective'] = "reg:pseudohubererror"
-            hyper_params['eval_metric'] = "mphe"
+            hyper_params['eval_metric'] = "mphe"      
             pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-mphe")
 
         elif self.method == "XGBoostClassifier":
@@ -220,12 +220,7 @@ class XGBoost:
                 required_samples = desired_points_per_class - b
                 
                 if required_samples > 0:
-                    if self.method == "XGBoostRegressor":
-                        idx_ =  np.where(np.round(train_data['target'], -1) == a)[0]   
-                    
-                    elif self.method == "XGBoostClassifier":
-                        idx_ =  np.where(train_data['target'] == a)[0]   
-                        
+                    idx_ =  np.where(np.round(train_data['target'], -1) == a)[0]   
                     idx_sample = np.random.choice(idx_, required_samples)
                     Y_sample.append(train_data['target'][idx_sample]), 
                     X_sample.append(train_data['features'][idx_sample])
@@ -239,7 +234,7 @@ class XGBoost:
         vallist = [(dtrain, 'train'), (deval, 'eval')]
         
         first_model = xgb.train(hyper_params, dtrain, evals=vallist, callbacks = [pruning_callback],
-                                verbose_eval=False, **training_params)
+                           verbose_eval=False, **training_params)
 
         if retrain_with_valid:
             training_params['num_boost_round'] = first_model.best_ntree_limit
@@ -257,12 +252,7 @@ class XGBoost:
                     required_samples = desired_points_per_class - b
                     
                     if required_samples > 0:
-                        if self.method == "XGBoostRegressor":
-                            idx_ =  np.where(np.round(np.concatenate([train_data['target'], val_data['target']]), -1) == a)[0]   
-                        
-                        elif self.method == "XGBoostClassifier":
-                            idx_ =  np.where(np.concatenate([train_data['target'], val_data['target']]) == a)[0]   
-                        
+                        idx_ =  np.where(np.round(np.concatenate([train_data['target'], val_data['target']]), -1) == a)[0]   
                         idx_sample = np.random.choice(idx_, required_samples)
                         Y_sample.append(np.concatenate([train_data['target'], val_data['target']])[idx_sample]), 
                         X_sample.append(np.concatenate([train_data['features'], val_data['features']])[idx_sample])
@@ -330,6 +320,3 @@ class XGBoost:
                     preds["{out_var}_proba".format(out_var = out_var)] = xr.DataArray([y_hat_proba], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat_proba))})
                     
                 save_cube.CubeWriter(preds.transpose('sample', 'cluster'))
-   
-    
-    
