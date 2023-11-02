@@ -172,7 +172,10 @@ class AgeFraction(ABC):
                         os.makedirs(self.study_dir + '/age_class_{class_}/'.format(class_ =class_))
                     
                     if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_))):
-                        data_class.sel(chunck).astype('int16').rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
+                        data_chunk = data_class.sel(chunck).astype('int16')
+                        data_chunk.attrs["_FillValue"] = -9999                        
+                        data_chunk.rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
+                                                 driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")       
                     iter_ += 1
                 
                 gdalwarp_command = [
@@ -181,23 +184,23 @@ class AgeFraction(ABC):
                                     ] + glob.glob(os.path.join(self.study_dir, 'age_class_{class_}/*.tif'.format(class_=class_)))
                 subprocess.run(gdalwarp_command, check=True)
                 
-        #         gdalwarp_command = [
-        #             'gdalwarp',
-        #             '-srcnodata', '-9999', 
-        #             '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
-        #             '-t_srs', 'EPSG:4326',
-        #             '-of', 'Gtiff',
-        #             '-te', '-180', '-90', '180', '90',
-        #             '-r', 'average',
-        #             '-ot', 'Float32',
-        #             '-co', 'COMPRESS=LZW',
-        #             '-co', 'BIGTIFF=YES',
-        #             '-overwrite',
-        #             self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
-        #             self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_),
+                gdalwarp_command = [
+                    'gdalwarp',
+                    '-srcnodata', '-9999', 
+                    '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
+                    '-t_srs', 'EPSG:4326',
+                    '-of', 'Gtiff',
+                    '-te', '-180', '-90', '180', '90',
+                    '-r', 'average',
+                    '-ot', 'Float32',
+                    '-co', 'COMPRESS=LZW',
+                    '-co', 'BIGTIFF=YES',
+                    '-overwrite',
+                    self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
+                    self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_),
                     
-        #         ]        
-        #         subprocess.run(gdalwarp_command, check=True)
+                ]        
+                subprocess.run(gdalwarp_command, check=True)
                 
         #         shutil.rmtree(os.path.join(self.study_dir, 'age_class_{class_}'.format(class_=class_)))
         #         os.remove(self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_))                    
