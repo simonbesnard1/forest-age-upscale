@@ -467,8 +467,10 @@ class UpscaleAge(ABC):
         
         if (self.n_jobs//2 > 1):
             
-            futures = [self._predict_func(extent) for extent in AllExtents]
-            dask.compute(*futures, num_workers=self.n_jobs//2)
+            batch_size = 2
+            for i in range(0, len(AllExtents), batch_size):
+                batch_futures = [self._predict_func(extent) for extent in AllExtents[i:i+batch_size]]
+                dask.compute(*batch_futures, num_workers=self.n_jobs//2)
             
         else:
             for extent in tqdm(AllExtents, desc='Upscaling procedure'):

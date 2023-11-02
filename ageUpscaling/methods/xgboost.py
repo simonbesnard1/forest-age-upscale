@@ -197,7 +197,7 @@ class XGBoost:
         
         if self.method == "XGBoostRegressor":
             hyper_params['objective'] = "reg:pseudohubererror"
-            hyper_params['eval_metric'] = "mphe"      
+            hyper_params['eval_metric'] = "mphe"
             pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-mphe")
 
         elif self.method == "XGBoostClassifier":
@@ -242,7 +242,7 @@ class XGBoost:
                                 verbose_eval=False, **training_params)
 
         if retrain_with_valid:
-            training_params['num_boost_round'] = first_model.best_iteration
+            training_params['num_boost_round'] = first_model.best_ntree_limit
             training_params['early_stopping_rounds'] = None 
             
             if oversampling and self.method == "XGBoostRegressor":

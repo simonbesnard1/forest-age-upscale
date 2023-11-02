@@ -58,7 +58,7 @@ setuptools.setup(
         "matplotlib==3.8.0",
         "bottleneck==1.3.7",
         "rasterio==1.3.9",
-        "xgboost==2.0.1",
+        "xgboost==1.7.2",
         "torch==2.1.0",
         "TPOT==0.12.1",
         "shap==0.43.0",
