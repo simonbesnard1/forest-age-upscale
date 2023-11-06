@@ -172,30 +172,28 @@ class AgeFraction(ABC):
                     if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_))):
                         data_chunk = data_class.sel(chunck).astype('int16')
                         data_chunk.attrs["_FillValue"] = -9999    
-                        data_chunk = data_chunk.rio.write_nodata(-9999, inplace=True)
                         data_chunk.rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
                                                  driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")  
-                        # gdalwarp_command = [
-                        #                     'gdal_translate',
-                        #                     'a_nodata', '-9999',
-                        #                     self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)),
-                        #                     self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}_nodata.tif'.format(class_ =class_, iter_=str(iter_))
+                        gdalwarp_command = [
+                                            'gdal_translate',
+                                            'a_nodata', '-9999',
+                                            self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)),
+                                            self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}_nodata.tif'.format(class_ =class_, iter_=str(iter_))
                                             
-                        #                     ]
-                        # subprocess.run(gdalwarp_command, check=True)
+                                            ]
+                        subprocess.run(gdalwarp_command, check=True)
                     
                     iter_ += 1
                 
                 gdalwarp_command = [
                                     'gdalbuildvrt',
                                     self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_),
-                                    ] + glob.glob(os.path.join(self.study_dir, 'age_class_{class_}/*.tif'.format(class_=class_)))
+                                    ] + glob.glob(os.path.join(self.study_dir, 'age_class_{class_}/*_nodata.tif'.format(class_=class_)))
                 subprocess.run(gdalwarp_command, check=True)
                 
                 gdalwarp_command = [
                     'gdalwarp',
                     '-srcnodata', '-9999', 
-                    '-dstnodata', '-9999',
                     '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
                     '-t_srs', 'EPSG:4326',
                     '-of', 'Gtiff',
