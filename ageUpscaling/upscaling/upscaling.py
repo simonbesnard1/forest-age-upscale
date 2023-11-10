@@ -329,9 +329,10 @@ class UpscaleAge(ABC):
                                                                        dims=["latitude", "longitude", "time", "members"])
                     
                     ds = xr.Dataset(output_data)
-                    nan_mask = np.isnan(ds['forest_age_ML']) | np.isnan(ds['forest_age_hybrid'])
-                    ds['forest_age_ML'] = ds['forest_age_ML'].where(~nan_mask, np.nan)
-                    ds['forest_age_hybrid'] = ds['forest_age_hybrid'].where(~nan_mask, np.nan)
+                    if self.upscaling_config['fuse_wLandsat']:
+                        nan_mask = np.isnan(ds['forest_age_ML']) | np.isnan(ds['forest_age_hybrid'])
+                        ds['forest_age_ML'] = ds['forest_age_ML'].where(~nan_mask, np.nan)
+                        ds['forest_age_hybrid'] = ds['forest_age_hybrid'].where(~nan_mask, np.nan)
                     output_reg_xr.append(ds)
                             
             if len(output_reg_xr) >0:
