@@ -16,6 +16,7 @@ import os
 import numpy as np
 import xarray as xr
 import pandas as pd
+from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -267,7 +268,7 @@ class Report:
         nfi_data['age'][nfi_data['age']> 300] = 300
     
         age_extract = []
-        for index, row in nfi_data.iterrows():
+        for index, row in tqdm(nfi_data.iterrows(), desc= 'extracting nfi data'):
             dist_extract = dist_data.LandsatDisturbanceTime.sel(latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values
             if dist_extract == 21:
                 age_extract.append(global_age.forest_age_hybrid.sel(time = '2020-01-01', latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values)
