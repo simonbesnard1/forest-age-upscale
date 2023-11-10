@@ -471,8 +471,8 @@ class UpscaleAge(ABC):
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        AllExtents = [{'latitude': slice(6, 2, None),
-                      'longitude': slice(-65, -61, None)}]
+        AllExtents = [{'latitude': slice(8.99955555555556, 0.00044444444444025066, None),
+                       'longitude': slice(-71.99955555555556, -54.00044444444444, None)}]
         
         if (self.n_jobs//2 > 1):
             
