@@ -213,7 +213,7 @@ class Report:
         
     def GlobalAge_diagnostic(self):
         
-        ds = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_100m')).isel(time=1).forest_age_hybrid
+        ds = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_100m')).isel(time=1).forest_age_ML
         
         fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(6,7), constrained_layout = True)
 
