@@ -204,7 +204,7 @@ class UpscaleAge(ABC):
             subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0 )
             subset_canopyHeight_cube = subset_canopyHeight_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
             
-            subset_features_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube.sel(IN)])
+            subset_features_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube.sel(IN)]).transpose('latitude', 'longitude', 'time')
             
             output_reg_xr = []
             for run_ in np.arange(self.upscaling_config['num_members']):
@@ -312,7 +312,6 @@ class UpscaleAge(ABC):
                                                         
                         fused_pred_age = fused_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1)                        
                         
-                    out_reg   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
                     output_data = {"forest_age_ML":xr.DataArray(out_reg, 
                                                                 coords={"latitude": subset_features_cube.latitude, 
                                                                         "longitude": subset_features_cube.longitude,
