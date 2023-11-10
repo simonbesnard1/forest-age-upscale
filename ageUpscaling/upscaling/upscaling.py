@@ -288,29 +288,28 @@ class UpscaleAge(ABC):
                     pred_reg[pred_reg<1] = 1
                     ML_pred_age[mask] = np.round(pred_reg).astype("int16")
                     ML_pred_age[ML_pred_class==1] = self.DataConfig['max_forest_age'][0]
+                    out_reg   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
                     
                     if self.upscaling_config['fuse_wLandsat']:
                         
                         subset_len = len(subset_LastTimeSinceDist_cube)
-                        ML_age_portion = ML_pred_age[subset_len:]
-                        
+                        ML_pred_age_year2 = out_reg[:, :, 1, :].reshape(-1)
+                                                
                         # Initialize with NaN values directly
                         fused_pred_age = np.full(subset_len, np.nan)
                         
                         # Stand replacement or afforestation occured and age ML is higher than Hansen Loss year
-                        mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_age_portion > subset_LastTimeSinceDist_cube)
+                        mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age_year2 > subset_LastTimeSinceDist_cube)
                         fused_pred_age[mask_Change1] = subset_LastTimeSinceDist_cube[mask_Change1]
                         
                         # Stand replacement or afforestation occured and age ML is lower or equal than Hansen Loss year
-                        mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_age_portion <= subset_LastTimeSinceDist_cube)
-                        fused_pred_age[mask_Change2] = ML_age_portion[mask_Change2]
+                        mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age_year2 <= subset_LastTimeSinceDist_cube)
+                        fused_pred_age[mask_Change2] = ML_pred_age_year2[mask_Change2]
                                                 
                         # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
                         mask_intact1 = (subset_LastTimeSinceDist_cube >= 20)
-                        fused_pred_age[mask_intact1] = ML_age_portion[mask_intact1]
-                                              
-                        ML_pred_age[len(subset_LastTimeSinceDist_cube):][np.isnan(fused_pred_age)] = np.nan
-                        fused_pred_age[np.isnan(ML_age_portion)] = np.nan                
+                        fused_pred_age[mask_intact1] = ML_pred_age_year2[mask_intact1]
+                                                        
                         fused_pred_age = fused_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1)                        
                         
                     out_reg   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
@@ -329,7 +328,11 @@ class UpscaleAge(ABC):
                                                                                'members': [run_]}, 
                                                                        dims=["latitude", "longitude", "time", "members"])
                     
-                    output_reg_xr.append(xr.Dataset(output_data))
+                    ds = xr.Dataset(output_data)
+                    nan_mask = np.isnan(ds['forest_age_ML']) | np.isnan(ds['forest_age_hybrid'])
+                    ds['forest_age_ML'] = ds['forest_age_ML'].where(~nan_mask, np.nan)
+                    ds['forest_age_hybrid'] = ds['forest_age_hybrid'].where(~nan_mask, np.nan)
+                    output_reg_xr.append(ds)
                             
             if len(output_reg_xr) >0:
                 output_reg_xr = xr.concat(output_reg_xr, dim = 'members')
