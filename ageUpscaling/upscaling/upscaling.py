@@ -329,6 +329,7 @@ class UpscaleAge(ABC):
                                                                        dims=["latitude", "longitude", "time", "members"])
                     
                     ds = xr.Dataset(output_data)
+                    
                     if self.upscaling_config['fuse_wLandsat']:
                         nan_mask = np.isnan(ds['forest_age_ML']) | np.isnan(ds['forest_age_hybrid'])
                         ds['forest_age_ML'] = ds['forest_age_ML'].where(~nan_mask, np.nan)
@@ -337,25 +338,27 @@ class UpscaleAge(ABC):
                             
             if len(output_reg_xr) >0:
                 output_reg_xr = xr.concat(output_reg_xr, dim = 'members')
-                mask = ~np.zeros(output_reg_xr['forest_age_ML'].isel(time=1, members=0).shape, dtype=bool)
-                for _, row in self.intact_tropical_forest.iterrows():
-                    polygon = row.geometry
-                    polygon_mask = geometry_mask([polygon], out_shape=mask.shape, transform=output_reg_xr.rio.transform())
+                # mask = ~np.zeros(output_reg_xr['forest_age_ML'].isel(time=1, members=0).shape, dtype=bool)
+                # for _, row in self.intact_tropical_forest.iterrows():
+                #     polygon = row.geometry
+                #     polygon_mask = geometry_mask([polygon], out_shape=mask.shape, transform=output_reg_xr.rio.transform())
                     
-                    if False in polygon_mask:
-                        mask[polygon_mask==False] = False
+                #     if False in polygon_mask:
+                #         mask[polygon_mask==False] = False
                     
-                mask= mask.reshape(output_reg_xr.latitude.shape[0], output_reg_xr.longitude.shape[0] , 1)
-                out_2020 = output_reg_xr.sel(time='2020-01-01')
-                out_2010 = output_reg_xr.sel(time='2020-01-01') - 10
-                out_2010 = xr.where(out_2010 >= 0, out_2010, output_reg_xr.sel(time='2010-01-01'))
-                out_2010 = out_2010.where(mask, self.DataConfig['max_forest_age'][0])
-                out_2020 = out_2020.where(mask, self.DataConfig['max_forest_age'][0])                
-                out_2010 = out_2010.where(out_2020<self.DataConfig['max_forest_age'][0], self.DataConfig['max_forest_age'][0])
-                out_2010 = out_2010.where(np.isfinite(output_reg_xr.sel(time = '2020-01-01')))
-                out_2020 = out_2020.where(np.isfinite(output_reg_xr.sel(time = '2020-01-01')))
-                out_2010['time'] = xr.DataArray(np.array(["2010-01-01"], dtype="datetime64[ns]"), dims="time")                             
-                output_reg_xr = xr.concat([out_2010, out_2020], dim= 'time').mean(dim= "members").transpose('latitude', 'longitude', 'time')                
+                # mask= mask.reshape(output_reg_xr.latitude.shape[0], output_reg_xr.longitude.shape[0] , 1)
+                # out_2020 = output_reg_xr.sel(time='2020-01-01')
+                # out_2010 = output_reg_xr.sel(time='2020-01-01') - 10
+                # out_2010 = xr.where(out_2010 >= 0, out_2010, output_reg_xr.sel(time='2010-01-01'))
+                # out_2010 = out_2010.where(mask, self.DataConfig['max_forest_age'][0])
+                # out_2020 = out_2020.where(mask, self.DataConfig['max_forest_age'][0])                
+                # out_2010 = out_2010.where(out_2020<self.DataConfig['max_forest_age'][0], self.DataConfig['max_forest_age'][0])
+                # out_2010 = out_2010.where(np.isfinite(output_reg_xr.sel(time = '2020-01-01')))
+                # out_2020 = out_2020.where(np.isfinite(output_reg_xr.sel(time = '2020-01-01')))
+                # out_2010['time'] = xr.DataArray(np.array(["2010-01-01"], dtype="datetime64[ns]"), dims="time")                             
+                #output_reg_xr = xr.concat([out_2010, out_2020], dim= 'time').mean(dim= "members").transpose('latitude', 'longitude', 'time')                
+                output_reg_xr = output_reg_xr.mean(dim= "members").transpose('latitude', 'longitude', 'time')                
+                
                 #output_reg_quantile = output_reg_xr.quantile([0.25, 0.75], dim="members")
                 #output_reg_iqr = output_reg_quantile.sel(quantile = 0.75) - output_reg_quantile.sel(quantile = 0.25)
                 
