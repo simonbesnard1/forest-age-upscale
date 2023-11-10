@@ -313,7 +313,6 @@ class UpscaleAge(ABC):
                         fused_pred_age = fused_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1)                        
                         
                     out_reg   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
-                    fused_pred_age = np.concatenate((out_reg[:, :, 0, :].reshape(out_reg.shape[0], out_reg.shape[1], 1, out_reg.shape[3]), fused_pred_age), axis=2)
                     output_data = {"forest_age_ML":xr.DataArray(out_reg, 
                                                                 coords={"latitude": subset_features_cube.latitude, 
                                                                         "longitude": subset_features_cube.longitude,
@@ -321,6 +320,7 @@ class UpscaleAge(ABC):
                                                                         'members': [run_]}, 
                                                                 dims=["latitude", "longitude", "time", "members"])}
                     if self.upscaling_config['fuse_wLandsat']:
+                        fused_pred_age = np.concatenate((out_reg[:, :, 0, :].reshape(out_reg.shape[0], out_reg.shape[1], 1, out_reg.shape[3]), fused_pred_age), axis=2)
                         output_data["forest_age_hybrid"] = xr.DataArray(fused_pred_age, 
                                                                        coords={"latitude": subset_features_cube.latitude, 
                                                                                "longitude": subset_features_cube.longitude,
