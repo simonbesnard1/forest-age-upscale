@@ -471,15 +471,12 @@ class UpscaleAge(ABC):
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        AllExtents = [{'latitude': slice(8.99955555555556, 0.00044444444444025066, None),
-                       'longitude': slice(-71.99955555555556, -54.00044444444444, None)}]
-        
-        if (self.n_jobs//2 > 1):
+        if (self.n_jobs > 1):
             
             batch_size = 2
             for i in range(0, len(AllExtents), batch_size):
                 batch_futures = [self._predict_func(extent) for extent in AllExtents[i:i+batch_size]]
-                dask.compute(*batch_futures, num_workers=self.n_jobs//2)
+                dask.compute(*batch_futures, num_workers=self.n_jobs)
             
         else:
             for extent in tqdm(AllExtents, desc='Upscaling procedure'):
