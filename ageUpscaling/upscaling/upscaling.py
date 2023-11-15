@@ -98,7 +98,8 @@ class UpscaleAge(ABC):
         self.feature_selection_method= self.DataConfig["feature_selection_method"]      
         self.upscaling_config['cube_location'] =  os.path.join(self.study_dir, self.upscaling_config['cube_name'])
         
-        sync_file = os.path.abspath(study_dir + '/features_sync.zarrsync')
+        self.task_id = int(os.getenv('SLURM_ARRAY_TASK_ID', 0))
+        sync_file = os.path.abspath(f"{study_dir}/features_sync_{self.task_id}.zarrsync")
         
         if os.path.isdir(sync_file):
             shutil.rmtree(sync_file)
@@ -113,7 +114,7 @@ class UpscaleAge(ABC):
         self.upscaling_config['output_writer_params']['dims']['longitude'] = self.agb_cube.longitude.values
         self.pred_cube = DataCube(cube_config = self.upscaling_config)
         self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
-                                      njobs= len(self.upscaling_config['cube_variables'].keys()))
+                                     njobs= len(self.upscaling_config['cube_variables'].keys()))
 
     def version_dir(self, 
                     base_dir: str,
@@ -473,9 +474,7 @@ class UpscaleAge(ABC):
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        task_id = int(os.getenv('SLURM_ARRAY_TASK_ID', 0))  # Default to 0 if not set
-        print(task_id)
-        selected_extent = AllExtents[task_id]
+        selected_extent = AllExtents[self.task_id]
         print(selected_extent)
         # self.process_chunk(selected_extent)
         
