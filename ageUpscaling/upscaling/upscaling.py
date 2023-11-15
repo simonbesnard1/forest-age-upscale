@@ -182,7 +182,6 @@ class UpscaleAge(ABC):
         
         return f"{base_dir}/{exp_name}/{algorithm}/version-{version}"
     
-    @dask.delayed
     def _predict_func(self, 
                       IN) -> None:
           
@@ -465,7 +464,8 @@ class UpscaleAge(ABC):
         if os.path.exists(os.path.join(self.study_dir, "tune")):
             shutil.rmtree(os.path.join(self.study_dir, "tune"))
         
-    def ForwardRun(self) -> None:
+    def ForwardRun(self, 
+                   task_id=None) -> None:
                                 
         LatChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['latitude'], self.upscaling_config["num_chunks"])
         LonChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['longitude'], self.upscaling_config["num_chunks"])
@@ -474,21 +474,20 @@ class UpscaleAge(ABC):
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        selected_extent = AllExtents[self.task_id]
-        print(selected_extent)
-        # self.process_chunk(selected_extent)
+        selected_extent = AllExtents[task_id]
         
-        # if os.path.exists(os.path.join(self.study_dir, 'features_sync.zarrsync')):
-        #     shutil.rmtree(os.path.join(self.study_dir, 'features_sync.zarrsync'))
+        self.process_chunk(selected_extent)
         
-        # if os.path.exists(os.path.join(self.study_dir, 'cube.zarrsync')):
-        #     shutil.rmtree(os.path.join(self.study_dir, 'cube.zarrsync'))
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync"))
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/cube_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/cube_sync_{self.task_id}.zarrsync"))
         
     def process_chunk(self, extent):
         
-        self._predict_func(extent).compute()   
+        self._predict_func(extent)   
        
-        
     def norm(self, 
              x: np.array,
              norm_stats:dict) -> np.array:
