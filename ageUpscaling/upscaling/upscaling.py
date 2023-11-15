@@ -108,7 +108,13 @@ class UpscaleAge(ABC):
         self.clim_cube  = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync_feature)
         self.canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=self.sync_feature)
         self.LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=self.sync_feature)
-        
+                
+        self.upscaling_config['output_writer_params']['dims']['latitude']  = self.agb_cube.latitude.values
+        self.upscaling_config['output_writer_params']['dims']['longitude'] = self.agb_cube.longitude.values
+        self.pred_cube = DataCube(cube_config = self.upscaling_config)
+        self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
+                                      njobs= len(self.upscaling_config['cube_variables'].keys()))
+
     def version_dir(self, 
                     base_dir: str,
                     exp_name:str,
@@ -426,7 +432,7 @@ class UpscaleAge(ABC):
                          'selected_features': self.DataConfig['features_selected'], 
                          'norm_stats' : ml_method.mldata.norm_stats}, fout)
     
-    def ForwardRun(self) -> None:
+    def model_training(self) -> None:
         """Perform forward run of the model, which consists of generating high resolution maps of age using the trained model.
 
         Parameters
@@ -441,14 +447,6 @@ class UpscaleAge(ABC):
             Boolean indicating whether to perform high resolution prediction, default is False
         """
         
-        
-        
-        self.upscaling_config['output_writer_params']['dims']['latitude']  = self.agb_cube.latitude.values
-        self.upscaling_config['output_writer_params']['dims']['longitude'] = self.agb_cube.longitude.values
-        self.pred_cube = DataCube(cube_config = self.upscaling_config)
-        self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
-                                      njobs= len(self.upscaling_config['cube_variables'].keys()))
-
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
         
@@ -462,6 +460,11 @@ class UpscaleAge(ABC):
                                       feature_selection_method = self.DataConfig['feature_selection_method'],     
                                       train_subset=train_subset, 
                                       valid_subset=valid_subset)
+        
+        if os.path.exists(os.path.join(self.study_dir, "tune")):
+            shutil.rmtree(os.path.join(self.study_dir, "tune"))
+        
+    def ForwardRun(self) -> None:
                                 
         LatChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['latitude'], self.upscaling_config["num_chunks"])
         LonChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['longitude'], self.upscaling_config["num_chunks"])
@@ -470,25 +473,21 @@ class UpscaleAge(ABC):
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        if (self.n_jobs > 1):
-            
-            batch_size = 2
-            for i in range(0, len(AllExtents), batch_size):
-                batch_futures = [self._predict_func(extent) for extent in AllExtents[i:i+batch_size]]
-                dask.compute(*batch_futures, num_workers=self.n_jobs)
-            
-        else:
-            for extent in tqdm(AllExtents, desc='Upscaling procedure'):
-                self._predict_func(extent).compute()   
-       
-        if os.path.exists(os.path.join(self.study_dir, "tune")):
-            shutil.rmtree(os.path.join(self.study_dir, "tune"))
-            
-        if os.path.exists(os.path.join(self.study_dir, 'features_sync.zarrsync')):
-            shutil.rmtree(os.path.join(self.study_dir, 'features_sync.zarrsync'))
+        task_id = int(os.getenv('SLURM_ARRAY_TASK_ID', 0))  # Default to 0 if not set
+        selected_extent = AllExtents[task_id]
+        print(selected_extent)
+        # self.process_chunk(selected_extent)
         
-        if os.path.exists(os.path.join(self.study_dir, 'cube.zarrsync')):
-            shutil.rmtree(os.path.join(self.study_dir, 'cube.zarrsync'))
+        # if os.path.exists(os.path.join(self.study_dir, 'features_sync.zarrsync')):
+        #     shutil.rmtree(os.path.join(self.study_dir, 'features_sync.zarrsync'))
+        
+        # if os.path.exists(os.path.join(self.study_dir, 'cube.zarrsync')):
+        #     shutil.rmtree(os.path.join(self.study_dir, 'cube.zarrsync'))
+        
+    def process_chunk(self, extent):
+        
+        self._predict_func(extent).compute()   
+       
         
     def norm(self, 
              x: np.array,
