@@ -13,7 +13,6 @@
 import os
 import shutil
 from tqdm import tqdm
-import atexit
 from itertools import product
 from abc import ABC
 import subprocess
@@ -29,13 +28,6 @@ import zarr
 import rioxarray as rio
 
 from ageUpscaling.core.cube import DataCube
-
-synchronizer = zarr.ProcessSynchronizer('.zarrsync')
-
-def cleanup():
-    if os.path.isdir('.zarrsync') and (len(os.listdir('.zarrsync')) == 0):
-        shutil.rmtree('.zarrsync')
-atexit.register(cleanup)
 
 class AgeFraction(ABC):
     """Study abstract class used for cross validation, model training, prediction.
