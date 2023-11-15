@@ -474,6 +474,7 @@ class UpscaleAge(ABC):
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
         task_id = int(os.getenv('SLURM_ARRAY_TASK_ID', 0))  # Default to 0 if not set
+        print(task_id)
         selected_extent = AllExtents[task_id]
         print(selected_extent)
         # self.process_chunk(selected_extent)
