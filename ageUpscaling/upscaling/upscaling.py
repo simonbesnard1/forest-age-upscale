@@ -104,6 +104,12 @@ class UpscaleAge(ABC):
             shutil.rmtree(sync_file)            
         self.sync_feature = zarr.ProcessSynchronizer(sync_file)
         
+        
+        sync_file = os.path.abspath(f"{study_dir}/features_sync_{self.task_id}.zarrsync")        
+        if os.path.isdir(sync_file):
+            shutil.rmtree(sync_file)            
+        self.out_cube_sync = zarr.ProcessSynchronizer(sync_file)
+
         self.agb_cube   = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=self.sync_feature)
         self.clim_cube  = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync_feature)
         self.canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=self.sync_feature)
@@ -115,11 +121,6 @@ class UpscaleAge(ABC):
         self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
                                      njobs= len(self.upscaling_config['cube_variables'].keys()))
         
-        sync_file = os.path.abspath(f"{study_dir}/cube_sync_{self.task_id}.zarrsync")    
-        if os.path.isdir(sync_file):
-            shutil.rmtree(sync_file)            
-        self.out_cube_sync = zarr.ProcessSynchronizer(sync_file)
-
     def version_dir(self, 
                     base_dir: str,
                     exp_name:str,
