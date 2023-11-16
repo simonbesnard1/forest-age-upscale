@@ -67,18 +67,24 @@ class DataCube(ComputeCube):
                          cube_config['output_metadata'])
         
         self.cube_config = cube_config
+         
+        try:
+            if self.out_cube_sync is None:
+                raise AttributeError
+        except AttributeError:
+            sync_file_path = os.path.abspath(
+                os.path.join(cube_config['cube_location'], os.pardir, 'cube.zarrsync')
+            )
         
-        sync_file = os.path.abspath(os.path.join(cube_config['cube_location'], os.pardir)) + '/cube.zarrsync'
+            if os.path.isdir(sync_file_path):
+                shutil.rmtree(sync_file_path)
         
-        if os.path.isdir(sync_file):
-            shutil.rmtree(sync_file)
-            
-        self.sync_cube = zarr.ProcessSynchronizer(sync_file)
-        
-        if not os.path.isdir(self.cube_config['cube_location']):
+            self.out_cube_sync = zarr.ProcessSynchronizer(sync_file_path)
+
+        if not os.path.isdir(cube_config['cube_location']):
             self.initialize_data_cube()
             
-        self.cube = xr.open_zarr(self.cube_config['cube_location'], synchronizer=self.sync_cube)
+        self.cube = xr.open_zarr(self.cube_config['cube_location'], synchronizer=self.out_cube_sync)
         
     def CubeWriter(self, 
                      da: Union[xr.DataArray, xr.Dataset],
