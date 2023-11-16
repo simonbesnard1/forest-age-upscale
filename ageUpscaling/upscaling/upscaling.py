@@ -99,21 +99,17 @@ class UpscaleAge(ABC):
         self.upscaling_config['cube_location'] =  os.path.join(self.study_dir, self.upscaling_config['cube_name'])
         
         self.task_id = int(os.getenv('SLURM_ARRAY_TASK_ID', 0))
-        sync_file = os.path.abspath(f"{study_dir}/features_sync_{self.task_id}.zarrsync")        
-        if os.path.isdir(sync_file):
-            shutil.rmtree(sync_file)            
-        self.sync_feature = zarr.ProcessSynchronizer(sync_file)
+        sync_file_features = os.path.abspath(f"{study_dir}/features_sync_{self.task_id}.zarrsync")        
+        if os.path.isdir(sync_file_features):
+            shutil.rmtree(sync_file_features)            
+        self.sync_feature = zarr.ProcessSynchronizer(sync_file_features)
         
-        sync_file = os.path.abspath(f"{study_dir}/cube_out_sync_{self.task_id}.zarrsync")        
-        if os.path.isdir(sync_file):
-            shutil.rmtree(sync_file)            
-        self.out_cube_sync = zarr.ProcessSynchronizer(sync_file)
-
         self.agb_cube   = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=self.sync_feature)
         self.clim_cube  = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync_feature)
         self.canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=self.sync_feature)
         self.LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=self.sync_feature)
                 
+        self.upscaling_config['sync_file_path'] = os.path.abspath(f"{study_dir}/cube_out_sync_{self.task_id}.zarrsync") 
         self.upscaling_config['output_writer_params']['dims']['latitude']  = self.agb_cube.latitude.values
         self.upscaling_config['output_writer_params']['dims']['longitude'] = self.agb_cube.longitude.values
         self.pred_cube = DataCube(cube_config = self.upscaling_config)
