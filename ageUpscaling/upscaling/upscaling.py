@@ -25,6 +25,7 @@ from rasterio.features import geometry_mask
 
 import xarray as xr
 import zarr
+import dask
 import dask.array as da
 from shapely.geometry import Polygon
 import pandas as pd
@@ -185,6 +186,7 @@ class UpscaleAge(ABC):
         
         return f"{base_dir}/{exp_name}/{algorithm}/version-{version}"
     
+    @dask.delayed
     def _predict_func(self, 
                       IN) -> None:
           
@@ -477,10 +479,23 @@ class UpscaleAge(ABC):
                         "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        selected_extent = AllExtents[task_id]
+        if  "SLURM_JOB_ID" in os.environ:
+            selected_extent = AllExtents[task_id]
+            
+            self.process_chunk(selected_extent)
         
-        self.process_chunk(selected_extent)
-        
+        else:
+            if (self.n_jobs > 1):
+            
+                batch_size = 2
+                for i in range(0, len(AllExtents), batch_size):
+                    batch_futures = [self.process_chunk(extent) for extent in AllExtents[i:i+batch_size]]
+                    dask.compute(*batch_futures, num_workers=self.n_jobs)
+            
+            else:
+                for extent in tqdm(AllExtents, desc='Upscaling procedure'):
+                    self.process_chunk(extent).compute()   
+
         if os.path.exists(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync"))
         
@@ -489,7 +504,7 @@ class UpscaleAge(ABC):
         
     def process_chunk(self, extent):
         
-        self._predict_func(extent)   
+        self._predict_func(extent).compute()
        
     def norm(self, 
              x: np.array,
