@@ -20,7 +20,6 @@ import numpy as np
 import yaml as yml
 import pickle
 
-import dask
 import geopandas as gpd
 from rasterio.features import geometry_mask
 
