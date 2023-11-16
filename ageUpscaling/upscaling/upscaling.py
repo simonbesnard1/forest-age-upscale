@@ -104,8 +104,7 @@ class UpscaleAge(ABC):
             shutil.rmtree(sync_file)            
         self.sync_feature = zarr.ProcessSynchronizer(sync_file)
         
-        
-        sync_file = os.path.abspath(f"{study_dir}/features_sync_{self.task_id}.zarrsync")        
+        sync_file = os.path.abspath(f"{study_dir}/cube_out_sync_{self.task_id}.zarrsync")        
         if os.path.isdir(sync_file):
             shutil.rmtree(sync_file)            
         self.out_cube_sync = zarr.ProcessSynchronizer(sync_file)
