@@ -67,8 +67,10 @@ class DataCube(ComputeCube):
                          cube_config['output_metadata'])
         
         self.cube_config = cube_config
-         
-    
+        
+        if 'sync_file_path' in cube_config and cube_config['sync_file_path'] is None:
+            cube_config["sync_file_path"] = os.path.abspath(os.path.join(cube_config['cube_location'], os.pardir)) + '/cube.zarrsync'
+            
         if os.path.isdir(cube_config["sync_file_path"]):
             shutil.rmtree(cube_config["sync_file_path"])
     
