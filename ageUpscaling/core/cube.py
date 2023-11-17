@@ -68,7 +68,7 @@ class DataCube(ComputeCube):
         
         self.cube_config = cube_config
         
-        if 'sync_file_path' in cube_config and cube_config['sync_file_path'] is None:
+        if 'sync_file_path' not in cube_config:
             cube_config["sync_file_path"] = os.path.abspath(os.path.join(cube_config['cube_location'], os.pardir)) + '/cube.zarrsync'
             
         if os.path.isdir(cube_config["sync_file_path"]):
