@@ -361,7 +361,7 @@ class UpscaleAge(ABC):
                 out_2010 = out_2010.where(np.isfinite(output_reg_xr.sel(time = '2020-01-01')))
                 out_2020 = out_2020.where(np.isfinite(output_reg_xr.sel(time = '2020-01-01')))
                 out_2010['time'] = xr.DataArray(np.array(["2010-01-01"], dtype="datetime64[ns]"), dims="time")                             
-                output_reg_xr = xr.concat([out_2010, out_2020], dim= 'time').mean(dim='members')
+                output_reg_xr = xr.concat([out_2010, out_2020], dim= 'time').mean(dim= "members").transpose('latitude', 'longitude', 'time')                
                 self.pred_cube.CubeWriter(output_reg_xr, n_workers=2)                
                 # output_reg_xr_quantile = output_reg_xr.quantile([0.25, 0.75], dim="members")
                 # output_reg_xr_iqr = output_reg_xr_quantile.sel(quantile = 0.75) - output_reg_xr_quantile.sel(quantile = 0.25)
