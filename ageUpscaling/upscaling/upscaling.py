@@ -501,8 +501,8 @@ class UpscaleAge(ABC):
         if os.path.exists(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync"))
         
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/cube_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/cube_sync_{self.task_id}.zarrsync"))
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/cube_out_sync_{self.task_id}.zarrsync"))
         
     def process_chunk(self, extent):
         
