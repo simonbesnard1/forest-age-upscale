@@ -361,15 +361,15 @@ class UpscaleAge(ABC):
                 out_2010 = out_2010.where(np.isfinite(output_reg_xr.sel(time = '2020-01-01')))
                 out_2020 = out_2020.where(np.isfinite(output_reg_xr.sel(time = '2020-01-01')))
                 out_2010['time'] = xr.DataArray(np.array(["2010-01-01"], dtype="datetime64[ns]"), dims="time")                             
-                output_reg_xr = xr.concat([out_2010, out_2020], dim= 'time')
-                
-                output_reg_xr_quantile = output_reg_xr.quantile([0.25, 0.75], dim="members")
-                output_reg_xr_iqr = output_reg_xr_quantile.sel(quantile = 0.75) - output_reg_xr_quantile.sel(quantile = 0.25)
-                output_reg_xr_median = output_reg_xr.median(dim= "members").transpose('latitude', 'longitude', 'time')                
-                output_reg_xr_median = output_reg_xr_median.rename({"forest_age_ML": "forest_age_ML_median", "forest_age_hybrid": "forest_age_hybrid_median"})
-                output_reg_xr_iqr = output_reg_xr_iqr.rename({"forest_age_ML": "forest_age_ML_IQR", "forest_age_hybrid": "forest_age_hybrid_IQR"})
-                self.pred_cube.CubeWriter(output_reg_xr_median, n_workers=2)
-                self.pred_cube.CubeWriter(output_reg_xr_iqr, n_workers=2)
+                output_reg_xr = xr.concat([out_2010, out_2020], dim= 'time').mean(dim='members')
+                self.pred_cube.CubeWriter(output_reg_xr, n_workers=2)                
+                # output_reg_xr_quantile = output_reg_xr.quantile([0.25, 0.75], dim="members")
+                # output_reg_xr_iqr = output_reg_xr_quantile.sel(quantile = 0.75) - output_reg_xr_quantile.sel(quantile = 0.25)
+                # output_reg_xr_median = output_reg_xr.median(dim= "members").transpose('latitude', 'longitude', 'time')                
+                # output_reg_xr_median = output_reg_xr_median.rename({"forest_age_ML": "forest_age_ML_median", "forest_age_hybrid": "forest_age_hybrid_median"})
+                # output_reg_xr_iqr = output_reg_xr_iqr.rename({"forest_age_ML": "forest_age_ML_IQR", "forest_age_hybrid": "forest_age_hybrid_IQR"})
+                # self.pred_cube.CubeWriter(output_reg_xr_median, n_workers=2)
+                # self.pred_cube.CubeWriter(output_reg_xr_iqr, n_workers=2)
                     
     def model_tuning(self,
                      run_: int=1,
@@ -496,7 +496,7 @@ class UpscaleAge(ABC):
             
             else:
                 for extent in tqdm(AllExtents, desc='Upscaling procedure'):
-                    self.process_chunk(extent).compute()   
+                    self.process_chunk(extent)   
 
         if os.path.exists(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync"))
