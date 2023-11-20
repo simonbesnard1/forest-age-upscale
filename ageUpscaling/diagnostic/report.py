@@ -329,8 +329,8 @@ class Report:
         ax[1].set_xticks(range(len(age_classes)))
         ax[1].axhline(y=0, color='black', linestyle='--', linewidth =3)
         ax[1].set_xticklabels(age_class_labels, rotation=45)
-        
         plt.savefig(os.path.join(self.report_dir, 'nfi_validation.png'), dpi=300)        
+        
         plt.close("all")   
 
     def generate_diagnostic(self,
