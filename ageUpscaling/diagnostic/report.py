@@ -16,7 +16,6 @@ import os
 import numpy as np
 import xarray as xr
 import pandas as pd
-from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -266,16 +265,17 @@ class Report:
         nfi_data['age'] = np.round(nfi_data['age'].values).astype('int16')
         nfi_data['age'] = nfi_data['age'] + (2020 - nfi_data['year_of_measurement']) 
         nfi_data['age'][nfi_data['age']> 300] = 300
+        nfi_data = nfi_data.dropna()
     
         age_extract = []
-        for index, row in tqdm(nfi_data.iterrows(), desc= 'extracting nfi data'):
-            #dist_extract = dist_data.LandsatDisturbanceTime.sel(latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values
-            #if dist_extract == 21:
-            age_extract.append(global_age.forest_age_hybrid.sel(time = '2020-01-01', latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values)
+        for index, row in nfi_data.iterrows():
+            dist_extract = dist_data.LandsatDisturbanceTime.sel(latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values
+            if dist_extract == 21:
+                age_extract.append(global_age.forest_age_hybrid.sel(time = '2020-01-01', latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values)
         extracted_df = pd.DataFrame(age_extract, columns=['forest_age_hybrid'])
         nfi_data = pd.concat([nfi_data, extracted_df], axis=1)
-        print(nfi_data)
-    
+        nfi_data = nfi_data.dropna()
+        
         #%% Plot data
         fig, ax = plt.subplots(1, 2, figsize=(10, 5), constrained_layout= True)
         
