@@ -125,22 +125,23 @@ class AgeFraction(ABC):
                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
-        if (self.n_jobs > 1):
+        # if (self.n_jobs > 1):
             
-            batch_size = 3
-            for i in range(0, len(AllExtents), batch_size):
-                batch_futures = [self._calc_func(extent) for extent in AllExtents[i:i+batch_size]]
-                dask.compute(*batch_futures, num_workers=self.n_jobs)
+        #     batch_size = 3
+        #     for i in range(0, len(AllExtents), batch_size):
+        #         batch_futures = [self._calc_func(extent) for extent in AllExtents[i:i+batch_size]]
+        #         dask.compute(*batch_futures, num_workers=self.n_jobs)
                         
-        else:
-            for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-                self._calc_func(extent).compute()
+        # else:
+        #     for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
+        #         self._calc_func(extent).compute()
                         
         zarr_out_ = []
         for var_ in self.config_file['cube_variables'].keys():
             
-            for class_ in self.age_class_frac_cube.cube.age_class.values:
-                 
+            #for class_ in self.age_class_frac_cube.cube.age_class.values:
+            for class_ in [ '120-130', '130-140','140-150', '>=150']:
+                
                 data_class = xr.open_zarr(self.config_file['cube_location'])[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude').astype("int16")         
                 data_class.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
                 data_class.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
@@ -214,10 +215,10 @@ class AgeFraction(ABC):
                             
             zarr_out_.append(xr.concat(out_, dim = 'age_class').transpose('latitude', 'longitude', 'time', 'age_class'))
             
-            for tif_file in tif_files:
-                  os.remove(tif_file)
+            # for tif_file in tif_files:
+            #       os.remove(tif_file)
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/ForestAge_fraction_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
-        shutil.rmtree(self.config_file['cube_location'])
+        #shutil.rmtree(self.config_file['cube_location'])
 
     
         
