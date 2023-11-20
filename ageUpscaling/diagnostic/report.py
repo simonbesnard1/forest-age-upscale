@@ -258,20 +258,21 @@ class Report:
         
         #%% Extract predicted age for nfi data
         global_age = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_100m'))
-        dist_data = xr.open_zarr(self.dist_cube)
+        #dist_data = xr.open_zarr(self.dist_cube)
         nfi_data = pd.read_csv(self.nfi_data)
         nfi_data['year_of_measurement'] = np.round(nfi_data['year_of_measurement'].values).astype('int16')
-        nfi_data = nfi_data[nfi_data['year_of_measurement'] >= 2001]
+        #nfi_data = nfi_data[nfi_data['year_of_measurement'] >= 2001]
         nfi_data['age'] = np.round(nfi_data['age'].values).astype('int16')
         nfi_data['age'] = nfi_data['age'] + (2020 - nfi_data['year_of_measurement']) 
         nfi_data['age'][nfi_data['age']> 300] = 300
         nfi_data = nfi_data.dropna()
-    
+        nfi_data.reset_index(inplace=True)
+
         age_extract = []
         for index, row in nfi_data.iterrows():
-            dist_extract = dist_data.LandsatDisturbanceTime.sel(latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values
-            if dist_extract == 21:
-                age_extract.append(global_age.forest_age_hybrid.sel(time = '2020-01-01', latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values)
+            #dist_extract = dist_data.LandsatDisturbanceTime.sel(latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values
+            #if dist_extract == 21:
+            age_extract.append(global_age.forest_age_hybrid.sel(time = '2020-01-01', latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values)
         extracted_df = pd.DataFrame(age_extract, columns=['forest_age_hybrid'])
         nfi_data = pd.concat([nfi_data, extracted_df], axis=1)
         nfi_data = nfi_data.dropna()
