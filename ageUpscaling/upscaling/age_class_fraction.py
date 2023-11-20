@@ -139,7 +139,8 @@ class AgeFraction(ABC):
         zarr_out_ = []
         for var_ in self.config_file['cube_variables'].keys():
             
-            for class_ in self.age_class_frac_cube.cube.age_class.values:
+            #for class_ in self.age_class_frac_cube.cube.age_class.values:
+            for class_ in ['140-150', '>=150']:
                  
                 data_class = xr.open_zarr(self.config_file['cube_location'])[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude').astype("int16")         
                 data_class.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
