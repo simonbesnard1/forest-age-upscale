@@ -269,11 +269,12 @@ class Report:
     
         age_extract = []
         for index, row in tqdm(nfi_data.iterrows(), desc= 'extracting nfi data'):
-            dist_extract = dist_data.LandsatDisturbanceTime.sel(latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values
-            if dist_extract == 21:
-                age_extract.append(global_age.forest_age_hybrid.sel(time = '2020-01-01', latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values)
+            #dist_extract = dist_data.LandsatDisturbanceTime.sel(latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values
+            #if dist_extract == 21:
+            age_extract.append(global_age.forest_age_hybrid.sel(time = '2020-01-01', latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values)
         extracted_df = pd.DataFrame(age_extract, columns=['forest_age_hybrid'])
         nfi_data = pd.concat([nfi_data, extracted_df], axis=1)
+        print(nfi_data)
     
         #%% Plot data
         fig, ax = plt.subplots(1, 2, figsize=(10, 5), constrained_layout= True)
