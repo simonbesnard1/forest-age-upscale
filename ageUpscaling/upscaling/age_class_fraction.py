@@ -81,9 +81,6 @@ class AgeFraction(ABC):
         self.config_file['output_writer_params']['dims']['latitude'] = self.age_cube.latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  self.age_cube.longitude.values
         self.config_file['output_writer_params']['dims']['age_class'] = age_labels
-        self.age_class_frac_cube = DataCube(cube_config = self.config_file)
-        self.age_class_frac_cube.init_variable(self.config_file['cube_variables'], 
-                                               njobs= len(self.config_file['cube_variables'].keys()))
         
     @dask.delayed
     def _calc_func(self, 
@@ -120,6 +117,12 @@ class AgeFraction(ABC):
         age_class_fraction = age_class_fraction.where(np.isfinite(age_class_fraction), -9999)        
         self.age_class_frac_cube.CubeWriter(age_class_fraction, n_workers=2)
             
+    
+    def CreateAgeClassCube(self):
+        self.age_class_frac_cube = DataCube(cube_config = self.config_file)
+        self.age_class_frac_cube.init_variable(self.config_file['cube_variables'], 
+                                           njobs= len(self.config_file['cube_variables'].keys()))
+    
     def AgeClassCalc(self,
                      task_id=None) -> None:
         """Calculate the fraction of each age class.
@@ -217,7 +220,7 @@ class AgeFraction(ABC):
                         '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
                         '-t_srs', 'EPSG:4326',
                         '-of', 'Gtiff',
-                        #'-te', '-180', '-90', '180', '90',
+                        '-te', '-180', '-90', '180', '90',
                         '-r', 'average',
                         '-ot', 'Float32',
                         '-co', 'COMPRESS=LZW',
