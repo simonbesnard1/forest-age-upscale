@@ -98,7 +98,7 @@ class AgeFraction(ABC):
           - age_class_fraction: xarray DataArray with fractions for each age class.
        """
        
-        subset_age_cube = self.age_cube.sel(IN)
+        subset_age_cube = self.age_cube.sel(IN)[self.config_file['cube_variables'].keys()]
         
         age_class = np.array(self.config_file['age_classes'])
         age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
