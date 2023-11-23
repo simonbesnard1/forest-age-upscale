@@ -82,6 +82,8 @@ class AgeFraction(ABC):
         self.config_file['output_writer_params']['dims']['longitude'] =  self.age_cube.longitude.values
         self.config_file['output_writer_params']['dims']['age_class'] = age_labels
         
+        self.age_class_frac_cube = DataCube(cube_config = self.config_file)
+        
     @dask.delayed
     def _calc_func(self, 
                    IN) -> None:
@@ -101,33 +103,32 @@ class AgeFraction(ABC):
         age_class = np.array(self.config_file['age_classes'])
         age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
         
-        age_class_fraction = []
         for i in range(len(age_labels)):
             age_range = age_labels[i]
             lower_limit, upper_limit = map(int, age_range.split('-'))
             age_class_mask = (subset_age_cube >= lower_limit) & (subset_age_cube < upper_limit)
             age_class_mask = age_class_mask.where(np.isfinite(subset_age_cube))
-            if i == len(age_labels) - 1:
-                age_class_mask = age_class_mask.assign_coords(age_class= '>=' + age_range.split('-')[0])
-            else:
-                age_class_mask = age_class_mask.assign_coords(age_class= age_range)
-                
-            age_class_fraction.append(age_class_mask)
-        age_class_fraction = xr.concat(age_class_fraction, dim = 'age_class')
-        age_class_fraction = age_class_fraction.where(np.isfinite(age_class_fraction), -9999)        
-        self.age_class_frac_cube.CubeWriter(age_class_fraction, n_workers=2)
+            age_class_mask = age_class_mask.where(np.isfinite(age_class_mask), -9999)        
             
-    
-    def CreateAgeClassCube(self):
-        self.age_class_frac_cube = DataCube(cube_config = self.config_file)
+            if i == len(age_labels) - 1:
+                age_class_mask = age_class_mask.expand_dims({"age_class": ['>=' + age_range.split('-')[0]]})
+
+            else:
+                age_class_mask = age_class_mask.expand_dims({"age_class": [age_range]})
+
+            self.age_class_frac_cube.CubeWriter(age_class_mask, n_workers=2)
+             
+    def AgeClassCubeInit(self):
+        
         self.age_class_frac_cube.init_variable(self.config_file['cube_variables'], 
-                                           njobs= len(self.config_file['cube_variables'].keys()))
+                                               njobs= len(self.config_file['cube_variables'].keys()))
     
     def AgeClassCalc(self,
                      task_id=None) -> None:
         """Calculate the fraction of each age class.
         
         """
+        
         LatChunks = np.array_split(self.config_file['output_writer_params']['dims']['latitude'], self.config_file["num_chunks"])
         LonChunks = np.array_split(self.config_file['output_writer_params']['dims']['longitude'], self.config_file["num_chunks"])
         
@@ -233,7 +234,7 @@ class AgeFraction(ABC):
                 
                     da_ =  rio.open_rasterio(self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(class_=class_, year_= str(year_)))     
                     da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).to_dataset(name = var_)
-                    da_['time'] =[year_]
+                    da_['time'] = [year_]
                     ds_.append(da_)
                     shutil.rmtree(os.path.join(self.study_dir, 'age_class_{class_}'.format(class_=class_)))
                     os.remove(self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_))                    
@@ -245,7 +246,6 @@ class AgeFraction(ABC):
             tif_files = glob.glob(os.path.join(self.study_dir, 'age_class_*.tif'))
             for tif_file in tif_files:
                   os.remove(tif_file)
-
 
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/ForestAge_fraction_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
 
