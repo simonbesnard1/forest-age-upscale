@@ -141,17 +141,18 @@ class AgeFraction(ABC):
             
             self.process_chunk(selected_extent)
             
-        if (self.n_jobs > 1):
-            
-            batch_size = 2
-            for i in range(0, len(AllExtents), batch_size):
-                batch_futures = [self.process_chunk(extent) for extent in AllExtents[i:i+batch_size]]
-                dask.compute(*batch_futures, num_workers=self.n_jobs)
-                        
         else:
-            for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-                self.process_chunk(extent)
+            if (self.n_jobs > 1):
                 
+                batch_size = 2
+                for i in range(0, len(AllExtents), batch_size):
+                    batch_futures = [self.process_chunk(extent) for extent in AllExtents[i:i+batch_size]]
+                    dask.compute(*batch_futures, num_workers=self.n_jobs)
+                            
+            else:
+                for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
+                    self.process_chunk(extent)
+                    
         if os.path.exists(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync"))
         
