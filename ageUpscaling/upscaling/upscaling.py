@@ -260,7 +260,8 @@ class UpscaleAge(ABC):
                     elif self.algorithm == "MLP":
                         dpred =  X_upscale_flattened[mask][:, index_mapping_class]
                         dpred = np.stack([self.norm(dpred[:, features_classifier.index(var_name)], norm_stats_classifier[var_name]) for var_name in features_classifier], axis=1)
-                    
+                        pred_class = best_classifier.predict(dpred)
+                        
                     elif self.algorithm == "AutoML":
                         dpred =  X_upscale_flattened[mask][:, index_mapping_class]
                         dpred = pd.DataFrame(dpred, columns = features_classifier)                         
