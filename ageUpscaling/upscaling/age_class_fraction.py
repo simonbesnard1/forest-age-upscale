@@ -188,8 +188,6 @@ class AgeFraction(ABC):
             		           "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                               for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
                 
-                chunk_dict = [chunk_dict[0]]
-                
                 ds_ = []
                 for year_ in data_class.time.values:
                     iter_ = 0
@@ -228,7 +226,7 @@ class AgeFraction(ABC):
                         '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
                         '-t_srs', 'EPSG:4326',
                         '-of', 'Gtiff',
-                        #'-te', '-180', '-90', '180', '90',
+                        '-te', '-180', '-90', '180', '90',
                         '-r', 'average',
                         '-ot', 'Float32',
                         '-co', 'COMPRESS=LZW',
