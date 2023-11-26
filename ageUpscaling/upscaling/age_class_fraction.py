@@ -202,7 +202,7 @@ class AgeFraction(ABC):
                         
                         if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_))):
                             data_chunk = data_class.sel(chunck)
-                            data_chunk = data_chunk.where(data_chunk<0, -9999)
+                            data_chunk = data_chunk.where(data_chunk>=0, -9999)
                             #data_chunk = data_chunk.rio.write_nodata( -9999, encoded=True, inplace=True)  
                             data_chunk = data_chunk.astype('int16')
                             data_chunk.rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
