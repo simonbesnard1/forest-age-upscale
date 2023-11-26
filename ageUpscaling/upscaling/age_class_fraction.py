@@ -222,7 +222,7 @@ class AgeFraction(ABC):
                     
                     gdalwarp_command = [
                         'gdalwarp',
-                        #'-srcnodata', '-9999',
+                        '-srcnodata', '-9999',
                         '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
                         '-t_srs', 'EPSG:4326',
                         '-of', 'Gtiff',
