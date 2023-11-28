@@ -29,7 +29,7 @@ import rioxarray as rio
 
 from ageUpscaling.core.cube import DataCube
 
-class AgeFraction(ABC):
+class DifferenceAge(ABC):
     """Study abstract class used for cross validation, model training, prediction.
 
     Parameters
@@ -73,16 +73,11 @@ class AgeFraction(ABC):
         self.sync_feature = zarr.ProcessSynchronizer(sync_file_features)
         self.age_cube = xr.open_zarr(self.config_file['ForestAge_cube'], synchronizer=self.sync_feature)
      
-        age_class = np.array(self.config_file['age_classes'])
-        age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
-        age_labels[-1] = '>=' + age_labels[-1].split('-')[0]
-        
         self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/cube_out_sync_{self.task_id}.zarrsync") 
         self.config_file['output_writer_params']['dims']['latitude'] = self.age_cube.latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  self.age_cube.longitude.values
-        self.config_file['output_writer_params']['dims']['age_class'] = age_labels
         
-        self.age_class_frac_cube = DataCube(cube_config = self.config_file)
+        self.age_diff_cube = DataCube(cube_config = self.config_file)
         
     @dask.delayed
     def _calc_func(self, 
@@ -96,39 +91,33 @@ class AgeFraction(ABC):
         
           Returns:
           - age_class_fraction: xarray DataArray with fractions for each age class.
-       """
-       
-        subset_age_cube = self.age_cube.sel(IN)[self.config_file['cube_variables'].keys()]
+        """
         
-        age_class = np.array(self.config_file['age_classes'])
-        age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
-        
-        for i in range(len(age_labels)):
-            age_range = age_labels[i]
-            lower_limit, upper_limit = map(int, age_range.split('-'))
-            age_class_mask = (subset_age_cube >= lower_limit) & (subset_age_cube < upper_limit)
-            age_class_mask = age_class_mask.where(np.isfinite(subset_age_cube))
-            age_class_mask = age_class_mask.where(np.isfinite(age_class_mask), -9999)        
-            
-            if i == len(age_labels) - 1:
-                age_class_mask = age_class_mask.expand_dims({"age_class": ['>=' + age_range.split('-')[0]]}).transpose("age_class", 'latitude', 'longitude', 'time')
-
-            else:
-                age_class_mask = age_class_mask.expand_dims({"age_class": [age_range]}).transpose("age_class", 'latitude', 'longitude', 'time')
-
-            self.age_class_frac_cube.CubeWriter(age_class_mask, n_workers=2)
+        var_ = 'forest_age_hybrid'
+        subset_age_cube = self.age_cube.sel(IN)[[var_]]
+     
+        diff_age = subset_age_cube.sel(time= '2020-01-01') - subset_age_cube.sel(time= '2010-01-01')
+        stand_replaced_age = diff_age.where(diff_age < 0).rename({var_: 'stand_replaced_age'})
+        growing_forest_age = diff_age.where(diff_age > 0).rename({var_: 'growing_forest_age'})
+        stable_forest_age = diff_age.where(diff_age == 0).rename({var_: 'stable_forest_age'})            
+        stand_replaced_class = xr.where(diff_age < 0, 1, 0).where(np.isfinite(diff_age)).rename({var_: 'stand_replaced_class'})
+        growing_forest_class = xr.where(diff_age > 0, 1, 0).where(np.isfinite(diff_age)).rename({var_: 'growing_forest_class'})
+        stable_forest_class = xr.where(diff_age == 0, 1, 0).where(np.isfinite(diff_age)).rename({var_: 'stable_forest_class'})
+        diff_age = diff_age.rename({var_: 'age_difference'})            
+        out_cube = xr.merge([diff_age, stand_replaced_age, growing_forest_age, stable_forest_age, 
+                             stand_replaced_class, growing_forest_class, stable_forest_class])
+        self.age_diff_cube.CubeWriter(out_cube, n_workers=7)
              
-    def AgeClassCubeInit(self):
+    def AgeDiffCubeInit(self):
         
-        self.age_class_frac_cube.init_variable(self.config_file['cube_variables'], 
-                                               njobs= len(self.config_file['cube_variables'].keys()))
+        self.age_diff_cube.init_variable(self.config_file['cube_variables'], 
+                                         njobs= len(self.config_file['cube_variables'].keys()))
     
-    def AgeClassCalc(self,
+    def AgeDiffCalc(self,
                      task_id=None) -> None:
         """Calculate the fraction of each age class.
         
         """
-        
         LatChunks = np.array_split(self.config_file['output_writer_params']['dims']['latitude'], self.config_file["num_chunks"])
         LonChunks = np.array_split(self.config_file['output_writer_params']['dims']['longitude'], self.config_file["num_chunks"])
         
@@ -164,7 +153,7 @@ class AgeFraction(ABC):
         
         self._calc_func(extent).compute()
                 
-    def AgeFractionCalc(self) -> None:
+    def AgeDiffFractionCalc(self) -> None:
         """
             Calculate the age fraction.
             
@@ -185,58 +174,55 @@ class AgeFraction(ABC):
             - Merges and converts the output into Zarr format.
         """
                         
-        age_class_ds = xr.open_zarr(self.config_file['cube_location'])
+        age_diff_ds = xr.open_zarr(self.config_file['cube_location'])
         zarr_out_ = []
         for var_ in self.config_file['cube_variables'].keys():
             
-            out = []
-            for class_ in age_class_ds.age_class.values:
                  
-                data_class =age_class_ds[var_].sel(age_class = class_).transpose('time', 'latitude', 'longitude')
-                data_class.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
-                data_class.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
-                data_class = data_class.rio.write_crs("epsg:4326", inplace=True)
-                data_class.attrs = {'long_name': 'Forest age fraction - {class_}'.format(class_ = class_),
-                                    'units': 'adimensional',
-                                    'valid_max': 1,
-                                    'valid_min': 0}
+            data_class =age_diff_ds[var_].transpose('latitude', 'longitude')
+            data_class.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
+            data_class.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
+            data_class = data_class.rio.write_crs("epsg:4326", inplace=True)
+            data_class.attrs = {'long_name': 'Forest age difference fraction',
+                                'units': 'adimensional',
+                                'valid_max': 1,
+                                'valid_min': 0}
+            
+            LatChunks = np.array_split(data_class.latitude.values, 2)
+            LonChunks = np.array_split(data_class.longitude.values, 2)
+            chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
+        		           "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+                          for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
                 
-                LatChunks = np.array_split(data_class.latitude.values, 2)
-                LonChunks = np.array_split(data_class.longitude.values, 2)
-                chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-            		           "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-                              for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
+            ds_ = []
+            iter_ = 0
+            for chunck in chunk_dict:
                 
-                ds_ = []
-                for year_ in data_class.time.values:
-                    iter_ = 0
-                    for chunck in chunk_dict:
-                        
-                        chunck.update({'time': year_})
-                        
-                        if not os.path.exists(self.study_dir + '/age_class_{class_}/'.format(class_ =class_)):
-                            os.makedirs(self.study_dir + '/age_class_{class_}/'.format(class_ =class_))
-                        
-                        if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_))):
-                            data_chunk = data_class.sel(chunck)
-                            #data_chunk = data_chunk.where(data_chunk>=0, -9999)
-                            #data_chunk = data_chunk.rio.write_nodata( -9999, encoded=True, inplace=True) 
-                            data_chunk.attrs["_FillValue"] = -9999    
-                            data_chunk = data_chunk.astype('int16')
-                            data_chunk.rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
-                                                     driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
-                           
-                            gdalwarp_command = [
-                                                'gdal_translate',
-                                                '-a_nodata', '-9999',
-                                                self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)),
-                                                self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}_nodata.tif'.format(class_ =class_, iter_=str(iter_))
-                                            
-                                            ]
-                            subprocess.run(gdalwarp_command, check=True)
+                chunck.update({'time': year_})
+                
+                if not os.path.exists(self.study_dir + '/age_class_{class_}/'.format(class_ =class_)):
+                    os.makedirs(self.study_dir + '/age_class_{class_}/'.format(class_ =class_))
+                
+                if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_))):
+                    data_chunk = data_class.sel(chunck)
+                    #data_chunk = data_chunk.where(data_chunk>=0, -9999)
+                    #data_chunk = data_chunk.rio.write_nodata( -9999, encoded=True, inplace=True) 
+                    data_chunk.attrs["_FillValue"] = -9999    
+                    data_chunk = data_chunk.astype('int16')
+                    data_chunk.rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
+                                             driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
+                   
+                    gdalwarp_command = [
+                                        'gdal_translate',
+                                        '-a_nodata', '-9999',
+                                        self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)),
+                                        self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}_nodata.tif'.format(class_ =class_, iter_=str(iter_))
+                                    
+                                    ]
+                    subprocess.run(gdalwarp_command, check=True)
 
-                            
-                        iter_ += 1
+                        
+                    iter_ += 1
                       
                     input_files = glob.glob(os.path.join(self.study_dir, 'age_class_{class_}/*_nodata.tif'.format(class_=class_)))
                     vrt_filename = self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_)
