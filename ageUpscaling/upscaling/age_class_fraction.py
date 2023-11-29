@@ -136,6 +136,8 @@ class AgeFraction(ABC):
                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                     for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
         
+        np.random.shuffle(AllExtents)
+        
         if  "SLURM_JOB_ID" in os.environ:
             selected_extent = AllExtents[task_id]
             
