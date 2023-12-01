@@ -211,62 +211,65 @@ class AgeFraction(ABC):
                 
                 ds_ = []
                 for year_ in data_class.time.values:
-                    iter_ = 0
-                    for chunck in chunk_dict:
-                        
-                        chunck.update({'time': year_})
-                        
-                        if not os.path.exists(self.study_dir + '/age_class_{class_}/'.format(class_ =class_)):
-                            os.makedirs(self.study_dir + '/age_class_{class_}/'.format(class_ =class_))
-                        
-                        if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_))):
-                            data_chunk = data_class.sel(chunck)
-                            #data_chunk = data_chunk.where(data_chunk>=0, -9999)
-                            #data_chunk = data_chunk.rio.write_nodata( -9999, encoded=True, inplace=True) 
-                            data_chunk.attrs["_FillValue"] = -9999    
-                            data_chunk = data_chunk.astype('int16')
-                            data_chunk.rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
-                                                     driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
-                           
-                            gdalwarp_command = [
-                                                'gdal_translate',
-                                                '-a_nodata', '-9999',
-                                                self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)),
-                                                self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}_nodata.tif'.format(class_ =class_, iter_=str(iter_))
-                                            
-                                            ]
-                            subprocess.run(gdalwarp_command, check=True)
-
+                    
+                    if not os.path.exists(self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(class_=class_, year_= str(year_))):
+                    
+                        iter_ = 0
+                        for chunck in chunk_dict:
                             
-                        iter_ += 1
-                      
-                    input_files = glob.glob(os.path.join(self.study_dir, 'age_class_{class_}/*_nodata.tif'.format(class_=class_)))
-                    vrt_filename = self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_)
-                    
-                    gdalbuildvrt_command = [
-                        'gdalbuildvrt',
-                        vrt_filename
-                    ] + input_files
-                    
-                    subprocess.run(gdalbuildvrt_command, check=True)
-                    
-                    gdalwarp_command = [
-                        'gdalwarp',
-                        '-srcnodata', '-9999',
-                        '-dstnodata', '-9999',
-                        '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
-                        '-t_srs', 'EPSG:4326',
-                        '-of', 'Gtiff',
-                        '-te', '-180', '-90', '180', '90',
-                        '-r', 'average',
-                        '-ot', 'Float32',
-                        '-co', 'COMPRESS=LZW',
-                        '-co', 'BIGTIFF=YES',
-                        '-overwrite',
-                        f'/{vrt_filename}',
-                       self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(class_=class_, year_= str(year_)),
-                    ]
-                    subprocess.run(gdalwarp_command, check=True)
+                            chunck.update({'time': year_})
+                            
+                            if not os.path.exists(self.study_dir + '/age_class_{class_}/'.format(class_ =class_)):
+                                os.makedirs(self.study_dir + '/age_class_{class_}/'.format(class_ =class_))
+                            
+                            if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_))):
+                                data_chunk = data_class.sel(chunck)
+                                #data_chunk = data_chunk.where(data_chunk>=0, -9999)
+                                #data_chunk = data_chunk.rio.write_nodata( -9999, encoded=True, inplace=True) 
+                                data_chunk.attrs["_FillValue"] = -9999    
+                                data_chunk = data_chunk.astype('int16')
+                                data_chunk.rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
+                                                         driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
+                               
+                                gdalwarp_command = [
+                                                    'gdal_translate',
+                                                    '-a_nodata', '-9999',
+                                                    self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)),
+                                                    self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}_nodata.tif'.format(class_ =class_, iter_=str(iter_))
+                                                
+                                                ]
+                                subprocess.run(gdalwarp_command, check=True)
+    
+                                
+                            iter_ += 1
+                          
+                        input_files = glob.glob(os.path.join(self.study_dir, 'age_class_{class_}/*_nodata.tif'.format(class_=class_)))
+                        vrt_filename = self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_)
+                        
+                        gdalbuildvrt_command = [
+                            'gdalbuildvrt',
+                            vrt_filename
+                        ] + input_files
+                        
+                        subprocess.run(gdalbuildvrt_command, check=True)
+                        
+                        gdalwarp_command = [
+                            'gdalwarp',
+                            '-srcnodata', '-9999',
+                            '-dstnodata', '-9999',
+                            '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
+                            '-t_srs', 'EPSG:4326',
+                            '-of', 'Gtiff',
+                            '-te', '-180', '-90', '180', '90',
+                            '-r', 'average',
+                            '-ot', 'Float32',
+                            '-co', 'COMPRESS=LZW',
+                            '-co', 'BIGTIFF=YES',
+                            '-overwrite',
+                            f'/{vrt_filename}',
+                           self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(class_=class_, year_= str(year_)),
+                        ]
+                        subprocess.run(gdalwarp_command, check=True)
                 
                     da_ =  rio.open_rasterio(self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(class_=class_, year_= str(year_)))     
                     da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).to_dataset(name = var_)
