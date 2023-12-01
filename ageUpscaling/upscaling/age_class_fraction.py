@@ -275,8 +275,9 @@ class AgeFraction(ABC):
                     da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).to_dataset(name = var_)
                     da_['time'] = [year_]
                     ds_.append(da_)
-                    shutil.rmtree(os.path.join(self.study_dir, 'age_class_{class_}'.format(class_=class_)))
-                    os.remove(self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_))                    
+                    if os.path.exists(self.study_dir + '/age_class_{class_}/'.format(class_ =class_)):
+                        shutil.rmtree(os.path.join(self.study_dir, 'age_class_{class_}'.format(class_=class_)))
+                        os.remove(self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_))                    
                     
                 out.append(xr.concat(ds_, dim='time').assign_coords(age_class= class_))
                                   
