@@ -43,7 +43,7 @@ class canopyHeight(DataCube):
             self.cube_config['output_metadata']['add_offset'] = self.da.add_offset
             self.cube_config['output_metadata']['_FillValue'] = self.da._FillValue
             self.da =  self.da.rename({"x": 'longitude', "y": 'latitude', 'band': "time"}).to_dataset(name = 'canopy_height')
-            self.da['time'] =  self.cube_config['output_writer_params']['dims']['time']
+            self.da['time'] =  [self.cube_config['year_product']]
             
         else:   
             self.da = xr.open_dataset(self.base_file)
