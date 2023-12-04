@@ -18,6 +18,7 @@ import rioxarray as rio
 import numpy as np
 import os
 from itertools import product
+import pandas as pd
 
 class canopyHeight(DataCube):
     """canopyHeight is a subclass of DataCube that is used to create a canopy height datacube from a base file and a cube configuration file.
@@ -43,7 +44,7 @@ class canopyHeight(DataCube):
             self.cube_config['output_metadata']['add_offset'] = self.da.add_offset
             self.cube_config['output_metadata']['_FillValue'] = self.da._FillValue
             self.da =  self.da.rename({"x": 'longitude', "y": 'latitude', 'band': "time"}).to_dataset(name = 'canopy_height')
-            self.da['time'] =  [self.cube_config['year_product']]
+            self.da['time'] =  [pd.to_datetime(self.cube_config['year_product'])]
             
         else:   
             self.da = xr.open_dataset(self.base_file)
