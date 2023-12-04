@@ -38,11 +38,12 @@ class canopyHeight(DataCube):
             self.cube_config =  yml.safe_load(f)
         
         if '.tif' in os.path.basename(base_file):
-            self.da =  rio.open_rasterio(base_file).isel(band=0)
+            self.da =  rio.open_rasterio(base_file)
             self.cube_config['output_metadata']['scale_factor'] = self.da.scale_factor
             self.cube_config['output_metadata']['add_offset'] = self.da.add_offset
             self.cube_config['output_metadata']['_FillValue'] = self.da._FillValue
-            self.da =  self.da.rename({"x": 'longitude', "y": 'latitude'}).to_dataset(name = 'canopy_height')
+            self.da =  self.da.rename({"x": 'longitude', "y": 'latitude', 'band': "time"}).to_dataset(name = 'canopy_height')
+            self.da['time'] =  [self.cube_config['output_writer_params']['dims']['time']]
             
         else:   
             self.da = xr.open_dataset(self.base_file)
@@ -53,7 +54,7 @@ class canopyHeight(DataCube):
         super().__init__(self.cube_config)
 
     def CreateCube(self, 
-                  var_name:str= 'canopy_height_potapov2019',
+                  var_name:str= 'canopy_height_potapov',
                   chunk_data:bool = False,
                   n_workers:int=10) -> None:
         """Fill a data cube from input datasets.
@@ -68,7 +69,7 @@ class canopyHeight(DataCube):
     
         """
         
-        ds_ = self.da.rename({'canopy_height':var_name})
+        ds_ = self.da.rename({'canopy_height':var_name}).transpose('latitude', 'longitude', 'time')            
         
         vars_to_proc = {}
         
