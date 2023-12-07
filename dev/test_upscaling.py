@@ -39,9 +39,9 @@ from rasterio.features import geometry_mask
 
 
 LastTimeSinceDist_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/LandsatDisturbanceTime_100m')
-agb_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/ESACCI_BIOMASS_100m_v4')
+agb_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/biomass_baccini_100m')
 clim_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/WorlClim_1km')
-canopyHeight_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/canopyHeight_potapov2020_100m')
+canopyHeight_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/canopyHeight_potapov_100m')
 
 algorithm = "XGBoost"
 IN = {'latitude': slice(8.99955555555556, 0.00044444444444025066, None),
