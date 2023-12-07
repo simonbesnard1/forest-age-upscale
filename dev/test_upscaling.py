@@ -72,21 +72,28 @@ subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastT
 
 if not np.isnan(subset_LastTimeSinceDist_cube).all():            
     
-    #subset_agb_cube        = agb_cube.sel(time = DataConfig['start_year']).sel(buffer_IN).astype('float16')
-    subset_agb_cube        = agb_cube.sel(time = DataConfig['end_year']).sel(buffer_IN).astype('float16')
+    subset_agb_cube        = agb_cube.sel(time = DataConfig['start_year']).sel(buffer_IN).astype('float16')
     
     subset_agb_cube        = subset_agb_cube[DataConfig['agb_var_cube']].where(subset_agb_cube[DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in DataConfig['features']  if "agb" in x][0])
     
     subset_clim_cube = clim_cube.sel(buffer_IN)[[x for x in DataConfig['features'] if "WorlClim" in x]].astype('float16')
     subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
                 
-    #subset_canopyHeight_cube = canopyHeight_cube.sel(time = DataConfig['start_year']).sel(buffer_IN)
-    subset_canopyHeight_cube = canopyHeight_cube.sel(buffer_IN)
+    subset_canopyHeight_cube = canopyHeight_cube.sel(time = DataConfig['start_year']).sel(buffer_IN)
     
     subset_canopyHeight_cube = subset_canopyHeight_cube.rename({list(set(list(subset_canopyHeight_cube.variables.keys())) - set(subset_canopyHeight_cube.coords))[0] : [x for x in DataConfig['features']  if "canopy_height" in x][0]}).astype('float16')
     subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0 )
     
     subset_features_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube.sel(IN)])
+    
+    mask_intact_forest = ~np.zeros(subset_features_cube.canopy_height_gapfilled.shape, dtype=bool)
+    for _, row in intact_tropical_forest.iterrows():
+        polygon = row.geometry
+        polygon_mask = geometry_mask([polygon], out_shape=mask_intact_forest.shape, transform=subset_features_cube.rio.transform())
+        
+        if False in polygon_mask:
+            mask_intact_forest[polygon_mask==False] = False
+    mask_intact_forest = mask_intact_forest.reshape(-1)
     
     output_reg_xr = []
     for run_ in np.arange(upscaling_config['num_members']):
@@ -158,31 +165,53 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             pred_reg[pred_reg<1] = 1
             ML_pred_age_start[mask] = np.round(pred_reg).astype("int16")
             ML_pred_age_start[ML_pred_class_start==1] = DataConfig['max_forest_age'][0]
+            ML_pred_age_start[~mask_intact_forest] = DataConfig['max_forest_age'][0]           
             
             ML_pred_age_end = ML_pred_age_start + (int(DataConfig['end_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]))
             ML_pred_age_end[ML_pred_age_end>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             
+            ML_pred_age_mid = ML_pred_age_start + (int(DataConfig['mid_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]))
+            ML_pred_age_mid[ML_pred_age_mid>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
+            
             # Initialize with NaN values directly
-            fused_pred_age = np.full(len(ML_pred_age_end), np.nan)
+            fused_pred_age_end = np.full(len(ML_pred_age_end), np.nan)
             
             # Stand replacement or afforestation occured and age ML is higher than Hansen Loss year
             mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age_end > subset_LastTimeSinceDist_cube)
-            fused_pred_age[mask_Change1] = subset_LastTimeSinceDist_cube[mask_Change1]
+            fused_pred_age_end[mask_Change1] = subset_LastTimeSinceDist_cube[mask_Change1]
             
             # Stand replacement or afforestation occured and age ML is lower or equal than Hansen Loss year
             mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age_end <= subset_LastTimeSinceDist_cube)
-            fused_pred_age[mask_Change2] = ML_pred_age_end[mask_Change2]
+            fused_pred_age_end[mask_Change2] = ML_pred_age_end[mask_Change2]
                                     
             # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
             mask_intact1 = (subset_LastTimeSinceDist_cube >= 20)
-            fused_pred_age[mask_intact1] = ML_pred_age_end[mask_intact1]
-                                            
-            ML_pred_age_start = ML_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1)
-            fused_pred_age = fused_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
+            fused_pred_age_end[mask_intact1] = ML_pred_age_end[mask_intact1]
+            fused_pred_age_end = fused_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
             
-            nan_mask = np.isnan(ML_pred_age_start) | np.isnan(fused_pred_age)
-            fused_pred_age[nan_mask] = np.nan
+            fused_pred_age_mid = np.full(len(ML_pred_age_mid), np.nan)
+            
+            # Stand replacement or afforestation occured and age ML is higher than Hansen Loss year
+            subset_LastTimeSinceDist_cube_midyear =  subset_LastTimeSinceDist_cube - 10
+            subset_LastTimeSinceDist_cube_midyear[subset_LastTimeSinceDist_cube_midyear<0] = 11
+            
+            mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube_midyear <= 9, ML_pred_age_mid > subset_LastTimeSinceDist_cube_midyear)
+            fused_pred_age_mid[mask_Change1] = subset_LastTimeSinceDist_cube_midyear[mask_Change1]
+            
+            # Stand replacement or afforestation occured and age ML is lower or equal than Hansen Loss year
+            mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube_midyear <= 9, ML_pred_age_mid <= subset_LastTimeSinceDist_cube_midyear)
+            fused_pred_age_mid[mask_Change2] = ML_pred_age_mid[mask_Change2]
+                                    
+            # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
+            mask_intact1 = (subset_LastTimeSinceDist_cube_midyear >= 10)
+            fused_pred_age_mid[mask_intact1] = ML_pred_age_mid[mask_intact1]
+            fused_pred_age_mid = fused_pred_age_mid.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
+                               
+            ML_pred_age_start = ML_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1)
+            nan_mask = np.isnan(ML_pred_age_start) | np.isnan(fused_pred_age_end)
+            fused_pred_age_end[nan_mask] = np.nan
             ML_pred_age_start[nan_mask] = np.nan
+            fused_pred_age_mid[nan_mask] = np.nan
             
             ML_pred_age_start = xr.Dataset({"forest_age":xr.DataArray(ML_pred_age_start, 
                                                         coords={"latitude": subset_features_cube.latitude, 
@@ -191,27 +220,22 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
                                                                 'members': [run_]}, 
                                                         dims=["latitude", "longitude", "time", "members"])})
             
-            ML_pred_age_end = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age, 
+            ML_pred_age_end = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_end, 
                                                         coords={"latitude": subset_features_cube.latitude, 
                                                                 "longitude": subset_features_cube.longitude,
                                                                 "time": [pd.to_datetime(DataConfig['end_year'])],                                                          
                                                                 'members': [run_]}, 
                                                         dims=["latitude", "longitude", "time", "members"])})
+            ML_pred_age_mid = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_mid, 
+                                                        coords={"latitude": subset_features_cube.latitude, 
+                                                                "longitude": subset_features_cube.longitude,
+                                                                "time": [pd.to_datetime(DataConfig['mid_year'])],                                                          
+                                                                'members': [run_]}, 
+                                                        dims=["latitude", "longitude", "time", "members"])})                    
                                            
-            ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time')            
+            ds = xr.concat([ML_pred_age_start, ML_pred_age_mid, ML_pred_age_end], dim= 'time')              
             
             output_reg_xr.append(ds)
                     
     if len(output_reg_xr) >0:
-        output_reg_xr = xr.concat(output_reg_xr, dim = 'members')
-        mask = ~np.zeros(output_reg_xr['forest_age'].isel(time=1, members=0).shape, dtype=bool)
-        for _, row in intact_tropical_forest.iterrows():
-            polygon = row.geometry
-            polygon_mask = geometry_mask([polygon], out_shape=mask.shape, transform=output_reg_xr.rio.transform())
-            
-            if False in polygon_mask:
-                mask[polygon_mask==False] = False
-            
-        mask= mask.reshape(output_reg_xr.latitude.shape[0], output_reg_xr.longitude.shape[0], 1, 1)
-        output_reg_xr = output_reg_xr.where(mask, DataConfig['max_forest_age'][0])
-        output_reg_xr = output_reg_xr.mean(dim= "members").transpose('latitude', 'longitude', 'time')        
+        output_reg_xr = xr.concat(output_reg_xr, dim = 'members').mean(dim= "members").transpose('latitude', 'longitude', 'time')        
