@@ -64,7 +64,7 @@ class BacciniBiomasss(DataCube):
     
         """
         
-        ds_ = self.da.to_dataset(name = var_name)
+        ds_ = self.da.to_dataset(name = var_name).transpose('latitude', 'longitude', 'time')
         
         vars_to_proc = {}
         
