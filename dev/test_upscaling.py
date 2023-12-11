@@ -174,15 +174,25 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             # Initialize with NaN values directly
             fused_pred_age_end = np.full(len(ML_pred_age_end), np.nan)
             
-            # Combining conditions where possible
-            stand_replacement_condition = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age_end > subset_LastTimeSinceDist_cube)
-            afforestation_condition = (subset_LastTimeSinceDist_cube == 21)
-            stable_forest_condition = (subset_LastTimeSinceDist_cube > 21)
+            # Stand replacement occured and age ML is higher than Hansen Loss year
+            mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age_end > subset_LastTimeSinceDist_cube)
+            fused_pred_age_end[mask_Change1] = subset_LastTimeSinceDist_cube[mask_Change1]
             
-            # Apply conditions using np.where
-            fused_pred_age_end = np.where(stand_replacement_condition, subset_LastTimeSinceDist_cube, fused_pred_age_end)
-            fused_pred_age_end = np.where(np.logical_and(afforestation_condition, ML_pred_age_end > subset_LastTimeSinceDist_cube), 20, fused_pred_age_end)
-            fused_pred_age_end = np.where(np.logical_or(np.logical_and(afforestation_condition, ML_pred_age_end <= subset_LastTimeSinceDist_cube), stable_forest_condition), ML_pred_age_end, fused_pred_age_end)
+            # Stand replacement occured and age ML is lower or equal than Hansen Loss year
+            mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age_end <= subset_LastTimeSinceDist_cube)
+            fused_pred_age_end[mask_Change2] = ML_pred_age_end[mask_Change2]
+            
+            # Afforestation occured and age ML is higher than Hansen Loss year
+            mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube == 21, ML_pred_age_end > subset_LastTimeSinceDist_cube)
+            fused_pred_age_end[mask_Change1] = 20
+            
+            # Afforestation occured and age ML is lower or equal than Hansen Loss year
+            mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube == 21, ML_pred_age_end <= subset_LastTimeSinceDist_cube)
+            fused_pred_age_end[mask_Change2] = ML_pred_age_end[mask_Change2]
+            
+            # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
+            mask_intact1 = (subset_LastTimeSinceDist_cube > 21)
+            fused_pred_age_end[mask_intact1] = ML_pred_age_end[mask_intact1]
             
             fused_pred_age_mid = fused_pred_age_end - (int(DataConfig['end_year'].split('-')[0]) -  int(DataConfig['mid_year'].split('-')[0]))
             mask_Change1 = (fused_pred_age_mid <1)

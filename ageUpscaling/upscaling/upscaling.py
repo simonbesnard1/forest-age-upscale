@@ -307,20 +307,30 @@ class UpscaleAge(ABC):
                     # Initialize Landsat-based disturbance fusion
                     ML_pred_age_end = ML_pred_age_start + (int(self.DataConfig['end_year'].split('-')[0]) -  int(self.DataConfig['start_year'].split('-')[0]))
                     ML_pred_age_end[ML_pred_age_end>self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0]
-                                        
+                    
                     # Initialize with NaN values directly
                     fused_pred_age_end = np.full(len(ML_pred_age_end), np.nan)
-                                        
-                    # Create masks based in forest change conditions
-                    stand_replacement_condition = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age_end > subset_LastTimeSinceDist_cube)
-                    afforestation_condition = (subset_LastTimeSinceDist_cube == 21)
-                    stable_forest_condition = (subset_LastTimeSinceDist_cube > 21)
                     
-                    # Apply landsat fusion to the end year
-                    fused_pred_age_end = np.where(stand_replacement_condition, subset_LastTimeSinceDist_cube, fused_pred_age_end)
-                    fused_pred_age_end = np.where(np.logical_and(afforestation_condition, ML_pred_age_end > subset_LastTimeSinceDist_cube), 20, fused_pred_age_end)
-                    fused_pred_age_end = np.where(np.logical_or(np.logical_and(afforestation_condition, ML_pred_age_end <= subset_LastTimeSinceDist_cube), stable_forest_condition), ML_pred_age_end, fused_pred_age_end)
-                                        
+                    # Stand replacement occured and age ML is higher than Hansen Loss year
+                    mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age_end > subset_LastTimeSinceDist_cube)
+                    fused_pred_age_end[mask_Change1] = subset_LastTimeSinceDist_cube[mask_Change1]
+                    
+                    # Stand replacement occured and age ML is lower or equal than Hansen Loss year
+                    mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age_end <= subset_LastTimeSinceDist_cube)
+                    fused_pred_age_end[mask_Change2] = ML_pred_age_end[mask_Change2]
+                    
+                    # Afforestation occured and age ML is higher than Hansen Loss year
+                    mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube == 21, ML_pred_age_end > subset_LastTimeSinceDist_cube)
+                    fused_pred_age_end[mask_Change1] = 20
+                    
+                    # Afforestation occured and age ML is lower or equal than Hansen Loss year
+                    mask_Change3 = np.logical_and(subset_LastTimeSinceDist_cube == 21, ML_pred_age_end <= subset_LastTimeSinceDist_cube)
+                    fused_pred_age_end[mask_Change3] = ML_pred_age_end[mask_Change3]
+                    
+                    # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
+                    mask_intact1 = (subset_LastTimeSinceDist_cube > 21)
+                    fused_pred_age_end[mask_intact1] = ML_pred_age_end[mask_intact1]
+                    
                     # Backward fusion for the mid year
                     fused_pred_age_mid = fused_pred_age_end - (int(self.DataConfig['end_year'].split('-')[0]) -  int(self.DataConfig['mid_year'].split('-')[0]))
                     mask_Change1 = (fused_pred_age_mid <1)
