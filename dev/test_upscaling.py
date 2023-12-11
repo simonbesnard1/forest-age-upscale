@@ -166,59 +166,48 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             ML_pred_age_start[mask] = np.round(pred_reg).astype("int16")
             ML_pred_age_start[ML_pred_class_start==1] = DataConfig['max_forest_age'][0]
             ML_pred_age_start[~mask_intact_forest] = DataConfig['max_forest_age'][0]  
-            ML_pred_age_start = ML_pred_age_start + 1
-            mask_non_forest_to_forest = np.logical_and(subset_LastTimeSinceDist_cube - 19 == 1, ML_pred_age_start > 19)                    
-            ML_pred_age_start[mask_non_forest_to_forest] = 1
             ML_pred_age_start[ML_pred_age_start>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             
-            
-            ML_pred_age_end = ML_pred_age_start + (int(DataConfig['end_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]) - 1)
+            ML_pred_age_end = ML_pred_age_start + (int(DataConfig['end_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]))
             ML_pred_age_end[ML_pred_age_end>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
-            
-            ML_pred_age_mid = ML_pred_age_start + (int(DataConfig['mid_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]) -1)
-            ML_pred_age_mid[ML_pred_age_mid>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             
             # Initialize with NaN values directly
             fused_pred_age_end = np.full(len(ML_pred_age_end), np.nan)
             
-            # Stand replacement occured and age ML is higher than Hansen Loss year
-            mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age_end > subset_LastTimeSinceDist_cube)
-            fused_pred_age_end[mask_Change1] = subset_LastTimeSinceDist_cube[mask_Change1]
+            # Combining conditions where possible
+            stand_replacement_condition = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age_end > subset_LastTimeSinceDist_cube)
+            afforestation_condition = (subset_LastTimeSinceDist_cube == 21)
+            stable_forest_condition = (subset_LastTimeSinceDist_cube > 21)
             
-            # Stand replacement / Afforestation occured and age ML is lower or equal than Hansen Loss year
-            mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube <= 20, ML_pred_age_end <= subset_LastTimeSinceDist_cube)
-            fused_pred_age_end[mask_Change2] = ML_pred_age_end[mask_Change2]
+            # Apply conditions using np.where
+            fused_pred_age_end = np.where(stand_replacement_condition, subset_LastTimeSinceDist_cube, fused_pred_age_end)
+            fused_pred_age_end = np.where(np.logical_and(afforestation_condition, ML_pred_age_end > subset_LastTimeSinceDist_cube), 20, fused_pred_age_end)
+            fused_pred_age_end = np.where(np.logical_or(np.logical_and(afforestation_condition, ML_pred_age_end <= subset_LastTimeSinceDist_cube), stable_forest_condition), ML_pred_age_end, fused_pred_age_end)
             
-            # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
-            mask_intact1 = (subset_LastTimeSinceDist_cube > 20)
-            fused_pred_age_end[mask_intact1] = ML_pred_age_end[mask_intact1]
+            fused_pred_age_mid = fused_pred_age_end - (int(DataConfig['end_year'].split('-')[0]) -  int(DataConfig['mid_year'].split('-')[0]))
+            mask_Change1 = (fused_pred_age_mid <1)
+            fused_pred_age_mid[mask_Change1] = ML_pred_age_start[mask_Change1] + (int(DataConfig['mid_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]))
+            fused_pred_age_mid[fused_pred_age_end == DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
+            fused_pred_age_mid[fused_pred_age_mid>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
+            
+            fused_pred_age_start = fused_pred_age_end - (int(DataConfig['end_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]) -1)
+            mask_Change1 = (fused_pred_age_start <1)
+            fused_pred_age_start[mask_Change1] = ML_pred_age_start[mask_Change1] + 1
+            fused_pred_age_start[fused_pred_age_end == DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
+            fused_pred_age_start[fused_pred_age_start>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
+            
+            # Reshape array
+            fused_pred_age_start = fused_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
+            fused_pred_age_mid = fused_pred_age_mid.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
             fused_pred_age_end = fused_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
             
-            fused_pred_age_mid = np.full(len(ML_pred_age_mid), np.nan)
-            
-            # Stand replacement occured and age ML is higher than Hansen Loss year
-            subset_LastTimeSinceDist_cube_midyear =  subset_LastTimeSinceDist_cube - 10
-            subset_LastTimeSinceDist_cube_midyear[subset_LastTimeSinceDist_cube_midyear<0] = 11
-            
-            mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube_midyear <= 10, ML_pred_age_mid > subset_LastTimeSinceDist_cube_midyear)
-            fused_pred_age_mid[mask_Change1] = subset_LastTimeSinceDist_cube_midyear[mask_Change1]
-            
-            # Stand replacement occured and age ML is lower or equal than Hansen Loss year
-            mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube_midyear <= 10, ML_pred_age_mid <= subset_LastTimeSinceDist_cube_midyear)
-            fused_pred_age_mid[mask_Change2] = ML_pred_age_mid[mask_Change2]
-                                                        
-            # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
-            mask_intact1 = (subset_LastTimeSinceDist_cube_midyear > 10)
-            fused_pred_age_mid[mask_intact1] = ML_pred_age_mid[mask_intact1]
-            fused_pred_age_mid = fused_pred_age_mid.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
-                               
-            ML_pred_age_start = ML_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1)
-            nan_mask = np.isnan(ML_pred_age_start) | np.isnan(fused_pred_age_end)
+            # Mask nan consistenlty acroass years
+            nan_mask = np.isnan(fused_pred_age_start) | np.isnan(fused_pred_age_mid) | np.isnan(fused_pred_age_end)
             fused_pred_age_end[nan_mask] = np.nan
-            ML_pred_age_start[nan_mask] = np.nan
+            fused_pred_age_start[nan_mask] = np.nan
             fused_pred_age_mid[nan_mask] = np.nan
             
-            ML_pred_age_start = xr.Dataset({"forest_age":xr.DataArray(ML_pred_age_start, 
+            ML_pred_age_start = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_start, 
                                                         coords={"latitude": subset_features_cube.latitude, 
                                                                 "longitude": subset_features_cube.longitude,
                                                                 "time": [pd.to_datetime(DataConfig['start_year']) + pd.DateOffset(years=1)],                                                          
