@@ -124,8 +124,8 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             
         X_upscale_flattened = da.array(X_upscale_flattened).transpose().compute()
         
-        ML_pred_class_start = np.zeros(X_upscale_flattened.shape[0]) * np.nan
-        ML_pred_age_start = np.zeros(X_upscale_flattened.shape[0]) * np.nan
+        ML_pred_class_init = np.zeros(X_upscale_flattened.shape[0]) * np.nan
+        ML_pred_age_init = np.zeros(X_upscale_flattened.shape[0]) * np.nan
         
         mask = (np.all(np.isfinite(X_upscale_flattened), axis=1)) 
         
@@ -146,7 +146,7 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
                 dpred =  X_upscale_flattened[mask][:, index_mapping_class]
                 pred_class = best_classifier.predict(dpred)
                 
-            ML_pred_class_start[mask] = pred_class
+            ML_pred_class_init[mask] = pred_class
             
             if algorithm == "XGBoost":
                 dpred =  xgb.DMatrix(X_upscale_flattened[mask][:, index_mapping_reg])
@@ -163,12 +163,12 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             
             pred_reg[pred_reg>=DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0] -1
             pred_reg[pred_reg<1] = 1
-            ML_pred_age_start[mask] = np.round(pred_reg).astype("int16")
-            ML_pred_age_start[ML_pred_class_start==1] = DataConfig['max_forest_age'][0]
-            ML_pred_age_start[~mask_intact_forest] = DataConfig['max_forest_age'][0]  
-            ML_pred_age_start[ML_pred_age_start>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
+            ML_pred_age_init[mask] = np.round(pred_reg).astype("int16")
+            ML_pred_age_init[ML_pred_class_init==1] = DataConfig['max_forest_age'][0]
+            ML_pred_age_init[~mask_intact_forest] = DataConfig['max_forest_age'][0]  
+            ML_pred_age_init[ML_pred_age_init>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             
-            ML_pred_age_end = ML_pred_age_start + (int(DataConfig['end_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]))
+            ML_pred_age_end = ML_pred_age_init + (int(DataConfig['end_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]))
             ML_pred_age_end[ML_pred_age_end>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             
             # Initialize with NaN values directly
@@ -196,13 +196,13 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             
             fused_pred_age_mid = fused_pred_age_end - (int(DataConfig['end_year'].split('-')[0]) -  int(DataConfig['mid_year'].split('-')[0]))
             mask_Change1 = (fused_pred_age_mid <1)
-            fused_pred_age_mid[mask_Change1] = ML_pred_age_start[mask_Change1] + (int(DataConfig['mid_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]))
+            fused_pred_age_mid[mask_Change1] = ML_pred_age_init[mask_Change1] + (int(DataConfig['mid_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]))
             fused_pred_age_mid[fused_pred_age_end == DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             fused_pred_age_mid[fused_pred_age_mid>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             
             fused_pred_age_start = fused_pred_age_end - (int(DataConfig['end_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]) -1)
             mask_Change1 = (fused_pred_age_start <1)
-            fused_pred_age_start[mask_Change1] = ML_pred_age_start[mask_Change1] + 1
+            fused_pred_age_start[mask_Change1] = ML_pred_age_init[mask_Change1] + 1
             fused_pred_age_start[fused_pred_age_end == DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             fused_pred_age_start[fused_pred_age_start>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             
