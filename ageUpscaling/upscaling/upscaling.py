@@ -351,7 +351,7 @@ class UpscaleAge(ABC):
                     fused_pred_age_end = fused_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
                     
                     # Mask nan consistenlty across years
-                    nan_mask = np.isnan(fused_pred_age_start) | np.isnan(fused_pred_age_mid) | np.isnan(fused_pred_age_end)
+                    nan_mask = np.isnan(subset_LastTimeSinceDist_cube)
                     fused_pred_age_end[nan_mask] = np.nan
                     fused_pred_age_start[nan_mask] = np.nan
                     fused_pred_age_mid[nan_mask] = np.nan

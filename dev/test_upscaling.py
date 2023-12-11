@@ -206,17 +206,17 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             fused_pred_age_start[fused_pred_age_end == DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             fused_pred_age_start[fused_pred_age_start>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             
-            # Reshape array
-            fused_pred_age_start = fused_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
-            fused_pred_age_mid = fused_pred_age_mid.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
-            fused_pred_age_end = fused_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
-            
             # Mask nan consistenlty acroass years
-            nan_mask = np.isnan(fused_pred_age_start) | np.isnan(fused_pred_age_mid) | np.isnan(fused_pred_age_end)
+            nan_mask = np.isnan(subset_LastTimeSinceDist_cube)
             fused_pred_age_end[nan_mask] = np.nan
             fused_pred_age_start[nan_mask] = np.nan
             fused_pred_age_mid[nan_mask] = np.nan
             
+            # Reshape array
+            fused_pred_age_start = fused_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
+            fused_pred_age_mid = fused_pred_age_mid.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
+            fused_pred_age_end = fused_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
+                        
             ML_pred_age_start = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_start, 
                                                         coords={"latitude": subset_features_cube.latitude, 
                                                                 "longitude": subset_features_cube.longitude,
