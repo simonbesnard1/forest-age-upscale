@@ -79,7 +79,7 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
     subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
     subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
                 
-    subset_canopyHeight_cube = canopyHeight_cube.sel(buffer_IN).sel(time = ['2000-01-01', '2020-01-01'])
+    subset_canopyHeight_cube = canopyHeight_cube.sel(IN).sel(time = ['2000-01-01', '2020-01-01'])
     date_to_replace = pd.to_datetime('2000-01-01')
     new_date = pd.to_datetime('2010-01-01')
     time_index = subset_canopyHeight_cube.indexes['time']
@@ -228,7 +228,7 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             ML_pred_age_start = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_start, 
                                                         coords={"latitude": subset_features_cube.latitude, 
                                                                 "longitude": subset_features_cube.longitude,
-                                                                "time": [pd.to_datetime(DataConfig['start_year']],                                                          
+                                                                "time": [pd.to_datetime(DataConfig['start_year'])],                                                          
                                                                 'members': [run_]}, 
                                                         dims=["latitude", "longitude", "time", "members"])})
             
