@@ -129,7 +129,8 @@ class DifferenceAge(ABC):
                              stand_replaced_class, growing_forest_class, stable_forest_class,
                              old_growth_diff, OG_stand_replaced_class, very_young_diff, very_young_stand_replaced_class,
                              intermediate_diff, intermediate_stand_replaced_class, mature_diff, mature_stand_replaced_class])
-        self.age_diff_cube.CubeWriter(out_cube, n_workers=7)
+        
+        self.age_diff_cube.CubeWriter(out_cube, n_workers=1)
              
     def AgeDiffCubeInit(self):
         
