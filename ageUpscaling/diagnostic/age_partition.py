@@ -106,29 +106,49 @@ class DifferenceAge(ABC):
         diff_age = diff_age.rename({var_: 'age_difference'})            
         
         old_growth_2010 = subset_age_cube.sel(time= '2010-01-01').where(subset_age_cube.sel(time= '2010-01-01') > 150)
-        old_growth_2010 = old_growth_2010.forest_age_hybrid.where(stand_replaced_class.stand_replaced_class==1)        
-        old_growth_diff = diff_age.where(np.isfinite(old_growth_2010)).rename({'age_difference': 'OG_stand_replaced_diff'})
-        OG_stand_replaced_class = xr.where(old_growth_diff < 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'OG_stand_replaced_diff': 'OG_stand_replaced_class'})
-        
         very_young_2010 = subset_age_cube.sel(time= '2010-01-01').where(subset_age_cube.sel(time= '2010-01-01') < 21)
-        very_young_2010 = very_young_2010.forest_age_hybrid.where(stand_replaced_class.stand_replaced_class==1)        
-        very_young_diff = diff_age.where(np.isfinite(very_young_2010)).rename({'age_difference': 'Young_stand_replaced_diff'})
-        very_young_stand_replaced_class = xr.where(very_young_diff < 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'Young_stand_replaced_diff': 'Young_stand_replaced_class'})
-        
         intermediate_2010 = subset_age_cube.sel(time= '2010-01-01').where( (subset_age_cube.sel(time= '2010-01-01') > 20) & (subset_age_cube.sel(time= '2010-01-01') < 61) )
-        intermediate_2010 = intermediate_2010.forest_age_hybrid.where(stand_replaced_class.stand_replaced_class==1)        
-        intermediate_diff = diff_age.where(np.isfinite(intermediate_2010)).rename({'age_difference': 'Intermediate_stand_replaced_diff'})
-        intermediate_stand_replaced_class = xr.where(intermediate_diff < 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'Intermediate_stand_replaced_diff': 'Intermediate_stand_replaced_class'})
-        
         mature_2010 = subset_age_cube.sel(time= '2010-01-01').where( (subset_age_cube.sel(time= '2010-01-01') > 60) & (subset_age_cube.sel(time= '2010-01-01') < 151) )
-        mature_2010 = mature_2010.forest_age_hybrid.where(stand_replaced_class.stand_replaced_class==1)        
-        mature_diff = diff_age.where(np.isfinite(mature_2010)).rename({'age_difference': 'Mature_stand_replaced_diff'})
-        mature_stand_replaced_class = xr.where(mature_diff < 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'Mature_stand_replaced_diff': 'Mature_stand_replaced_class'})
+        
+        
+        old_growth_2010_replaced = old_growth_2010.forest_age_hybrid.where(stand_replaced_class.stand_replaced_class==1)        
+        old_growth_diff_replaced = diff_age.where(np.isfinite(old_growth_2010_replaced)).rename({'age_difference': 'OG_stand_replaced_diff'})
+        OG_stand_replaced_class = xr.where(old_growth_diff_replaced < 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'OG_stand_replaced_diff': 'OG_stand_replaced_class'})
+        
+        very_young_2010_replaced = very_young_2010.forest_age_hybrid.where(stand_replaced_class.stand_replaced_class==1)        
+        very_young_diff_replaced = diff_age.where(np.isfinite(very_young_2010_replaced)).rename({'age_difference': 'Young_stand_replaced_diff'})
+        very_young_stand_replaced_class = xr.where(very_young_diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'Young_stand_replaced_diff': 'Young_stand_replaced_class'})
+        
+        intermediate_2010_replaced = intermediate_2010.forest_age_hybrid.where(stand_replaced_class.stand_replaced_class==1)        
+        intermediate_diff_replaced = diff_age.where(np.isfinite(intermediate_2010_replaced)).rename({'age_difference': 'Intermediate_stand_replaced_diff'})
+        intermediate_stand_replaced_class = xr.where(intermediate_diff_replaced < 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'Intermediate_stand_replaced_diff': 'Intermediate_stand_replaced_class'})
+        
+        mature_2010_replaced = mature_2010.forest_age_hybrid.where(stand_replaced_class.stand_replaced_class==1)        
+        mature_diff_replaced = diff_age.where(np.isfinite(mature_2010_replaced)).rename({'age_difference': 'Mature_stand_replaced_diff'})
+        mature_stand_replaced_class = xr.where(mature_diff_replaced < 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'Mature_stand_replaced_diff': 'Mature_stand_replaced_class'})
+        
+        old_growth_2010_aging = old_growth_2010.forest_age_hybrid.where(growing_forest_class.growing_forest_class==1)        
+        old_growth_diff_aging = diff_age.where(np.isfinite(old_growth_2010_aging)).rename({'age_difference': 'OG_aging_diff'})
+        OG_aging_class = xr.where(old_growth_diff_aging > 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'OG_aging_diff': 'OG_aging_class'})
+        
+        very_young_2010_aging = very_young_2010.forest_age_hybrid.where(growing_forest_class.growing_forest_class==1)        
+        very_young_diff_raging = diff_age.where(np.isfinite(very_young_2010_aging)).rename({'age_difference': 'Young_aging_diff'})
+        very_young_aging_class = xr.where(very_young_diff_raging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'Young_aging_diff': 'Young_aging_class'})
+        
+        intermediate_2010_aging = intermediate_2010.forest_age_hybrid.where(growing_forest_class.growing_forest_class==1)        
+        intermediate_diff_aging = diff_age.where(np.isfinite(intermediate_2010_aging)).rename({'age_difference': 'Intermediate_aging_diff'})
+        intermediate_aging_class = xr.where(intermediate_diff_aging > 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'Intermediate_aging_diff': 'Intermediate_aging_class'})
+        
+        mature_2010_aging = mature_2010.forest_age_hybrid.where(growing_forest_class.growing_forest_class==1)        
+        mature_diff_aging = diff_age.where(np.isfinite(mature_2010_aging)).rename({'age_difference': 'Mature_aging_diff'})
+        mature_aging_class = xr.where(mature_diff_aging > 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'Mature_aging_diff': 'Mature_aging_class'})
         
         out_cube = xr.merge([diff_age, stand_replaced_age, growing_forest_age, stable_forest_age, 
                              stand_replaced_class, growing_forest_class, stable_forest_class,
-                             old_growth_diff, OG_stand_replaced_class, very_young_diff, very_young_stand_replaced_class,
-                             intermediate_diff, intermediate_stand_replaced_class, mature_diff, mature_stand_replaced_class])
+                             old_growth_diff_replaced, OG_stand_replaced_class, very_young_diff_replaced, very_young_stand_replaced_class,
+                             intermediate_diff_replaced, intermediate_stand_replaced_class, mature_diff_replaced, mature_stand_replaced_class,
+                             old_growth_diff_aging, OG_aging_class, very_young_diff_raging, very_young_aging_class, intermediate_diff_aging, 
+                             intermediate_aging_class, mature_diff_aging, mature_aging_class])
         
         self.age_diff_cube.CubeWriter(out_cube, n_workers=1)
              
