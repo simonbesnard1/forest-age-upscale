@@ -124,7 +124,7 @@ class MLData(ABC):
             else:
                 Y = Y.to_array().values
                 
-            Y[Y<1] = 1 ## set min age to 1
+            #Y[Y<1] = 1 ## set min age to 1
             
         return Y
             
@@ -147,12 +147,12 @@ class MLData(ABC):
         
         X, Y = X[mask_nan, :], Y[mask_nan] 
         
-        if 'Regressor' in self.method: 
-            Y=Y.astype('float16')
-        elif 'Classifier' in self.method: 
-            Y=Y.astype('int8')
+        # if 'Regressor' in self.method: 
+        #     Y=Y.astype('float16')
+        # elif 'Classifier' in self.method: 
+        #     Y=Y.astype('int8')
         
-        return {'features' : X.astype('float16'), "target": Y, 'norm_stats': self.norm_stats}
+        return {'features' : X.astype('float16'), "target": Y.astype('int16'), 'norm_stats': self.norm_stats}
     
     def norm(self, 
              x: xr.Dataset, 
