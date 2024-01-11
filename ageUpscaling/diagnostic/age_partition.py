@@ -146,8 +146,7 @@ class DifferenceAge(ABC):
              
     def AgeDiffCubeInit(self):
         
-        for var_ in self.config_file['cube_variables']:
-            self.age_diff_cube.init_variable(var_)
+        self.age_diff_cube.init_variable(self.config_file['cube_variables'], n_jobs= 1)
     
     def AgeDiffCalc(self,
                      task_id=None) -> None:
