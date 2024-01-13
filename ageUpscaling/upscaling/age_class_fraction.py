@@ -67,7 +67,7 @@ class AgeFraction(ABC):
             shutil.rmtree(sync_file)
             
         self.task_id = int(os.getenv('SLURM_ARRAY_TASK_ID', 0))
-        sync_file_features = os.path.abspath(f"{study_dir}/features_sync_{self.task_id}.zarrsync")        
+        sync_file_features = os.path.abspath(f"{study_dir}/ageClassFrac_features_sync_{self.task_id}.zarrsync")        
         if os.path.isdir(sync_file_features):
             shutil.rmtree(sync_file_features)            
         self.sync_feature = zarr.ProcessSynchronizer(sync_file_features)
@@ -77,7 +77,7 @@ class AgeFraction(ABC):
         age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
         age_labels[-1] = '>' + age_labels[-1].split('-')[0]
         
-        self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/cube_out_sync_{self.task_id}.zarrsync") 
+        self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/ageClassFrac_cube_out_sync_{self.task_id}.zarrsync") 
         self.config_file['output_writer_params']['dims']['latitude'] = self.age_cube.latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  self.age_cube.longitude.values
         self.config_file['output_writer_params']['dims']['age_class'] = age_labels
@@ -157,11 +157,11 @@ class AgeFraction(ABC):
                 for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
                     self.process_chunk(extent)
                     
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync"))
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/ageClassFrac_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/ageClassFrac_features_sync_{self.task_id}.zarrsync"))
         
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/cube_out_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/cube_out_sync_{self.task_id}.zarrsync"))
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/ageClassFrac_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/ageClassFrac_cube_out_sync_{self.task_id}.zarrsync"))
         
                 
     def process_chunk(self, extent):
