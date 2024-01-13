@@ -75,7 +75,7 @@ class AgeFraction(ABC):
      
         age_class = np.array(self.config_file['age_classes'])
         age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
-        age_labels[-1] = '>=' + age_labels[-1].split('-')[0]
+        age_labels[-1] = '>' + age_labels[-1].split('-')[0]
         
         self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/cube_out_sync_{self.task_id}.zarrsync") 
         self.config_file['output_writer_params']['dims']['latitude'] = self.age_cube.latitude.values
@@ -106,12 +106,16 @@ class AgeFraction(ABC):
         for i in range(len(age_labels)):
             age_range = age_labels[i]
             lower_limit, upper_limit = map(int, age_range.split('-'))
-            age_class_mask = (subset_age_cube >= lower_limit) & (subset_age_cube < upper_limit)
+            if lower_limit == 0:
+                age_class_mask = (subset_age_cube >= lower_limit) & (subset_age_cube < upper_limit+1)
+            else:
+                age_class_mask = (subset_age_cube > lower_limit) & (subset_age_cube < upper_limit +1)
+                
             age_class_mask = age_class_mask.where(np.isfinite(subset_age_cube))
             age_class_mask = age_class_mask.where(np.isfinite(age_class_mask), -9999)        
             
             if i == len(age_labels) - 1:
-                age_class_mask = age_class_mask.expand_dims({"age_class": ['>=' + age_range.split('-')[0]]}).transpose("age_class", 'latitude', 'longitude', 'time')
+                age_class_mask = age_class_mask.expand_dims({"age_class": ['>' + age_range.split('-')[0]]}).transpose("age_class", 'latitude', 'longitude', 'time')
 
             else:
                 age_class_mask = age_class_mask.expand_dims({"age_class": [age_range]}).transpose("age_class", 'latitude', 'longitude', 'time')
