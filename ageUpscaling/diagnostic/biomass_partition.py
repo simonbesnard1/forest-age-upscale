@@ -156,7 +156,7 @@ class DifferenceBiomass(ABC):
              
     def BiomassDiffCubeInit(self):
         
-        self.age_diff_cube.init_variable(self.config_file['cube_variables'])
+        self.agb_diff_cube.init_variable(self.config_file['cube_variables'])
     
     def BiomassDiffCalc(self,
                      task_id=None) -> None:
