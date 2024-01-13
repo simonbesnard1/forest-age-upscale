@@ -110,7 +110,7 @@ class DifferenceAge(ABC):
         
         young_2010_replaced = young_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
         young_diff_replaced = diff_age.where(np.isfinite(young_2010_replaced)).rename({'age_difference': 'young_stand_replaced_diff'})
-        young_stand_replaced_class = xr.where(young_diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'young_stand_replaced_diff': 'Young_stand_replaced_class'})
+        young_stand_replaced_class = xr.where(young_diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'young_stand_replaced_diff': 'young_stand_replaced_class'})
         
         maturing_2010_replaced = maturing_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
         maturing_diff_replaced = diff_age.where(np.isfinite(maturing_2010_replaced)).rename({'age_difference': 'maturing_stand_replaced_diff'})
