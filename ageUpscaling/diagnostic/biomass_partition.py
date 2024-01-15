@@ -237,7 +237,7 @@ class DifferenceBiomass(ABC):
             for chunck in chunk_dict:
                 
                 data_chunk = agb_diff_cube[var_].sel(chunck).transpose('latitude', 'longitude')
-                data_chunk = data_chunk.where(np.isfinite(data_chunk), -9999)   
+                data_chunk = data_chunk.where(np.isfinite(data_chunk), -9999).astype('float16')  
                 
                 data_chunk.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
                 data_chunk.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
@@ -252,7 +252,7 @@ class DifferenceBiomass(ABC):
            		    os.makedirs(out_dir)
                        
                 data_chunk.rio.to_raster(raster_path= out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
-                                         driver="COG", BIGTIFF='YES', compress='LZW')      
+                                         driver="COG", BIGTIFF='YES', compress=None)      
                 
                 gdalwarp_command = [
                                     'gdal_translate',

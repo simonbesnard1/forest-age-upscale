@@ -242,7 +242,7 @@ class DifferenceAge(ABC):
            		    os.makedirs(out_dir)
                        
                 data_chunk.rio.to_raster(raster_path= out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
-                                         driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")      
+                                         driver="COG", BIGTIFF='YES', compress=None, dtype="int16")      
                 
                 gdalwarp_command = [
                                     'gdal_translate',
