@@ -232,13 +232,17 @@ class DifferenceAge(ABC):
                 data_chunk.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
                 data_chunk.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
                 data_chunk = data_chunk.rio.write_crs("epsg:4326", inplace=True)
+                data_chunk.attrs = {'long_name': 'Age difference',
+                                    'units': 'adimensional',
+                                    'valid_max': 1,
+                                    'valid_min': 0}
                 data_chunk.attrs["_FillValue"] = -9999  
                 out_dir = '{study_dir}/tmp/{var_}/'.format(study_dir = self.study_dir, var_ = var_)
                 if not os.path.exists(out_dir):
            		    os.makedirs(out_dir)
                        
                 data_chunk.rio.to_raster(raster_path= out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
-                                         driver="COG", BIGTIFF='YES', compress=None, dtype="int16")      
+                                         driver="COG", BIGTIFF='YES', compress='LZW', dtype="int16")      
                 
                 gdalwarp_command = [
                                     'gdal_translate',
