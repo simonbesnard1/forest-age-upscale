@@ -248,7 +248,7 @@ class DifferenceAge(ABC):
                                     'gdal_translate',
                                     '-a_nodata', '-9999',
                                     out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)),
-                                    out_dir + '{var_}_{iter_}_noddata.tif'.format(var_ = var_, iter_=str(iter_))                
+                                    out_dir + '{var_}_{iter_}_nodata.tif'.format(var_ = var_, iter_=str(iter_))                
                                 ]
                 subprocess.run(gdalwarp_command, check=True)
                 os.remove(out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)))
