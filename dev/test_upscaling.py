@@ -50,7 +50,7 @@ IN = {"latitude":slice(5, 4.5),
       "longitude":slice(-63.5, -62.5)}
 
 
-study_dir = '/home/simon/gfz_hpc/projects/forest-age-upscale/output/upscaling/Age_upscale_100m/XGBoost/version-1.0'
+study_dir = '/home/simon/gfz_hpc/projects/forest-age-upscale/output/upscaling/Age_upscale_100m/XGBoost/version-1.1'
 
 with open('/home/simon/gfz_hpc/projects/forest-age-upscale/config_files/upscaling/100m/data_config_xgboost.yaml', 'r') as f:
     DataConfig =  yml.safe_load(f)
@@ -177,7 +177,7 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
                 pred_reg= best_regressor.predict(dpred)
             
             pred_reg[pred_reg>=DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0] -1
-            pred_reg[pred_reg<1] = 1
+            pred_reg[pred_reg<0] = 0
             ML_pred_age[mask] = np.round(pred_reg).astype("int16")
             ML_pred_age[ML_pred_class==1] = DataConfig['max_forest_age'][0]
             ML_pred_age   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
@@ -210,7 +210,7 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             
             # Backward fusion for the mid year
             fused_pred_age_start = fused_pred_age_end - (int(DataConfig['end_year'].split('-')[0]) -  int(DataConfig['start_year'].split('-')[0]))
-            mask_Change1 = (fused_pred_age_start <1)
+            mask_Change1 = (fused_pred_age_start <0)
             fused_pred_age_start[mask_Change1] = ML_pred_age_start[mask_Change1]
             fused_pred_age_start[fused_pred_age_end == DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             fused_pred_age_start[fused_pred_age_start>DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
