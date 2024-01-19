@@ -74,7 +74,7 @@ class BiomassUncertainty(ABC):
         self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/agbUnc_cube_out_sync_{self.task_id}.zarrsync") 
         self.config_file['output_writer_params']['dims']['latitude'] = self.agb_cube.latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  self.agb_cube.longitude.values
-        self.config_file['output_writer_params']['dims']['members'] =  np.arange(self.config_file['n_members'])
+        self.config_file['output_writer_params']['dims']['members'] =  self.config_file['n_members']
         
         self.agb_members_cube = DataCube(cube_config = self.config_file)
         
@@ -132,7 +132,7 @@ class BiomassUncertainty(ABC):
         self.agb_members_cube.init_variable(self.config_file['cube_variables'])
     
     def BiomassUncertaintyCalc(self,
-                     task_id=None) -> None:
+                               task_id=None) -> None:
         """Calculate the fraction of each age class.
         
         """
