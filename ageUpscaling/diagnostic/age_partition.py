@@ -403,7 +403,7 @@ class DifferenceAge(ABC):
                     
                     out.append(da_.assign_coords(age_class= class_))
                                   
-            zarr_out_.append(xr.concat(out, dim = 'age_class').transpose('latitude', 'longitude', 'time', 'age_class'))
+            zarr_out_.append(xr.concat(out, dim = 'age_class').transpose('age_class', 'latitude', 'longitude'))
             
             tif_files = glob.glob(os.path.join(self.study_dir, 'agePartition_class_*.tif'))
             for tif_file in tif_files:
