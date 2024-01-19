@@ -74,6 +74,7 @@ class BiomassUncertainty(ABC):
         self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/agbUnc_cube_out_sync_{self.task_id}.zarrsync") 
         self.config_file['output_writer_params']['dims']['latitude'] = self.agb_cube.latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  self.agb_cube.longitude.values
+        self.config_file['output_writer_params']['dims']['members'] =  np.arange(self.config_file['n_members'])
         
         self.agb_members_cube = DataCube(cube_config = self.config_file)
         
@@ -91,39 +92,38 @@ class BiomassUncertainty(ABC):
           - age_class_fraction: xarray DataArray with fractions for each age class.
         """
         
-        subset_agbMean_cube = self.agb_cube.sel(IN)[['aboveground_biomass']]
+        subset_agbMean_cube = self.agb_cube.sel(IN)['aboveground_biomass']
         subset_agbMean_cube = subset_agbMean_cube.where(subset_agbMean_cube>0)
         
-        subset_agbStd_cube = self.agb_cube.sel(IN)[['aboveground_biomass']]
+        subset_agbStd_cube = self.agb_cube.sel(IN)['aboveground_biomass_std']
         subset_agbStd_cube = subset_agbStd_cube.where(subset_agbMean_cube>0)
         
         generated_maps = []
         
-        # Loop over each time step
         for time_step in self.agb_cube.time:
             time_maps = []
             mean_agb_at_time = subset_agbMean_cube.sel(time=time_step)
             std_agb_at_time = subset_agbStd_cube.sel(time=time_step)
-        
-            for k in range(self.config_file['num_maps']):
+            
+            
+            for k in range(self.config_file['n_members']):
+                
                 # Generate a single random scaling factor S_k for this map
                 S_k = np.random.normal(0, 1)
-                
+
                 # Apply S_k to each grid cell's sigma and add to its AGB
                 new_map_data = mean_agb_at_time + S_k * std_agb_at_time
                 
-                # Create a new xarray DataArray with this data
-                new_map = xr.DataArray(new_map_data, dims=('longitude', 'latiude', 'time'), 
-                                       coords={'longitude': mean_agb_at_time.coords['longitude'], 'latitude': mean_agb_at_time.coords['latitude'], 'time': [time_step]})
+                new_map_data = new_map_data.expand_dims({"members": [k]})
                 
-                time_maps.append(new_map)
+                time_maps.append(new_map_data)
             
             # Combine all maps for this time step into a single Dataset
-            combined_maps = xr.concat(time_maps, pd.Index(range(self.config_file['num_maps']), name='members'))
+            combined_maps = xr.concat(time_maps, dim = 'members')
             generated_maps.append(combined_maps)
-        
+
         # Combine all time step datasets into a single xarray Dataset
-        out_cube = xr.concat(generated_maps,dim='time')
+        out_cube = xr.concat(generated_maps,dim='time').transpose("members", 'latitude', 'longitude', 'time')
 
         self.agb_members_cube.CubeWriter(out_cube, n_workers=1)
              
