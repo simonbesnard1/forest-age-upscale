@@ -15,8 +15,6 @@ import shutil
 from tqdm import tqdm
 from itertools import product
 from abc import ABC
-import subprocess
-import glob
 
 import numpy as np
 import yaml as yml
@@ -26,7 +24,6 @@ import dask
 
 import xarray as xr
 import zarr
-import rioxarray as rio
 
 from ageUpscaling.core.cube import DataCube
 
