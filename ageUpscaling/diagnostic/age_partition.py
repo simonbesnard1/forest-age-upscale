@@ -365,7 +365,7 @@ class DifferenceAge(ABC):
 
                     iter_ += 1
                       
-                input_files = glob.glob(os.path.join(out_dir, '/*_nodata.tif'))
+                input_files = glob.glob(os.path.join(out_dir, '*_nodata.tif'))
                 vrt_filename = out_dir + '/agePartition_class_{class_}.vrt'.format(class_=class_)
                     
                 gdalbuildvrt_command = [
