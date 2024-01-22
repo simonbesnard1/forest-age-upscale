@@ -335,8 +335,8 @@ class DifferenceAge(ABC):
                                     'valid_max': 1,
                                     'valid_min': 0}
                 
-                LatChunks = np.array_split(data_class.latitude.values, 2)
-                LonChunks = np.array_split(data_class.longitude.values, 2)
+                LatChunks = np.array_split(data_class.latitude.values, 3)
+                LonChunks = np.array_split(data_class.longitude.values, 3)
                 chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
             		           "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                               for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]

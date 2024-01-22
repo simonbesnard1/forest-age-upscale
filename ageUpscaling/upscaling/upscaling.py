@@ -112,6 +112,8 @@ class UpscaleAge(ABC):
         self.upscaling_config['sync_file_path'] = os.path.abspath(f"{study_dir}/cube_out_sync_{self.task_id}.zarrsync") 
         self.upscaling_config['output_writer_params']['dims']['latitude']  = self.agb_cube.latitude.values
         self.upscaling_config['output_writer_params']['dims']['longitude'] = self.agb_cube.longitude.values
+        self.config_file['output_writer_params']['dims']['members'] =  self.config_file['n_members']
+        
         self.pred_cube = DataCube(cube_config = self.upscaling_config)
         self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
                                      njobs= len(self.upscaling_config['cube_variables'].keys()))
@@ -453,7 +455,7 @@ class UpscaleAge(ABC):
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
         
-        for run_ in tqdm(np.arange(self.upscaling_config['num_members']), desc='Training model members'):
+        for run_ in tqdm(np.arange(self.upscaling_config['n_members']), desc='Training model members'):
             
             for task_ in ["Regressor", "Classifier"]:
                 if not os.path.exists(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = task_, id_ = run_)):
