@@ -68,7 +68,7 @@ class BiomassUncertainty(ABC):
         if os.path.isdir(sync_file_features):
             shutil.rmtree(sync_file_features)            
         self.sync_feature = zarr.ProcessSynchronizer(sync_file_features)
-        self.agb_cube = xr.open_zarr(self.config_file['Biomass_cube'], synchronizer=self.sync_feature)
+        self.agb_cube = xr.open_zarr(self.config_file['Biomass_cube'], synchronizer=self.sync_feature).sel(time = self.config_file['output_writer_params']['dims']['time'])
         
         self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/agbUnc_cube_out_sync_{self.task_id}.zarrsync") 
         self.config_file['output_writer_params']['dims']['latitude'] = self.agb_cube.latitude.values
@@ -122,7 +122,7 @@ class BiomassUncertainty(ABC):
             generated_maps.append(combined_maps)
 
         # Combine all time step datasets into a single xarray Dataset
-        out_cube = xr.concat(generated_maps,dim='time').transpose("members", 'latitude', 'longitude', 'time')
+        out_cube = xr.concat(generated_maps,dim='time').transpose("members", 'latitude', 'longitude', 'time').to_dataset(name='aboveground_biomass')
 
         self.agb_members_cube.CubeWriter(out_cube, n_workers=1)
              
