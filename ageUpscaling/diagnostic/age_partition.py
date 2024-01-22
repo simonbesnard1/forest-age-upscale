@@ -125,7 +125,7 @@ class DifferenceAge(ABC):
             
             aging_forest = age_class_mask[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)
             diff_aging = diff_age.where(np.isfinite(aging_forest))
-            aging_class_partition = xr.where(diff_aging >= 0, 1, 0).where(np.isfinite(diff_age.age_difference))
+            aging_class_partition = xr.where(diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference))
                         
             stand_replaced_forest = age_class_mask[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)
             diff_replaced = diff_age.where(np.isfinite(stand_replaced_forest))    

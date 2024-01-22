@@ -135,7 +135,7 @@ class DifferenceBiomass(ABC):
         
         young_2010_aging = young_2010[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)        
         young_diff_aging = diff_age.where(np.isfinite(young_2010_aging)).rename({'age_difference': 'young_aging_diff'})
-        young_aging_class = xr.where(young_diff_aging > 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'young_aging_diff': 'young_aging_class'})
+        young_aging_class = xr.where(young_diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'young_aging_diff': 'young_aging_class'})
         
         maturing_2010_aging = maturing_2010[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)        
         maturing_diff_aging = diff_age.where(np.isfinite(maturing_2010_aging)).rename({'age_difference': 'maturing_aging_diff'})
