@@ -365,40 +365,40 @@ class DifferenceAge(ABC):
 
                     iter_ += 1
                       
-                    input_files = glob.glob(os.path.join(out_dir, '/*_nodata.tif'))
-                    vrt_filename = out_dir + '/agePartition_class_{class_}.vrt'.format(class_=class_)
+                input_files = glob.glob(os.path.join(out_dir, '/*_nodata.tif'))
+                vrt_filename = out_dir + '/agePartition_class_{class_}.vrt'.format(class_=class_)
                     
-                    gdalbuildvrt_command = [
-                        'gdalbuildvrt',
-                        vrt_filename
-                    ] + input_files
+                gdalbuildvrt_command = [
+                    'gdalbuildvrt',
+                    vrt_filename
+                ] + input_files
                     
-                    subprocess.run(gdalbuildvrt_command, check=True)
+                subprocess.run(gdalbuildvrt_command, check=True)
                     
-                    gdalwarp_command = [
-                        'gdalwarp',
-                        '-srcnodata', '-9999',
-                        '-dstnodata', '-9999',
-                        '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
-                        '-t_srs', 'EPSG:4326',
-                        '-of', 'Gtiff',
-                        '-te', '-180', '-90', '180', '90',
-                        '-r', 'average',
-                        '-ot', 'Float32',
-                        '-co', 'COMPRESS=LZW',
-                        '-co', 'BIGTIFF=YES',
-                        '-overwrite',
-                        f'/{vrt_filename}',
-                       self.study_dir + f'/agePartition_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_),
-                    ]
-                    subprocess.run(gdalwarp_command, check=True)
+                gdalwarp_command = [
+                    'gdalwarp',
+                    '-srcnodata', '-9999',
+                    '-dstnodata', '-9999',
+                    '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
+                    '-t_srs', 'EPSG:4326',
+                    '-of', 'Gtiff',
+                    '-te', '-180', '-90', '180', '90',
+                    '-r', 'average',
+                    '-ot', 'Float32',
+                    '-co', 'COMPRESS=LZW',
+                    '-co', 'BIGTIFF=YES',
+                    '-overwrite',
+                    f'/{vrt_filename}',
+                    self.study_dir + f'/agePartition_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_),
+                ]
+                subprocess.run(gdalwarp_command, check=True)
                 
-                    da_ =  rio.open_rasterio(self.study_dir + f'/agePartition_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_))     
-                    da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
-                    if os.path.exists(out_dir):
-                        shutil.rmtree(out_dir)
+                da_ =  rio.open_rasterio(self.study_dir + f'/agePartition_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_))     
+                da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
+                if os.path.exists(out_dir):
+                    shutil.rmtree(out_dir)
                     
-                    out.append(da_.assign_coords(age_class= class_))
+                out.append(da_.assign_coords(age_class= class_))
                                   
             zarr_out_.append(xr.concat(out, dim = 'age_class').transpose('age_class', 'latitude', 'longitude'))
             
