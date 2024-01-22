@@ -352,7 +352,7 @@ class DifferenceAge(ABC):
                     data_chunk = data_class.sel(chunck)
                     data_chunk.attrs["_FillValue"] = -9999    
                     data_chunk = data_chunk.astype('int16')
-                    data_chunk.rio.to_raster(raster_path=self.study_dir + '/agePartition_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
+                    data_chunk.rio.to_raster(raster_path=out_dir + 'age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
                                              driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
                    
                     gdalwarp_command = [
