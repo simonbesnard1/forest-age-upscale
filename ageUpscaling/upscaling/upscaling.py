@@ -112,7 +112,7 @@ class UpscaleAge(ABC):
         self.upscaling_config['sync_file_path'] = os.path.abspath(f"{study_dir}/cube_out_sync_{self.task_id}.zarrsync") 
         self.upscaling_config['output_writer_params']['dims']['latitude']  = self.agb_cube.latitude.values
         self.upscaling_config['output_writer_params']['dims']['longitude'] = self.agb_cube.longitude.values
-        self.config_file['output_writer_params']['dims']['members'] =  self.config_file['n_members']
+        self.upscaling_config['output_writer_params']['dims']['members'] =  self.upscaling_config['n_members']
         
         self.pred_cube = DataCube(cube_config = self.upscaling_config)
         self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
