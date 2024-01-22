@@ -216,7 +216,7 @@ class DifferenceAge(ABC):
         age_diff_cube = xr.open_zarr(self.config_file['cube_location'])
         zarr_out_ = []
         
-        for var_ in set(age_diff_cube.variables.keys()) - set(age_diff_cube.dims):
+        for var_ in {item for item in set(age_diff_cube.variables.keys()) - set(age_diff_cube.dims) if 'partition' not in item}:
             
             LatChunks = np.array_split(age_diff_cube.latitude.values, 3)
             LonChunks = np.array_split(age_diff_cube.longitude.values, 3)
@@ -321,8 +321,7 @@ class DifferenceAge(ABC):
                         
         age_diff_cube = xr.open_zarr(self.config_file['cube_location'])
         zarr_out_ = []
-        for var_ in self.config_file['cube_variables'].keys():
-            
+        for var_ in {item for item in set(age_diff_cube.variables.keys()) - set(age_diff_cube.dims) if 'partition' in item}:
             out = []
             for class_ in age_diff_cube.age_class.values:
                  
@@ -342,33 +341,32 @@ class DifferenceAge(ABC):
             		           "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                               for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
                 
-                if not os.path.exists(self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_)):
                     
-                    iter_ = 0
-                    for chunck in chunk_dict:
-                        
-                        if not os.path.exists(self.study_dir + '/agePartition_class_{class_}/'.format(class_ =class_)):
-                            os.makedirs(self.study_dir + '/agePartition_class_{class_}/'.format(class_ =class_))
-                        
-                        if not os.path.exists(self.study_dir + '/agePartition_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_))):
-                            data_chunk = data_class.sel(chunck)
-                            data_chunk.attrs["_FillValue"] = -9999    
-                            data_chunk = data_chunk.astype('int16')
-                            data_chunk.rio.to_raster(raster_path=self.study_dir + '/agePartition_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
-                                                     driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
-                           
-                            gdalwarp_command = [
-                                                'gdal_translate',
-                                                '-a_nodata', '-9999',
-                                                self.study_dir + '/agePartition_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)),
-                                                self.study_dir + '/agePartition_class_{class_}/age_class_{class_}_{iter_}_nodata.tif'.format(class_ =class_, iter_=str(iter_))                                                
-                                            ]
-                            subprocess.run(gdalwarp_command, check=True)
+                iter_ = 0
+                for chunck in chunk_dict:
+                    
+                    out_dir = '{study_dir}/tmp/{var_}/agePartition_class_{class_}/'.format(study_dir = self.study_dir, var_ = var_, class_ =class_)
+                    if not os.path.exists(out_dir):
+               		    os.makedirs(out_dir)
+                    
+                    data_chunk = data_class.sel(chunck)
+                    data_chunk.attrs["_FillValue"] = -9999    
+                    data_chunk = data_chunk.astype('int16')
+                    data_chunk.rio.to_raster(raster_path=self.study_dir + '/agePartition_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
+                                             driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
+                   
+                    gdalwarp_command = [
+                                        'gdal_translate',
+                                        '-a_nodata', '-9999',
+                                        out_dir + 'age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)),
+                                        out_dir + 'age_class_{class_}_{iter_}_nodata.tif'.format(class_ =class_, iter_=str(iter_))                                                
+                                    ]
+                    subprocess.run(gdalwarp_command, check=True)
 
-                        iter_ += 1
+                    iter_ += 1
                       
-                    input_files = glob.glob(os.path.join(self.study_dir, 'agePartition_class_{class_}/*_nodata.tif'.format(class_=class_)))
-                    vrt_filename = self.study_dir + '/agePartition_class_{class_}.vrt'.format(class_=class_)
+                    input_files = glob.glob(os.path.join(out_dir, '/*_nodata.tif'))
+                    vrt_filename = out_dir + '/agePartition_class_{class_}.vrt'.format(class_=class_)
                     
                     gdalbuildvrt_command = [
                         'gdalbuildvrt',
@@ -397,9 +395,8 @@ class DifferenceAge(ABC):
                 
                     da_ =  rio.open_rasterio(self.study_dir + f'/agePartition_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_))     
                     da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
-                    if os.path.exists(self.study_dir + '/agePartition_class_{class_}/'.format(class_ =class_)):
-                        shutil.rmtree(os.path.join(self.study_dir, 'agePartition_class_{class_}'.format(class_=class_)))
-                        os.remove(self.study_dir + '/agePartition_class_{class_}.vrt'.format(class_=class_))                    
+                    if os.path.exists(out_dir):
+                        shutil.rmtree(out_dir)
                     
                     out.append(da_.assign_coords(age_class= class_))
                                   
