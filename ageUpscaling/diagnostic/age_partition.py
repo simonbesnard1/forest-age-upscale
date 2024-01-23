@@ -218,8 +218,8 @@ class DifferenceAge(ABC):
         
         for var_ in {item for item in set(age_diff_cube.variables.keys()) - set(age_diff_cube.dims) if 'partition' not in item}:
             
-            LatChunks = np.array_split(age_diff_cube.latitude.values, 3)
-            LonChunks = np.array_split(age_diff_cube.longitude.values, 3)
+            LatChunks = np.array_split(age_diff_cube.latitude.values, 10)
+            LonChunks = np.array_split(age_diff_cube.longitude.values, 10)
             chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
         		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
         		    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))] 
@@ -324,6 +324,10 @@ class DifferenceAge(ABC):
         for var_ in {item for item in set(age_diff_cube.variables.keys()) - set(age_diff_cube.dims) if 'partition' in item}:
             out = []
             for class_ in age_diff_cube.age_class.values:
+                
+                out_dir = '{study_dir}/tmp/{var_}/agePartition_class_{class_}/'.format(study_dir = self.study_dir, var_ = var_, class_ =class_)
+                if not os.path.exists(out_dir):
+           		    os.makedirs(out_dir)
                  
                 data_class =age_diff_cube[var_].sel(age_class = class_).transpose('latitude', 'longitude')
                 data_class = data_class.where(np.isfinite(data_class), -9999).astype("int16")     
@@ -335,8 +339,8 @@ class DifferenceAge(ABC):
                                     'valid_max': 1,
                                     'valid_min': 0}
                 
-                LatChunks = np.array_split(data_class.latitude.values, 3)
-                LonChunks = np.array_split(data_class.longitude.values, 3)
+                LatChunks = np.array_split(data_class.latitude.values, 10)
+                LonChunks = np.array_split(data_class.longitude.values, 10)
                 chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
             		           "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                               for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
@@ -344,10 +348,6 @@ class DifferenceAge(ABC):
                     
                 iter_ = 0
                 for chunck in chunk_dict:
-                    
-                    out_dir = '{study_dir}/tmp/{var_}/agePartition_class_{class_}/'.format(study_dir = self.study_dir, var_ = var_, class_ =class_)
-                    if not os.path.exists(out_dir):
-               		    os.makedirs(out_dir)
                     
                     data_chunk = data_class.sel(chunck)
                     data_chunk.attrs["_FillValue"] = -9999    
@@ -389,26 +389,26 @@ class DifferenceAge(ABC):
                     '-co', 'BIGTIFF=YES',
                     '-overwrite',
                     f'/{vrt_filename}',
-                    self.study_dir + f'/agePartition_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_),
+                    self.study_dir + f'/tmp/{var_}/agePartition_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_= var_, class_=class_),
                 ]
                 subprocess.run(gdalwarp_command, check=True)
                 
-                da_ =  rio.open_rasterio(self.study_dir + f'/agePartition_class_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(class_=class_))     
-                da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
                 if os.path.exists(out_dir):
                     shutil.rmtree(out_dir)
-                    
+                
+                da_ =  rio.open_rasterio(self.study_dir + f'/tmp/{var_}/agePartition_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_= var_, class_=class_))     
+                da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
+                
                 out.append(da_.assign_coords(age_class= class_))
                                   
             zarr_out_.append(xr.concat(out, dim = 'age_class').transpose('age_class', 'latitude', 'longitude'))
             
-            tif_files = glob.glob(os.path.join(self.study_dir, 'agePartition_class_*.tif'))
-            for tif_file in tif_files:
-                  os.remove(tif_file)
-
-        xr.merge(zarr_out_).to_zarr(self.study_dir + '/AgeDiffPartition_class_fraction_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
-
-   
+        xr.merge(zarr_out_).to_zarr(self.study_dir + '/AgeDiffPartition_fraction_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        
+        for var_ in {item for item in set(age_diff_cube.variables.keys()) - set(age_diff_cube.dims) if 'partition' in item}:
+            shutil.rmtree(os.path.join(self.study_dir, 'tmp/{var_}'.format(var_ = var_)))
+        
+        
 
                 
     
