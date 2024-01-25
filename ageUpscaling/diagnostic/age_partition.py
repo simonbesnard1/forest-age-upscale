@@ -122,8 +122,8 @@ class DifferenceAge(ABC):
             else:
                 age_class_mask = (subset_age_cube.sel(time= '2010-01-01') > lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit +1)
                 
-            age_class_mask = age_class_mask.where(np.isfinite(subset_age_cube.sel(time= '2010-01-01')))
-            
+            age_class_mask = age_class_mask.where(age_class_mask >0)
+        
             aging_forest = age_class_mask[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)
             diff_aging = diff_age.where(np.isfinite(aging_forest))
             aging_class_partition = xr.where(diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference))
@@ -145,7 +145,7 @@ class DifferenceAge(ABC):
                 
             stand_replaced_class_partition = stand_replaced_class_partition.rename({'age_difference': 'stand_replaced_class_partition'})
             aging_class_partition = aging_class_partition.rename({'age_difference': 'aging_forest_class_partition'})
-            out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition]).drop('time')    
+            out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition]).drop_vars('time')    
           
             self.age_diff_cube.CubeWriter(out_cube, n_workers=1)
              
