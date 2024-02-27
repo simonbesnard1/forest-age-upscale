@@ -97,11 +97,11 @@ class DifferenceBiomass(ABC):
         subset_age_cube = self.age_cube.sel(IN)[[self.config_file['forest_age_var']]]
         subset_agb_cube = self.agb_cube.sel(IN)[['aboveground_biomass']]
         subset_agb_cube = subset_agb_cube.where(subset_agb_cube>0)
-        mask_qc = self.agb_cube.sel(IN)['quality_check_changes'].sel(time= '2020-01-01')
+        #mask_qc = self.agb_cube.sel(IN)['quality_check_changes'].sel(time= '2020-01-01')
         
         diff_age = subset_age_cube.sel(time= '2020-01-01') - subset_age_cube.sel(time= '2010-01-01')
         diff_agb = subset_agb_cube.sel(time= '2020-01-01') - subset_agb_cube.sel(time= '2010-01-01')
-        diff_agb = diff_agb.where(mask_qc != 3)
+        #diff_agb = diff_agb.where(mask_qc != 3)
         
         stand_replaced_class = xr.where(diff_age < 0, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'stand_replaced_class'})
         aging_forest_class = xr.where(diff_age >= 0, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'aging_forest_class'})
