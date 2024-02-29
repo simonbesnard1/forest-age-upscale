@@ -538,7 +538,7 @@ class UpscaleAge(ABC):
            
         
              
-        age_cube = xr.open_zarr(os.path.abspath(f"{self.study_dir}/{self.config_file['cube_name']}"))
+        age_cube = xr.open_zarr(self.upscaling_config['cube_location'])
         zarr_out_ = []
         
         for var_ in set(age_cube.variables.keys()) - set(age_cube.dims):
