@@ -552,7 +552,7 @@ class UpscaleAge(ABC):
             iter_ = 0
             for chunck in chunk_dict:
                 
-                data_chunk = age_cube[var_].sel(chunck)
+                data_chunk = age_cube[var_].sel(chunck).transpose('time', 'latitude', 'longitude')
                 data_chunk = data_chunk.where(np.isfinite(data_chunk), -9999).astype('float32')  
                 
                 data_chunk.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
