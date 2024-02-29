@@ -535,8 +535,10 @@ class UpscaleAge(ABC):
             - Saves processed data as raster files.
             - Merges and converts the output into Zarr format.
         """
-                        
-        age_cube = xr.open_zarr(self.config_file['cube_location'])
+           
+        
+             
+        age_cube = xr.open_zarr(os.path.abspath(f"{self.study_dir}/{self.config_file['cube_name']}"))
         zarr_out_ = []
         
         for var_ in set(age_cube.variables.keys()) - set(age_cube.dims):
