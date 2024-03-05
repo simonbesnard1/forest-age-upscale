@@ -111,11 +111,16 @@ class DifferenceBiomass(ABC):
         young_2010 = subset_age_cube.sel(time= '2010-01-01').where(subset_age_cube.sel(time= '2010-01-01') < 21)
         maturing_2010 = subset_age_cube.sel(time= '2010-01-01').where( (subset_age_cube.sel(time= '2010-01-01') > 20) & (subset_age_cube.sel(time= '2010-01-01') < 81) )
         mature_2010 = subset_age_cube.sel(time= '2010-01-01').where( (subset_age_cube.sel(time= '2010-01-01') > 80) & (subset_age_cube.sel(time= '2010-01-01') < 201) )
-        old_growth_2010 = subset_age_cube.sel(time= '2010-01-01').where(subset_age_cube.sel(time= '2010-01-01') > 200)
+        old_growth_2010 = subset_age_cube.sel(time= '2010-01-01').where( (subset_age_cube.sel(time= '2010-01-01') > 200) & (subset_age_cube.sel(time= '2010-01-01') < 300) )
+        old_growth_tropical_2010 = subset_age_cube.sel(time= '2010-01-01').where(subset_age_cube.sel(time= '2010-01-01') >=300)
         
         old_growth_2010_replaced = old_growth_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
         old_growth_diff_replaced = diff_age.where(np.isfinite(old_growth_2010_replaced)).rename({'age_difference': 'OG_stand_replaced_diff'})
         OG_stand_replaced_class = xr.where(old_growth_diff_replaced < 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'OG_stand_replaced_diff': 'OG_stand_replaced_class'})
+        
+        old_growth_tropical_2010_replaced = old_growth_tropical_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
+        old_growth_tropical_diff_replaced = diff_age.where(np.isfinite(old_growth_tropical_2010_replaced)).rename({'age_difference': 'OG_tropical_stand_replaced_diff'})
+        OG_tropical_stand_replaced_class = xr.where(old_growth_tropical_diff_replaced < 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'OG_tropical_stand_replaced_diff': 'OG_tropical_stand_replaced_class'})
         
         young_2010_replaced = young_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
         young_diff_replaced = diff_age.where(np.isfinite(young_2010_replaced)).rename({'age_difference': 'young_stand_replaced_diff'})
@@ -133,6 +138,10 @@ class DifferenceBiomass(ABC):
         old_growth_diff_aging = diff_age.where(np.isfinite(old_growth_2010_aging)).rename({'age_difference': 'OG_aging_diff'})
         OG_aging_class = xr.where(old_growth_diff_aging >= 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'OG_aging_diff': 'OG_aging_class'})
         
+        old_growth_tropical_2010_aging = old_growth_2010[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)        
+        old_growth_tropical_diff_aging = diff_age.where(np.isfinite(old_growth_tropical_2010_aging)).rename({'age_difference': 'OG_tropical_aging_diff'})
+        OG_tropical_aging_class = xr.where(old_growth_tropical_diff_aging >= 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'OG_tropical_aging_diff': 'OG_tropical_aging_class'})
+        
         young_2010_aging = young_2010[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)        
         young_diff_aging = diff_age.where(np.isfinite(young_2010_aging)).rename({'age_difference': 'young_aging_diff'})
         young_aging_class = xr.where(young_diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'young_aging_diff': 'young_aging_class'})
@@ -146,16 +155,19 @@ class DifferenceBiomass(ABC):
         mature_aging_class = xr.where(mature_diff_aging > 0, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'mature_aging_diff': 'mature_aging_class'})
         
         old_growth_agb_diff_replaced = diff_agb.where(OG_stand_replaced_class.OG_stand_replaced_class ==1).rename({'agb_difference': 'OG_agb_diff_replaced'})
+        old_growth_tropical_agb_diff_replaced = diff_agb.where(OG_tropical_stand_replaced_class.OG_stand_replaced_class ==1).rename({'agb_difference': 'OG_tropical_agb_diff_replaced'})
         young_agb_diff_replaced = diff_agb.where(young_stand_replaced_class.young_stand_replaced_class ==1).rename({'agb_difference': 'young_agb_diff_replaced'})
         maturing_agb_diff_replaced = diff_agb.where(maturing_stand_replaced_class.maturing_stand_replaced_class ==1).rename({'agb_difference': 'maturing_agb_diff_replaced'})
         mature_agb_diff_replaced = diff_agb.where(mature_stand_replaced_class.mature_stand_replaced_class ==1).rename({'agb_difference': 'mature_agb_diff_replaced'})
         old_growth_agb_diff_aging = diff_agb.where(OG_aging_class.OG_aging_class ==1).rename({'agb_difference': 'OG_agb_diff_aging'})
+        old_growth_tropical_agb_diff_aging = diff_agb.where(OG_tropical_aging_class.OG_aging_class ==1).rename({'agb_difference': 'OG_tropical_agb_diff_aging'})
+        
         young_agb_diff_aging = diff_agb.where(young_aging_class.young_aging_class ==1).rename({'agb_difference': 'young_agb_diff_aging'})
         maturing_agb_diff_aging = diff_agb.where(maturing_aging_class.maturing_aging_class ==1).rename({'agb_difference': 'maturing_agb_diff_aging'})
         mature_agb_diff_aging = diff_agb.where(mature_aging_class.mature_aging_class ==1).rename({'agb_difference': 'mature_agb_diff_aging'})
         
-        out_cube = xr.merge([old_growth_agb_diff_replaced, young_agb_diff_replaced, maturing_agb_diff_replaced, mature_agb_diff_replaced,
-                             old_growth_agb_diff_aging, young_agb_diff_aging, maturing_agb_diff_aging, mature_agb_diff_aging])
+        out_cube = xr.merge([old_growth_agb_diff_replaced, old_growth_tropical_agb_diff_replaced, young_agb_diff_replaced, maturing_agb_diff_replaced, mature_agb_diff_replaced,
+                             old_growth_agb_diff_aging, old_growth_tropical_agb_diff_aging, young_agb_diff_aging, maturing_agb_diff_aging, mature_agb_diff_aging])
         
         self.agb_diff_cube.CubeWriter(out_cube, n_workers=1)
              
@@ -303,7 +315,7 @@ class DifferenceBiomass(ABC):
                 
             zarr_out_.append(da_)
         
-        xr.merge(zarr_out_).to_zarr(self.study_dir + '/BiomassDiff_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        xr.merge(zarr_out_).to_zarr(self.study_dir + '/BiomassDiffPartition_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
         tif_files = glob.glob(os.path.join(self.study_dir, '*.tif'))
         for tif_file in tif_files:
