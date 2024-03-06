@@ -160,8 +160,7 @@ class DifferenceBiomass(ABC):
         maturing_agb_diff_replaced = diff_agb.where(maturing_stand_replaced_class.maturing_stand_replaced_class ==1).rename({'agb_difference': 'maturing_agb_diff_replaced'})
         mature_agb_diff_replaced = diff_agb.where(mature_stand_replaced_class.mature_stand_replaced_class ==1).rename({'agb_difference': 'mature_agb_diff_replaced'})
         old_growth_agb_diff_aging = diff_agb.where(OG_aging_class.OG_aging_class ==1).rename({'agb_difference': 'OG_agb_diff_aging'})
-        old_growth_tropical_agb_diff_aging = diff_agb.where(OG_tropical_aging_class.OG_aging_class ==1).rename({'agb_difference': 'OG_tropical_agb_diff_aging'})
-        
+        old_growth_tropical_agb_diff_aging = diff_agb.where(OG_tropical_aging_class.OG_tropical_aging_class ==1).rename({'agb_difference': 'OG_tropical_agb_diff_aging'})
         young_agb_diff_aging = diff_agb.where(young_aging_class.young_aging_class ==1).rename({'agb_difference': 'young_agb_diff_aging'})
         maturing_agb_diff_aging = diff_agb.where(maturing_aging_class.maturing_aging_class ==1).rename({'agb_difference': 'maturing_agb_diff_aging'})
         mature_agb_diff_aging = diff_agb.where(mature_aging_class.mature_aging_class ==1).rename({'agb_difference': 'mature_agb_diff_aging'})
