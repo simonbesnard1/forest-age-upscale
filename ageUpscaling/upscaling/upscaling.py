@@ -8,7 +8,7 @@
 @Version :   1.0
 @Contact :   besnard.sim@gmail.com
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for upscaling MLP model
+@Desc    :   A method class for upscaling forest age ML model
 """
 import os
 import shutil
@@ -115,7 +115,7 @@ class UpscaleAge(ABC):
         self.upscaling_config['sync_file_path'] = os.path.abspath(f"{study_dir}/cube_out_sync_{self.task_id}.zarrsync") 
         self.upscaling_config['output_writer_params']['dims']['latitude']  = self.agb_cube.latitude.values
         self.upscaling_config['output_writer_params']['dims']['longitude'] = self.agb_cube.longitude.values
-        self.upscaling_config['output_writer_params']['dims']['members'] =  self.upscaling_config['n_members']
+        self.upscaling_config['output_writer_params']['dims']['members'] =  self.upscaling_config['num_members']
         
         self.pred_cube = DataCube(cube_config = self.upscaling_config)
         self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
@@ -197,17 +197,13 @@ class UpscaleAge(ABC):
         buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
                      'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
         
-        subset_LastTimeSinceDist_cube = self.LastTimeSinceDist_cube.sel(time = self.DataConfig['end_year']).sel(IN).to_array()
-        subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).values.reshape(-1)
+        subset_LastTimeSinceDist_cube = self.LastTimeSinceDist_cube.sel(time = self.DataConfig['end_year']).sel(IN)
+        subset_LastTimeSinceDist = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).to_array().values.reshape(-1)
         
-        if not np.isnan(subset_LastTimeSinceDist_cube).all():            
-            
-            subset_agb_cube        = self.agb_cube.sel(buffer_IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
-            subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
-            
+        if not np.isnan(subset_LastTimeSinceDist).all():            
+                        
             subset_clim_cube = self.clim_cube.sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
-            subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
-            subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
+            subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_LastTimeSinceDist_cube)
                         
             subset_canopyHeight_cube = self.canopyHeight_cube.sel(IN).sel(time = ['2000-01-01', '2020-01-01'])
             date_to_replace = pd.to_datetime('2000-01-01')
@@ -216,22 +212,27 @@ class UpscaleAge(ABC):
             replace_index = time_index.get_loc(date_to_replace)
             subset_canopyHeight_cube['time'].values[replace_index] = new_date    
             subset_canopyHeight_cube = subset_canopyHeight_cube.rename({list(set(list(subset_canopyHeight_cube.variables.keys())) - set(subset_canopyHeight_cube.coords))[0] : [x for x in self.DataConfig['features']  if "canopy_height" in x][0]}).astype('float16')
-            subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0 )
-            
-            subset_features_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube])
-            
-            mask_intact_forest = ~np.zeros(subset_features_cube.canopy_height_gapfilled.isel(time=0).shape, dtype=bool)
+            subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0)
+            subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_canopyHeight_cube.time.values}, axis=list(subset_canopyHeight_cube.dims).index('time'))
+                        
+            mask_intact_forest = ~np.zeros(subset_LastTimeSinceDist_cube.LandsatDisturbanceTime.shape, dtype=bool)
             for _, row in self.intact_tropical_forest.iterrows():
                 polygon = row.geometry
-                polygon_mask = geometry_mask([polygon], out_shape=mask_intact_forest.shape, transform=subset_features_cube.rio.transform())
+                polygon_mask = geometry_mask([polygon], out_shape=mask_intact_forest.shape, 
+                                             transform=subset_LastTimeSinceDist_cube.rio.transform())
                 
                 if False in polygon_mask:
                     mask_intact_forest[polygon_mask==False] = False
             mask_intact_forest = mask_intact_forest.reshape(-1)
             
-            output_reg_xr = []
             for run_ in np.arange(self.upscaling_config['num_members']):
+            
+                subset_agb_cube        = self.agb_cube.sel(buffer_IN).sel(members=run_).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
+                #subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
+                subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
                 
+                subset_features_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube])
+                                      
                 with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = "Classifier", id_ = run_), 'rb') as f:
                     classifier_config = pickle.load(f)
                 best_classifier = classifier_config['best_model']
@@ -321,23 +322,23 @@ class UpscaleAge(ABC):
                     fused_pred_age_end = np.full(len(ML_pred_age_end), np.nan)
                     
                     # Stand replacement occured and age ML is higher than Hansen Loss year
-                    mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age_end > subset_LastTimeSinceDist_cube)
-                    fused_pred_age_end[mask_Change1] = subset_LastTimeSinceDist_cube[mask_Change1]
+                    mask_Change1 = np.logical_and(subset_LastTimeSinceDist <= 19, ML_pred_age_end > subset_LastTimeSinceDist)
+                    fused_pred_age_end[mask_Change1] = subset_LastTimeSinceDist[mask_Change1]
                     
                     # Stand replacement occured and age ML is lower or equal than Hansen Loss year
-                    mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age_end <= subset_LastTimeSinceDist_cube)
+                    mask_Change2 = np.logical_and(subset_LastTimeSinceDist <= 19, ML_pred_age_end <= subset_LastTimeSinceDist)
                     fused_pred_age_end[mask_Change2] = ML_pred_age_end[mask_Change2]
                     
                     # Afforestation occured and age ML is higher than Hansen Loss year
-                    mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube == 20, ML_pred_age_end > subset_LastTimeSinceDist_cube)
+                    mask_Change1 = np.logical_and(subset_LastTimeSinceDist == 20, ML_pred_age_end > subset_LastTimeSinceDist)
                     fused_pred_age_end[mask_Change1] = 20
                     
                     # Afforestation occured and age ML is lower or equal than Hansen Loss year
-                    mask_Change3 = np.logical_and(subset_LastTimeSinceDist_cube == 20, ML_pred_age_end <= subset_LastTimeSinceDist_cube)
+                    mask_Change3 = np.logical_and(subset_LastTimeSinceDist == 20, ML_pred_age_end <= subset_LastTimeSinceDist)
                     fused_pred_age_end[mask_Change3] = ML_pred_age_end[mask_Change3]
                     
                     # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
-                    mask_intact1 = (subset_LastTimeSinceDist_cube > 20)
+                    mask_intact1 = (subset_LastTimeSinceDist > 20)
                     fused_pred_age_end[mask_intact1] = ML_pred_age_end[mask_intact1]
                     
                     # Backward fusion for the start year
@@ -347,7 +348,7 @@ class UpscaleAge(ABC):
                     fused_pred_age_start[fused_pred_age_end == self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0]
                     
                     # Mask nan consistenlty across years
-                    nan_mask = np.isnan(subset_LastTimeSinceDist_cube)
+                    nan_mask = np.isnan(subset_LastTimeSinceDist)
                     fused_pred_age_end[nan_mask] = np.nan
                     fused_pred_age_start[nan_mask] = np.nan
                     
@@ -371,12 +372,9 @@ class UpscaleAge(ABC):
                                                                 dims=["latitude", "longitude", "time", "members"])})
                                   
                     # Concatenate with the time dimensions and append the model member
-                    ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time')              
-                    output_reg_xr.append(ds)
-                            
-            if len(output_reg_xr) >0:
-                output_reg_xr = xr.concat(output_reg_xr, dim = 'members').mean(dim= "members").transpose('latitude', 'longitude', 'time')                 
-                self.pred_cube.CubeWriter(output_reg_xr, n_workers=1)                
+                    ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('latitude', 'longitude', 'time', 'members')              
+                                               
+                    self.pred_cube.CubeWriter(ds, n_workers=1)                
                 
     def model_tuning(self,
                      run_: int=1,
@@ -481,29 +479,30 @@ class UpscaleAge(ABC):
     def ForwardRun(self, 
                    task_id=None) -> None:
                                 
-        LatChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['latitude'], self.upscaling_config["num_chunks"])
-        LonChunks = np.array_split(self.upscaling_config['output_writer_params']['dims']['longitude'], self.upscaling_config["num_chunks"])
-        
-        AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-                    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-                
-        if  "SLURM_JOB_ID" in os.environ:
-            selected_extent = AllExtents[task_id]
+        lat_chunk_size, lon_chunk_size = self.pred_cube.cube.chunks['latitude'][0], self.pred_cube.cube.chunks['longitude'][0]
+
+        # Calculate the number of chunks for each dimension
+        num_lat_chunks = np.ceil(len(self.pred_cube.cube.latitude) / lat_chunk_size).astype(int)
+        num_lon_chunks = np.ceil(len(self.pred_cube.cube.longitude) / lon_chunk_size).astype(int)
+     
+        # Generate all combinations of latitude and longitude chunk indices
+        chunk_indices = list(product(range(num_lat_chunks), range(num_lon_chunks)))
+     
+        if task_id < len(chunk_indices):
+            lat_idx, lon_idx = chunk_indices[task_id]
+     
+            # Calculate slice indices for latitude and longitude
+            lat_slice = slice(lat_idx * lat_chunk_size, (lat_idx + 1) * lat_chunk_size)
+            lon_slice = slice(lon_idx * lon_chunk_size, (lon_idx + 1) * lon_chunk_size)
+     
+            # Select the extent based on the slice indices
+            selected_extent = {"latitude": lat_slice, "longitude": lon_slice}
             
+            # Process the chunk
             self.process_chunk(selected_extent)
         
         else:
-            if (self.n_jobs > 1):
-            
-                batch_size = 2
-                for i in range(0, len(AllExtents), batch_size):
-                    batch_futures = [self.process_chunk(extent) for extent in AllExtents[i:i+batch_size]]
-                    dask.compute(*batch_futures, num_workers=self.n_jobs)
-            
-            else:
-                for extent in tqdm(AllExtents, desc='Upscaling procedure'):
-                    self.process_chunk(extent)   
+           print(f"Task ID {task_id} is out of range. No chunk to process.")
 
         if os.path.exists(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/features_sync_{self.task_id}.zarrsync"))

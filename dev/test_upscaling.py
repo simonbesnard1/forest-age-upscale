@@ -39,7 +39,7 @@ from rasterio.features import geometry_mask
 
 
 LastTimeSinceDist_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/LandsatDisturbanceTime_100m')
-agb_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/ESACCI_BIOMASS_100m_v4')
+agb_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/ESACCI_BIOMASS_100m_v4_members')
 clim_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/WorlClim_1km')
 canopyHeight_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/canopyHeight_potapov_100m')
 
@@ -72,7 +72,7 @@ subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastT
 
 if not np.isnan(subset_LastTimeSinceDist_cube).all():            
     
-    subset_agb_cube        = agb_cube.sel(buffer_IN).astype('float16').sel(time = upscaling_config['output_writer_params']['dims']['time'])
+    subset_agb_cube        = agb_cube.sel(buffer_IN).isel(members=0).astype('float16').sel(time = upscaling_config['output_writer_params']['dims']['time'])
     subset_agb_cube        = subset_agb_cube[DataConfig['agb_var_cube']].where(subset_agb_cube[DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in DataConfig['features']  if "agb" in x][0])
     
     subset_clim_cube = clim_cube.sel(buffer_IN)[[x for x in DataConfig['features'] if "WorlClim" in x]].astype('float16')

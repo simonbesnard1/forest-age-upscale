@@ -77,6 +77,9 @@ class BiomassUncertainty(ABC):
         
         self.agb_members_cube = DataCube(cube_config = self.config_file)
         
+        self.permutation_k = [np.random.lognormal(mean=0, sigma=1) for i in np.arange(self.config_file['n_members'])]
+
+        
     @dask.delayed
     def _calc_func(self, 
                    IN) -> None:
@@ -103,15 +106,12 @@ class BiomassUncertainty(ABC):
             time_maps = []
             mean_agb_at_time = subset_agbMean_cube.sel(time=time_step)
             std_agb_at_time = subset_agbStd_cube.sel(time=time_step)
-            
-            
+                        
             for k in range(self.config_file['n_members']):
                 
-                # Generate a single random scaling factor S_k for this map
-                S_k = np.random.normal(0, 1)
+                S_k = self.permutation_k[k]
 
-                # Apply S_k to each grid cell's sigma and add to its AGB
-                new_map_data = mean_agb_at_time + S_k * std_agb_at_time
+                new_map_data = np.maximum(mean_agb_at_time + np.log(S_k) * std_agb_at_time, 0)
                 
                 new_map_data = new_map_data.expand_dims({"members": [k]})
                 
@@ -135,29 +135,30 @@ class BiomassUncertainty(ABC):
         """Calculate the fraction of each age class.
         
         """
-        LatChunks = np.array_split(self.config_file['output_writer_params']['dims']['latitude'], self.config_file["num_chunks"])
-        LonChunks = np.array_split(self.config_file['output_writer_params']['dims']['longitude'], self.config_file["num_chunks"])
-        
-        AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                       "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-                    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-        
-        if  "SLURM_JOB_ID" in os.environ:
-            selected_extent = AllExtents[task_id]
+        lat_chunk_size, lon_chunk_size = self.pred_cube.cube.chunks['latitude'][0], self.pred_cube.cube.chunks['longitude'][0]
+
+        # Calculate the number of chunks for each dimension
+        num_lat_chunks = np.ceil(len(self.pred_cube.cube.latitude) / lat_chunk_size).astype(int)
+        num_lon_chunks = np.ceil(len(self.pred_cube.cube.longitude) / lon_chunk_size).astype(int)
+     
+        # Generate all combinations of latitude and longitude chunk indices
+        chunk_indices = list(product(range(num_lat_chunks), range(num_lon_chunks)))
+     
+        if task_id < len(chunk_indices):
+            lat_idx, lon_idx = chunk_indices[task_id]
+     
+            # Calculate slice indices for latitude and longitude
+            lat_slice = slice(lat_idx * lat_chunk_size, (lat_idx + 1) * lat_chunk_size)
+            lon_slice = slice(lon_idx * lon_chunk_size, (lon_idx + 1) * lon_chunk_size)
+     
+            # Select the extent based on the slice indices
+            selected_extent = {"latitude": lat_slice, "longitude": lon_slice}
             
+            # Process the chunk
             self.process_chunk(selected_extent)
-            
+        
         else:
-            if (self.n_jobs > 1):
-                
-                batch_size = 2
-                for i in range(0, len(AllExtents), batch_size):
-                    batch_futures = [self.process_chunk(extent) for extent in AllExtents[i:i+batch_size]]
-                    dask.compute(*batch_futures, num_workers=self.n_jobs)
-                            
-            else:
-                for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-                    self.process_chunk(extent)
+           print(f"Task ID {task_id} is out of range. No chunk to process.")
                     
         if os.path.exists(os.path.abspath(f"{self.study_dir}/agbUnc_features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbUnc_features_sync_{self.task_id}.zarrsync"))
