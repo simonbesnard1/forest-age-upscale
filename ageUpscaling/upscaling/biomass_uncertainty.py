@@ -135,11 +135,11 @@ class BiomassUncertainty(ABC):
         """Calculate the fraction of each age class.
         
         """
-        lat_chunk_size, lon_chunk_size = self.pred_cube.cube.chunks['latitude'][0], self.pred_cube.cube.chunks['longitude'][0]
+        lat_chunk_size, lon_chunk_size = self.agb_members_cube.cube.chunks['latitude'][0], self.agb_members_cube.cube.chunks['longitude'][0]
 
         # Calculate the number of chunks for each dimension
-        num_lat_chunks = np.ceil(len(self.pred_cube.cube.latitude) / lat_chunk_size).astype(int)
-        num_lon_chunks = np.ceil(len(self.pred_cube.cube.longitude) / lon_chunk_size).astype(int)
+        num_lat_chunks = np.ceil(len(self.agb_members_cube.cube.latitude) / lat_chunk_size).astype(int)
+        num_lon_chunks = np.ceil(len(self.agb_members_cube.cube.longitude) / lon_chunk_size).astype(int)
      
         # Generate all combinations of latitude and longitude chunk indices
         chunk_indices = list(product(range(num_lat_chunks), range(num_lon_chunks)))
