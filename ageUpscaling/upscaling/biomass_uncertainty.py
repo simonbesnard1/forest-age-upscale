@@ -12,7 +12,6 @@
 """
 import os
 import shutil
-from tqdm import tqdm
 from itertools import product
 from abc import ABC
 
@@ -93,37 +92,39 @@ class BiomassUncertainty(ABC):
           - age_class_fraction: xarray DataArray with fractions for each age class.
         """
         
-        subset_agbMean_cube = self.agb_cube.sel(IN)['aboveground_biomass']
+        subset_agbMean_cube = self.agb_cube.isel(IN)['aboveground_biomass']
         subset_agbMean_cube = subset_agbMean_cube.where(subset_agbMean_cube>0)
         
-        subset_agbStd_cube = self.agb_cube.sel(IN)['aboveground_biomass_std']
+        subset_agbStd_cube = self.agb_cube.isel(IN)['aboveground_biomass_std']
         subset_agbStd_cube = subset_agbStd_cube.where(subset_agbMean_cube>0)
         
-        generated_maps = []
+        if not np.isnan(subset_agbMean_cube.isel(time=0)).all():
         
-        for time_step in self.agb_cube.time:
-            time_maps = []
-            mean_agb_at_time = subset_agbMean_cube.sel(time=time_step)
-            std_agb_at_time = subset_agbStd_cube.sel(time=time_step)
-                        
-            for k in range(self.config_file['n_members']):
-                
-                S_k = self.permutation_k[k]
-
-                new_map_data = np.maximum(mean_agb_at_time + S_k * std_agb_at_time, 0)
-                
-                new_map_data = new_map_data.expand_dims({"members": [k]})
-                
-                time_maps.append(new_map_data)
+            generated_maps = []
             
-            # Combine all maps for this time step into a single Dataset
-            combined_maps = xr.concat(time_maps, dim = 'members')
-            generated_maps.append(combined_maps)
-
-        # Combine all time step datasets into a single xarray Dataset
-        out_cube = xr.concat(generated_maps,dim='time').transpose("members", 'latitude', 'longitude', 'time').to_dataset(name='aboveground_biomass')
-
-        self.agb_members_cube.CubeWriter(out_cube, n_workers=1)
+            for time_step in self.agb_cube.time:
+                time_maps = []
+                mean_agb_at_time = subset_agbMean_cube.sel(time=time_step)
+                std_agb_at_time = subset_agbStd_cube.sel(time=time_step)
+                            
+                for k in range(self.config_file['n_members']):
+                    
+                    S_k = self.permutation_k[k]
+    
+                    new_map_data = np.maximum(mean_agb_at_time + S_k * std_agb_at_time, 0)
+                    
+                    new_map_data = new_map_data.expand_dims({"members": [k]})
+                    
+                    time_maps.append(new_map_data)
+                
+                # Combine all maps for this time step into a single Dataset
+                combined_maps = xr.concat(time_maps, dim = 'members')
+                generated_maps.append(combined_maps)
+    
+            # Combine all time step datasets into a single xarray Dataset
+            out_cube = xr.concat(generated_maps,dim='time').transpose("members", 'latitude', 'longitude', 'time').to_dataset(name='aboveground_biomass')
+    
+            self.agb_members_cube.CubeWriter(out_cube, n_workers=1)
              
     def BiomassUncertaintyCubeInit(self):
         
