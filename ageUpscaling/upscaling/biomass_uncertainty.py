@@ -77,9 +77,8 @@ class BiomassUncertainty(ABC):
         
         self.agb_members_cube = DataCube(cube_config = self.config_file)
         
-        self.permutation_k = [np.random.lognormal(mean=0, sigma=1) for i in np.arange(self.config_file['n_members'])]
+        self.permutation_k = [np.clip(np.random.normal(0, 1) / (3 * 1), -1, 1) for i in np.arange(self.config_file['n_members'])]
 
-        
     @dask.delayed
     def _calc_func(self, 
                    IN) -> None:
@@ -111,7 +110,7 @@ class BiomassUncertainty(ABC):
                 
                 S_k = self.permutation_k[k]
 
-                new_map_data = np.maximum(mean_agb_at_time + np.log(S_k) * std_agb_at_time, 0)
+                new_map_data = np.maximum(mean_agb_at_time + S_k * std_agb_at_time, 0)
                 
                 new_map_data = new_map_data.expand_dims({"members": [k]})
                 
