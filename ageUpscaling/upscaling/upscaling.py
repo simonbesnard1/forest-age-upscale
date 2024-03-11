@@ -193,19 +193,32 @@ class UpscaleAge(ABC):
           
         lat_start, lat_stop = IN['latitude'].start, IN['latitude'].stop
         lon_start, lon_stop = IN['longitude'].start, IN['longitude'].stop
-        buffer_IN = Polygon([(lon_start, lat_start), (lon_start, lat_stop),(lon_stop, lat_stop), (lon_stop, lat_start)]).buffer(0.01)
-        buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
-                     'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
+        #buffer_IN = Polygon([(lon_start, lat_start), (lon_start, lat_stop),(lon_stop, lat_stop), (lon_stop, lat_start)]).buffer(20)
+        #buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
+        #             'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
         
-        subset_LastTimeSinceDist_cube = self.LastTimeSinceDist_cube.sel(time = self.DataConfig['end_year']).sel(IN)
-        subset_LastTimeSinceDist = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).to_array().values.reshape(-1)
+        if (lat_start == 0) and (lon_start == 0) :
+            buffer_IN = {'latitude': slice(0, lat_stop+20, None),
+                         'longitude': slice(0, lon_stop+20, None)}
+        elif (lat_start == 0) and (lon_start > 0):   
+            buffer_IN = {'latitude': slice(0, lat_stop+20, None),
+                         'longitude': slice(lon_start+20, lon_stop+20, None)}
+        elif (lat_start > 0) and (lon_start == 0):   
+            buffer_IN = {'latitude': slice(lat_start+20, lat_stop+20, None),
+                         'longitude': slice(0, lon_stop+20, None)}
+        else:
+            buffer_IN = {'latitude': slice(lat_start+20, lat_stop+20, None),
+                         'longitude': slice(lon_start+20, lon_stop+20, None)}
         
-        if not np.isnan(subset_LastTimeSinceDist).all():            
-                        
-            subset_clim_cube = self.clim_cube.sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
-            subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_LastTimeSinceDist_cube)
-                        
-            subset_canopyHeight_cube = self.canopyHeight_cube.sel(IN).sel(time = ['2000-01-01', '2020-01-01'])
+        subset_LastTimeSinceDist_cube = self.LastTimeSinceDist_cube.sel(time = self.DataConfig['end_year']).isel(buffer_IN)
+        subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0)
+        
+        if not np.isnan(subset_LastTimeSinceDist_cube.to_array().values).all():
+                            
+            subset_clim_cube = self.clim_cube.isel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
+            subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_LastTimeSinceDist_cube).isel(IN)
+            subset_LastTimeSinceDist = subset_LastTimeSinceDist_cube.isel(IN).to_array().values.reshape(-1)      
+            subset_canopyHeight_cube = self.canopyHeight_cube.isel(IN).sel(time = ['2000-01-01', '2020-01-01'])
             date_to_replace = pd.to_datetime('2000-01-01')
             new_date = pd.to_datetime('2010-01-01')
             time_index = subset_canopyHeight_cube.indexes['time']
@@ -227,11 +240,11 @@ class UpscaleAge(ABC):
             
             for run_ in np.arange(self.upscaling_config['num_members']):
             
-                subset_agb_cube        = self.agb_cube.sel(buffer_IN).sel(members=run_).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
+                subset_agb_cube        = self.agb_cube.isel(IN).sel(members=run_).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
                 #subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
                 subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
                 
-                subset_features_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube])
+                subset_features_cube      = xr.merge([subset_agb_cube, subset_clim_cube, subset_canopyHeight_cube])
                                       
                 with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = "Classifier", id_ = run_), 'rb') as f:
                     classifier_config = pickle.load(f)

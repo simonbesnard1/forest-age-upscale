@@ -5,38 +5,20 @@ Created on Fri Sep 15 15:08:42 2023
 
 @author: simon
 """
-import os
-import shutil
-from tqdm import tqdm
-import atexit
-from itertools import product
-from abc import ABC
 
 import numpy as np
 import yaml as yml
 import pickle
 
-import multiprocessing
 import xarray as xr
-import zarr
 import dask.array as da
-from shapely.geometry import Polygon
 import pandas as pd
 
-from sklearn.model_selection import train_test_split
 import xgboost as xgb
 
-from ageUpscaling.core.cube import DataCube
 from ageUpscaling.transformers.spatial import interpolate_worlClim
-from ageUpscaling.methods.MLP import MLPmethod
-from ageUpscaling.methods.xgboost import XGBoost
-from ageUpscaling.methods.RandomForest import RandomForest
-from ageUpscaling.methods.feature_selection import FeatureSelection
-
 import geopandas as gpd
 from rasterio.features import geometry_mask
-
-
 
 LastTimeSinceDist_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/LandsatDisturbanceTime_100m')
 agb_cube = xr.open_zarr('/home/simon/gfz_hpc/projects/forest-age-upscale/data/cubes/ESACCI_BIOMASS_100m_v4_members')
@@ -48,9 +30,12 @@ IN = {'latitude': slice(8.99955555555556, 0.00044444444444025066, None),
       'longitude': slice(-71.99955555555556, -54.00044444444444, None)}
 IN = {"latitude":slice(5, 4.5),
       "longitude":slice(-63.5, -62.5)}
+IN = {"longitude":slice(131062, 132187),
+      "latitude":slice(95625, 96187)}
 
+run_ =10 
 
-study_dir = '/home/simon/gfz_hpc/projects/forest-age-upscale/output/upscaling/Age_upscale_100m/XGBoost/version-1.0'
+study_dir = '/home/simon/gfz_hpc/projects/forest-age-upscale/output/upscaling/Age_upscale_100m/XGBoost/version-1.2'
 
 with open('/home/simon/gfz_hpc/projects/forest-age-upscale/config_files/upscaling/100m/data_config_xgboost.yaml', 'r') as f:
     DataConfig =  yml.safe_load(f)
@@ -63,45 +48,56 @@ intact_tropical_forest = intact_forest[intact_forest['IFL_ID'].str.contains('|'.
 
 lat_start, lat_stop = IN['latitude'].start, IN['latitude'].stop
 lon_start, lon_stop = IN['longitude'].start, IN['longitude'].stop
-buffer_IN = Polygon([(lon_start, lat_start), (lon_start, lat_stop),(lon_stop, lat_stop), (lon_stop, lat_start)]).buffer(0.01)
-buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
-             'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
 
-subset_LastTimeSinceDist_cube = LastTimeSinceDist_cube.sel(time = DataConfig['end_year']).sel(IN).to_array()
-subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0).values.reshape(-1) 
+if (lat_start == 0) and (lon_start == 0) :
+    buffer_IN = {'latitude': slice(0, lat_stop+20, None),
+                 'longitude': slice(0, lon_stop+20, None)}
+elif (lat_start == 0) and (lon_start > 0):   
+    buffer_IN = {'latitude': slice(0, lat_stop+20, None),
+                 'longitude': slice(lon_start+20, lon_stop+20, None)}
+elif (lat_start > 0) and (lon_start == 0):   
+    buffer_IN = {'latitude': slice(lat_start+20, lat_stop+20, None),
+                 'longitude': slice(0, lon_stop+20, None)}
+else:
+    buffer_IN = {'latitude': slice(lat_start+20, lat_stop+20, None),
+                 'longitude': slice(lon_start+20, lon_stop+20, None)}
 
-if not np.isnan(subset_LastTimeSinceDist_cube).all():            
-    
-    subset_agb_cube        = agb_cube.sel(buffer_IN).isel(members=0).astype('float16').sel(time = upscaling_config['output_writer_params']['dims']['time'])
-    subset_agb_cube        = subset_agb_cube[DataConfig['agb_var_cube']].where(subset_agb_cube[DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in DataConfig['features']  if "agb" in x][0])
-    
-    subset_clim_cube = clim_cube.sel(buffer_IN)[[x for x in DataConfig['features'] if "WorlClim" in x]].astype('float16')
-    subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_agb_cube)
-    subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_agb_cube.time.values}, axis=list(subset_agb_cube.dims).index('time'))
-                
-    subset_canopyHeight_cube = canopyHeight_cube.sel(IN).sel(time = ['2000-01-01', '2020-01-01'])
+subset_LastTimeSinceDist_cube = LastTimeSinceDist_cube.sel(time = DataConfig['end_year']).isel(buffer_IN)
+subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0)
+
+if not np.isnan(subset_LastTimeSinceDist_cube.to_array().values).all():
+                    
+    subset_clim_cube = clim_cube.isel(buffer_IN)[[x for x in DataConfig['features'] if "WorlClim" in x]].astype('float16')
+    subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_LastTimeSinceDist_cube).isel(IN)
+    subset_LastTimeSinceDist = subset_LastTimeSinceDist_cube.isel(IN).to_array().values.reshape(-1)      
+    subset_canopyHeight_cube = canopyHeight_cube.isel(IN).sel(time = ['2000-01-01', '2020-01-01'])
     date_to_replace = pd.to_datetime('2000-01-01')
     new_date = pd.to_datetime('2010-01-01')
     time_index = subset_canopyHeight_cube.indexes['time']
     replace_index = time_index.get_loc(date_to_replace)
     subset_canopyHeight_cube['time'].values[replace_index] = new_date    
     subset_canopyHeight_cube = subset_canopyHeight_cube.rename({list(set(list(subset_canopyHeight_cube.variables.keys())) - set(subset_canopyHeight_cube.coords))[0] : [x for x in DataConfig['features']  if "canopy_height" in x][0]}).astype('float16')
-    subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0 )
-    
-    subset_features_cube      = xr.merge([subset_agb_cube.sel(IN), subset_clim_cube.sel(IN), subset_canopyHeight_cube])
-    
-    mask_intact_forest = ~np.zeros(subset_features_cube.canopy_height_gapfilled.isel(time=0).shape, dtype=bool)
+    subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0)
+    subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_canopyHeight_cube.time.values}, axis=list(subset_canopyHeight_cube.dims).index('time'))
+                
+    mask_intact_forest = ~np.zeros(subset_LastTimeSinceDist_cube.LandsatDisturbanceTime.shape, dtype=bool)
     for _, row in intact_tropical_forest.iterrows():
         polygon = row.geometry
-        polygon_mask = geometry_mask([polygon], out_shape=mask_intact_forest.shape, transform=subset_features_cube.rio.transform())
+        polygon_mask = geometry_mask([polygon], out_shape=mask_intact_forest.shape, 
+                                     transform=subset_LastTimeSinceDist_cube.rio.transform())
         
         if False in polygon_mask:
             mask_intact_forest[polygon_mask==False] = False
     mask_intact_forest = mask_intact_forest.reshape(-1)
     
-    output_reg_xr = []
-    for run_ in np.arange(upscaling_config['num_members']):
+    for run_ in np.arange(1):
+    
+        subset_agb_cube        = agb_cube.isel(IN).sel(members=run_).astype('float16').sel(time = upscaling_config['output_writer_params']['dims']['time'])
+        #subset_agb_cube        = subset_agb_cube[DataConfig['agb_var_cube']].where(subset_agb_cube[DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in DataConfig['features']  if "agb" in x][0])
+        subset_agb_cube        = subset_agb_cube[DataConfig['agb_var_cube']].to_dataset(name= [x for x in DataConfig['features']  if "agb" in x][0])
         
+        subset_features_cube      = xr.merge([subset_agb_cube, subset_clim_cube, subset_canopyHeight_cube])
+                              
         with open(study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = "Classifier", id_ = run_), 'rb') as f:
             classifier_config = pickle.load(f)
         best_classifier = classifier_config['best_model']
@@ -178,23 +174,23 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             fused_pred_age_end = np.full(len(ML_pred_age_end), np.nan)
             
             # Stand replacement occured and age ML is higher than Hansen Loss year
-            mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age_end > subset_LastTimeSinceDist_cube)
-            fused_pred_age_end[mask_Change1] = subset_LastTimeSinceDist_cube[mask_Change1]
+            mask_Change1 = np.logical_and(subset_LastTimeSinceDist <= 19, ML_pred_age_end > subset_LastTimeSinceDist)
+            fused_pred_age_end[mask_Change1] = subset_LastTimeSinceDist[mask_Change1]
             
             # Stand replacement occured and age ML is lower or equal than Hansen Loss year
-            mask_Change2 = np.logical_and(subset_LastTimeSinceDist_cube <= 19, ML_pred_age_end <= subset_LastTimeSinceDist_cube)
+            mask_Change2 = np.logical_and(subset_LastTimeSinceDist <= 19, ML_pred_age_end <= subset_LastTimeSinceDist)
             fused_pred_age_end[mask_Change2] = ML_pred_age_end[mask_Change2]
             
             # Afforestation occured and age ML is higher than Hansen Loss year
-            mask_Change1 = np.logical_and(subset_LastTimeSinceDist_cube == 20, ML_pred_age_end > subset_LastTimeSinceDist_cube)
+            mask_Change1 = np.logical_and(subset_LastTimeSinceDist == 20, ML_pred_age_end > subset_LastTimeSinceDist)
             fused_pred_age_end[mask_Change1] = 20
             
             # Afforestation occured and age ML is lower or equal than Hansen Loss year
-            mask_Change3 = np.logical_and(subset_LastTimeSinceDist_cube == 20, ML_pred_age_end <= subset_LastTimeSinceDist_cube)
+            mask_Change3 = np.logical_and(subset_LastTimeSinceDist == 20, ML_pred_age_end <= subset_LastTimeSinceDist)
             fused_pred_age_end[mask_Change3] = ML_pred_age_end[mask_Change3]
             
             # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
-            mask_intact1 = (subset_LastTimeSinceDist_cube > 20)
+            mask_intact1 = (subset_LastTimeSinceDist > 20)
             fused_pred_age_end[mask_intact1] = ML_pred_age_end[mask_intact1]
             
             # Backward fusion for the start year
@@ -204,7 +200,7 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
             fused_pred_age_start[fused_pred_age_end == DataConfig['max_forest_age'][0]] = DataConfig['max_forest_age'][0]
             
             # Mask nan consistenlty across years
-            nan_mask = np.isnan(subset_LastTimeSinceDist_cube)
+            nan_mask = np.isnan(subset_LastTimeSinceDist)
             fused_pred_age_end[nan_mask] = np.nan
             fused_pred_age_start[nan_mask] = np.nan
             
@@ -228,8 +224,5 @@ if not np.isnan(subset_LastTimeSinceDist_cube).all():
                                                         dims=["latitude", "longitude", "time", "members"])})
                           
             # Concatenate with the time dimensions and append the model member
-            ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time')              
-            output_reg_xr.append(ds)
-                    
-    if len(output_reg_xr) >0:
-        output_reg_xr = xr.concat(output_reg_xr, dim = 'members').mean(dim= "members").transpose('latitude', 'longitude', 'time')       
+            ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('latitude', 'longitude', 'time', 'members')               
+                                               
