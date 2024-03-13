@@ -510,6 +510,7 @@ class UpscaleAge(ABC):
      
             # Select the extent based on the slice indices
             selected_extent = {"latitude": lat_slice, "longitude": lon_slice}
+            print(selected_extent)
             
             # Process the chunk
             self.process_chunk(selected_extent)
