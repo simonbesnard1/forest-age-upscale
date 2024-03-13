@@ -366,8 +366,7 @@ class UpscaleAge(ABC):
                 # Reshape arrays
                 fused_pred_age_start = fused_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
                 fused_pred_age_end = fused_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
-                print(fused_pred_age_end)
-
+                
                 # Create xarray dataset for each year
                 ML_pred_age_start = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_start, 
                                                             coords={"latitude": subset_features_cube.latitude, 
@@ -383,9 +382,9 @@ class UpscaleAge(ABC):
                                                                     'members': [run_]}, 
                                                             dims=["latitude", "longitude", "time", "members"])})
                               
-                print(ML_pred_age_start)
                 # Concatenate with the time dimensions and append the model member
                 ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('latitude', 'longitude', 'time', 'members')
+                print(ds)
                 self.pred_cube.CubeWriter(ds, n_workers=1)                
                 
     def model_tuning(self,
