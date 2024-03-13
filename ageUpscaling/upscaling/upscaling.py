@@ -277,7 +277,6 @@ class UpscaleAge(ABC):
             ML_pred_age = np.zeros(X_upscale_flattened.shape[0]) * np.nan
             
             mask = (np.all(np.isfinite(X_upscale_flattened), axis=1)) 
-            print((X_upscale_flattened[mask].shape[0]>0))
             
             if (X_upscale_flattened[mask].shape[0]>0):
                 index_mapping_class = [all_features.index(feature) for feature in features_classifier]
@@ -509,7 +508,9 @@ class UpscaleAge(ABC):
      
             # Select the extent based on the slice indices
             selected_extent = {"latitude": lat_slice, "longitude": lon_slice}
-            
+            selected_extent = {"longitude":slice(131062, 132187),
+                               "latitude":slice(95625, 96187)}
+
             # Process the chunk
             self.process_chunk(selected_extent)
         
