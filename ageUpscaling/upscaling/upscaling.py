@@ -277,6 +277,7 @@ class UpscaleAge(ABC):
             ML_pred_age = np.zeros(X_upscale_flattened.shape[0]) * np.nan
             
             mask = (np.all(np.isfinite(X_upscale_flattened), axis=1)) 
+            print((X_upscale_flattened[mask].shape[0]>0))
             
             if (X_upscale_flattened[mask].shape[0]>0):
                 index_mapping_class = [all_features.index(feature) for feature in features_classifier]
@@ -384,7 +385,7 @@ class UpscaleAge(ABC):
                               
                 # Concatenate with the time dimensions and append the model member
                 ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('latitude', 'longitude', 'time', 'members')
-                print(ds)
+                
                 self.pred_cube.CubeWriter(ds, n_workers=1)                
                 
     def model_tuning(self,
