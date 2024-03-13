@@ -227,7 +227,7 @@ class UpscaleAge(ABC):
         subset_canopyHeight_cube = subset_canopyHeight_cube.rename({list(set(list(subset_canopyHeight_cube.variables.keys())) - set(subset_canopyHeight_cube.coords))[0] : [x for x in self.DataConfig['features']  if "canopy_height" in x][0]}).astype('float16')
         subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0)
         subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_canopyHeight_cube.time.values}, axis=list(subset_canopyHeight_cube.dims).index('time'))
-                    
+        print(subset_clim_cube)            
         mask_intact_forest = ~np.zeros(subset_LastTimeSinceDist_cube.LandsatDisturbanceTime.shape, dtype=bool)
         for _, row in self.intact_tropical_forest.iterrows():
             polygon = row.geometry
@@ -386,7 +386,6 @@ class UpscaleAge(ABC):
                               
                 # Concatenate with the time dimensions and append the model member
                 ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('latitude', 'longitude', 'time', 'members')              
-                print(ds)                           
                 self.pred_cube.CubeWriter(ds, n_workers=1)                
                 
     def model_tuning(self,
@@ -510,7 +509,6 @@ class UpscaleAge(ABC):
      
             # Select the extent based on the slice indices
             selected_extent = {"latitude": lat_slice, "longitude": lon_slice}
-            print(selected_extent)
             
             # Process the chunk
             self.process_chunk(selected_extent)
