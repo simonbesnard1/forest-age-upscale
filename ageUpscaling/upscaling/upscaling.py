@@ -210,6 +210,7 @@ class UpscaleAge(ABC):
             buffer_IN = {'latitude': slice(lat_start+20, lat_stop+20, None),
                          'longitude': slice(lon_start+20, lon_stop+20, None)}
         
+        print(buffer_IN)
         subset_LastTimeSinceDist_cube = self.LastTimeSinceDist_cube.sel(time = self.DataConfig['end_year']).isel(buffer_IN)
         subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0)
         
@@ -277,7 +278,7 @@ class UpscaleAge(ABC):
             ML_pred_age = np.zeros(X_upscale_flattened.shape[0]) * np.nan
             
             mask = (np.all(np.isfinite(X_upscale_flattened), axis=1)) 
-            
+            print((X_upscale_flattened[mask].shape[0]>0))
             if (X_upscale_flattened[mask].shape[0]>0):
                 index_mapping_class = [all_features.index(feature) for feature in features_classifier]
                 index_mapping_reg = [all_features.index(feature) for feature in features_regressor]
