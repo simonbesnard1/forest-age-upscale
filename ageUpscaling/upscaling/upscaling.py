@@ -386,7 +386,7 @@ class UpscaleAge(ABC):
                               
                 # Concatenate with the time dimensions and append the model member
                 ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('latitude', 'longitude', 'time', 'members')              
-                                           
+                print(ds)                           
                 self.pred_cube.CubeWriter(ds, n_workers=1)                
                 
     def model_tuning(self,
