@@ -227,7 +227,6 @@ class UpscaleAge(ABC):
         subset_canopyHeight_cube = subset_canopyHeight_cube.rename({list(set(list(subset_canopyHeight_cube.variables.keys())) - set(subset_canopyHeight_cube.coords))[0] : [x for x in self.DataConfig['features']  if "canopy_height" in x][0]}).astype('float16')
         subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0)
         subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_canopyHeight_cube.time.values}, axis=list(subset_canopyHeight_cube.dims).index('time'))
-        print(subset_clim_cube)            
         mask_intact_forest = ~np.zeros(subset_LastTimeSinceDist_cube.LandsatDisturbanceTime.shape, dtype=bool)
         for _, row in self.intact_tropical_forest.iterrows():
             polygon = row.geometry
@@ -239,12 +238,14 @@ class UpscaleAge(ABC):
         mask_intact_forest = mask_intact_forest.reshape(-1)
         
         for run_ in np.arange(self.upscaling_config['num_members']):
-        
+            print(f'running run {run_}')
             subset_agb_cube        = self.agb_cube.isel(IN).sel(members=run_).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
             #subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
             subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
+            print(subset_agb_cube)            
             
             subset_features_cube      = xr.merge([subset_agb_cube, subset_clim_cube, subset_canopyHeight_cube])
+            print(subset_features_cube)            
                                   
             with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = "Classifier", id_ = run_), 'rb') as f:
                 classifier_config = pickle.load(f)
