@@ -215,11 +215,11 @@ class UpscaleAge(ABC):
         subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0)
         subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_canopyHeight_cube.time.values}, axis=list(subset_canopyHeight_cube.dims).index('time'))
                     
-        mask_intact_forest = ~np.zeros(subset_LastTimeSinceDist_cube.LandsatDisturbanceTime.shape, dtype=bool)
+        mask_intact_forest = ~np.zeros((subset_canopyHeight_cube.sizes['latitude'], subset_canopyHeight_cube.sizes['longitude']), dtype=bool)
         for _, row in self.intact_tropical_forest.iterrows():
             polygon = row.geometry
             polygon_mask = geometry_mask([polygon], out_shape=mask_intact_forest.shape, 
-                                         transform=subset_LastTimeSinceDist_cube.rio.transform())
+                                         transform=subset_canopyHeight_cube.rio.transform())
             
             if False in polygon_mask:
                 mask_intact_forest[polygon_mask==False] = False
@@ -265,7 +265,7 @@ class UpscaleAge(ABC):
             ML_pred_age = np.zeros(X_upscale_flattened.shape[0]) * np.nan
             
             mask = (np.all(np.isfinite(X_upscale_flattened), axis=1)) 
-            print((X_upscale_flattened[mask].shape[0]>0))
+
             if (X_upscale_flattened[mask].shape[0]>0):
                 index_mapping_class = [all_features.index(feature) for feature in features_classifier]
                 index_mapping_reg = [all_features.index(feature) for feature in features_regressor]
