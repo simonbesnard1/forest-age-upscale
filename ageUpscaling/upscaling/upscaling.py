@@ -238,14 +238,11 @@ class UpscaleAge(ABC):
         mask_intact_forest = mask_intact_forest.reshape(-1)
         
         for run_ in np.arange(self.upscaling_config['num_members']):
-            print(f'running run {run_}')
             subset_agb_cube        = self.agb_cube.isel(IN).sel(members=run_).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
             #subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].where(subset_agb_cube[self.DataConfig['agb_var_cube']] >0).to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
             subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
-            print(subset_agb_cube)            
             
             subset_features_cube      = xr.merge([subset_agb_cube, subset_clim_cube, subset_canopyHeight_cube])
-            print(subset_features_cube)            
                                   
             with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = "Classifier", id_ = run_), 'rb') as f:
                 classifier_config = pickle.load(f)
@@ -386,7 +383,8 @@ class UpscaleAge(ABC):
                                                             dims=["latitude", "longitude", "time", "members"])})
                               
                 # Concatenate with the time dimensions and append the model member
-                ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('latitude', 'longitude', 'time', 'members')              
+                ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('latitude', 'longitude', 'time', 'members')
+                print(ds)
                 self.pred_cube.CubeWriter(ds, n_workers=1)                
                 
     def model_tuning(self,
