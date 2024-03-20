@@ -103,7 +103,7 @@ class DifferenceAge(ABC):
         diff_age = subset_age_cube.sel(time= '2020-01-01') - subset_age_cube.sel(time= '2010-01-01')
         diff_age = diff_age.where(diff_age != 0, 10).where(np.isfinite(diff_age))
         stand_replaced_age = diff_age.where(diff_age < 10).rename({self.config_file['forest_age_var']: 'stand_replaced_diff'})
-        aging_forest_age = diff_age.where(diff_age >= 0).rename({self.config_file['forest_age_var']: 'aging_forest_diff'})
+        aging_forest_age = diff_age.where(diff_age >= 10).rename({self.config_file['forest_age_var']: 'aging_forest_diff'})
         stand_replaced_class = xr.where(diff_age < 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'stand_replaced_class'})
         aging_forest_class = xr.where(diff_age >= 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'aging_forest_class'})
         diff_age = diff_age.rename({self.config_file['forest_age_var']: 'age_difference'})        
