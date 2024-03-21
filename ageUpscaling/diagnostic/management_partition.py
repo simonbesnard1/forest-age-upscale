@@ -71,7 +71,7 @@ class ManagementType(ABC):
         if os.path.isdir(sync_file_features):
             shutil.rmtree(sync_file_features)            
         self.sync_feature = zarr.ProcessSynchronizer(sync_file_features)
-        self.management_cube = xr.open_zarr(self.config_file['ForestManagement_cube'], synchronizer=self.sync_feature).isel(time=0)
+        self.management_cube = xr.open_zarr(self.config_file['ForestManagement_cube'], synchronizer=self.sync_feature).isel(time=0).drop('time')
         
         self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/management_cube_out_sync_{self.task_id}.zarrsync") 
         self.config_file['output_writer_params']['dims']['latitude'] = self.management_cube.latitude.values
