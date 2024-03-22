@@ -251,8 +251,8 @@ class ManagementType(ABC):
             
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/ManagementPartition_fraction_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
-        # for var_ in {item for item in set(age_diff_cube.variables.keys()) - set(age_diff_cube.dims) if 'partition' in item}:
-        #     shutil.rmtree(os.path.join(self.study_dir, 'tmp/{var_}'.format(var_ = var_)))
+        for var_ in set(management_partition_cube.variables.keys()) - set(management_partition_cube.dims):
+            shutil.rmtree(os.path.join(self.study_dir, 'tmp/{var_}'.format(var_ = var_)))
         
         
 
