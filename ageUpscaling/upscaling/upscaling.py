@@ -610,14 +610,14 @@ class UpscaleAge(ABC):
                     '-co', 'BIGTIFF=YES',
                     '-overwrite',
                     f'/{vrt_filename}',
-                    out_dir + f'/{var_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(var_=var_, year_= str(year_)),
+                    out_dir + f'/{var_}_{self.upscaling_config["resample_resolution"]}deg_{year_}.tif'.format(var_=var_, year_= str(year_)),
                 ]
                 subprocess.run(gdalwarp_command, check=True)
                 
                 for tif_file in input_files:
                       os.remove(tif_file)
                 
-                da_ =  rio.open_rasterio(out_dir + f'/{var_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(var_=var_, year_= str(year_)))
+                da_ =  rio.open_rasterio(out_dir + f'/{var_}_{self.upscaling_config["resample_resolution"]}deg_{year_}.tif'.format(var_=var_, year_= str(year_)))
                 da_ =  da_.rename({"x": 'longitude', "y": 'latitude', 'band': "time"}).to_dataset(name = var_)
                 da_['time'] = [year_]
                 
