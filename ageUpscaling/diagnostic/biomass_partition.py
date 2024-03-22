@@ -302,23 +302,23 @@ class DifferenceBiomass(ABC):
                 '-co', 'BIGTIFF=YES',
                 '-overwrite',
                 f'/{vrt_filename}',
-               self.study_dir + f'/{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_),
+               self.study_dir + f'/tmp/{var_}/{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_),
             ]
             subprocess.run(gdalwarp_command, check=True)
             
             if os.path.exists(out_dir):
                 shutil.rmtree(out_dir)
                 
-            da_ =  rio.open_rasterio(self.study_dir + f'/{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_))     
+            da_ =  rio.open_rasterio(self.study_dir + f'/tmp/{var_}/{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_))     
             da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
                 
             zarr_out_.append(da_)
         
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/BiomassDiffPartition_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
-        tif_files = glob.glob(os.path.join(self.study_dir, '*.tif'))
-        for tif_file in tif_files:
-              os.remove(tif_file)
+        for var_ in set(agb_diff_cube.variables.keys()) - set(agb_diff_cube.dims):
+            shutil.rmtree(os.path.join(self.study_dir, 'tmp/{var_}'.format(var_ = var_)))
+        
 
                 
     
