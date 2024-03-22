@@ -174,7 +174,7 @@ class ManagementType(ABC):
         zarr_out_ = []
         for var_ in set(management_partition_cube.variables.keys()) - set(management_partition_cube.dims):
                             
-            out_dir = '{study_dir}/tmp/{var_}/ManagementPartition/'.format(study_dir = self.study_dir, var_ = var_)
+            out_dir = '{study_dir}/tmp/{var_}/'.format(study_dir = self.study_dir, var_ = var_)
             if not os.path.exists(out_dir):
        		    os.makedirs(out_dir)
              
@@ -200,21 +200,21 @@ class ManagementType(ABC):
                 data_chunk = data_class.sel(chunck)
                 data_chunk.attrs["_FillValue"] = -9999    
                 data_chunk = data_chunk.astype('int16')
-                data_chunk.rio.to_raster(raster_path=out_dir + 'management_class_{iter_}.tif'.format(iter_=str(iter_)), 
+                data_chunk.rio.to_raster(raster_path=out_dir + 'chunk_{iter_}.tif'.format(iter_=str(iter_)), 
                                          driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
                
                 gdalwarp_command = [
                                     'gdal_translate',
                                     '-a_nodata', '-9999',
-                                    out_dir + 'management_class_{iter_}.tif'.format(iter_=str(iter_)),
-                                    out_dir + 'management_class_{iter_}_nodata.tif'.format(iter_=str(iter_))                                                
+                                    out_dir + 'chunk_{iter_}.tif'.format(iter_=str(iter_)),
+                                    out_dir + 'chunk_{iter_}_nodata.tif'.format(iter_=str(iter_))                                                
                                 ]
                 subprocess.run(gdalwarp_command, check=True)
 
                 iter_ += 1
                   
             input_files = glob.glob(os.path.join(out_dir, '*_nodata.tif'))
-            vrt_filename = out_dir + '/management_class.vrt'
+            vrt_filename = out_dir + '/{var_}.vrt'.format(var_ = var_)
                 
             gdalbuildvrt_command = [
                 'gdalbuildvrt',
@@ -237,14 +237,11 @@ class ManagementType(ABC):
                 '-co', 'BIGTIFF=YES',
                 '-overwrite',
                 f'/{vrt_filename}',
-                self.study_dir + f'/tmp/{var_}/management_class_{self.config_file["target_resolution"]}deg.tif'.format(var_= var_),
+                out_dir + f'{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_= var_),
             ]
             subprocess.run(gdalwarp_command, check=True)
             
-            if os.path.exists(out_dir):
-                shutil.rmtree(out_dir)
-            
-            da_ =  rio.open_rasterio(self.study_dir + f'/tmp/{var_}/management_class_{self.config_file["target_resolution"]}deg.tif'.format(var_= var_))     
+            da_ =  rio.open_rasterio(out_dir + f'{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_= var_))     
             da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
             
             zarr_out_.append(da_.transpose('latitude', 'longitude'))

@@ -302,14 +302,11 @@ class DifferenceBiomass(ABC):
                 '-co', 'BIGTIFF=YES',
                 '-overwrite',
                 f'/{vrt_filename}',
-               self.study_dir + f'/tmp/{var_}/{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_),
+               out_dir + f'{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_),
             ]
             subprocess.run(gdalwarp_command, check=True)
             
-            if os.path.exists(out_dir):
-                shutil.rmtree(out_dir)
-                
-            da_ =  rio.open_rasterio(self.study_dir + f'/tmp/{var_}/{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_))     
+            da_ =  rio.open_rasterio(out_dir + f'{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_))     
             da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
                 
             zarr_out_.append(da_)
