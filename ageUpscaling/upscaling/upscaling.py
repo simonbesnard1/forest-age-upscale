@@ -538,8 +538,6 @@ class UpscaleAge(ABC):
             - Merges and converts the output into Zarr format.
         """
            
-        
-             
         age_cube = xr.open_zarr(self.upscaling_config['cube_location'])
         zarr_out_ = []
         
@@ -551,80 +549,85 @@ class UpscaleAge(ABC):
         		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
         		    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))] 
             
-            iter_ = 0
-            for chunck in chunk_dict:
-                
-                data_chunk = age_cube[var_].sel(chunck).transpose('time', 'latitude', 'longitude')
-                data_chunk = data_chunk.where(np.isfinite(data_chunk), -9999).astype('float32')  
-                
-                data_chunk.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
-                data_chunk.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
-                data_chunk = data_chunk.rio.write_crs("epsg:4326", inplace=True)
-                data_chunk.attrs = {'long_name': 'Forest age',
-                                    'units': 'Ton /ha',
-                                    'valid_max': 300,
-                                    'valid_min': 0}
-                data_chunk.attrs["_FillValue"] = -9999  
-                out_dir = '{study_dir}/tmp/{var_}/'.format(study_dir = self.study_dir, var_ = var_)
-                if not os.path.exists(out_dir):
-           		    os.makedirs(out_dir)
-                       
-                data_chunk.rio.to_raster(raster_path= out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
-                                         driver="COG", BIGTIFF='YES', compress=None,  dtype= 'float32')      
-                
+            ds_ = []
+            for year_ in age_cube.time.values:
+            
+                iter_ = 0
+                for chunck in chunk_dict:
+                    
+                    chunck.update({'time': year_})
+                    
+                    data_chunk = age_cube[var_].sel(chunck).transpose('time', 'latitude', 'longitude')
+                    data_chunk = data_chunk.where(np.isfinite(data_chunk), -9999).astype('float32')  
+                    
+                    data_chunk.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
+                    data_chunk.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
+                    data_chunk = data_chunk.rio.write_crs("epsg:4326", inplace=True)
+                    data_chunk.attrs = {'long_name': 'Forest age',
+                                        'units': 'Ton /ha',
+                                        'valid_max': 300,
+                                        'valid_min': 0}
+                    data_chunk.attrs["_FillValue"] = -9999  
+                    out_dir = '{study_dir}/tmp/{var_}/'.format(study_dir = self.study_dir, var_ = var_)
+                    if not os.path.exists(out_dir):
+               		    os.makedirs(out_dir)
+                           
+                    data_chunk.rio.to_raster(raster_path= out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
+                                             driver="COG", BIGTIFF='YES', compress=None,  dtype= 'float32')      
+                    
+                    gdalwarp_command = [
+                                        'gdal_translate',
+                                        '-a_nodata', '-9999',
+                                        out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)),
+                                        out_dir + '{var_}_{iter_}_nodata.tif'.format(var_ = var_, iter_=str(iter_))                
+                                    ]
+                    subprocess.run(gdalwarp_command, check=True)
+                    os.remove(out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)))
+                    
+                    iter_ += 1
+            
+                input_files = glob.glob(os.path.join(out_dir, '*_nodata.tif'))
+                vrt_filename = out_dir + '/{var_}.vrt'.format(var_ = var_)
+                    
+                gdalbuildvrt_command = [
+                    'gdalbuildvrt',
+                    vrt_filename
+                ] + input_files
+                    
+                subprocess.run(gdalbuildvrt_command, check=True)
+                    
                 gdalwarp_command = [
-                                    'gdal_translate',
-                                    '-a_nodata', '-9999',
-                                    out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)),
-                                    out_dir + '{var_}_{iter_}_nodata.tif'.format(var_ = var_, iter_=str(iter_))                
-                                ]
+                    'gdalwarp',
+                    '-srcnodata', '-9999',
+                    '-dstnodata', '-9999',
+                    '-tr', str(self.upscaling_config['resample_resolution']), str(self.upscaling_config['resample_resolution']),
+                    '-t_srs', 'EPSG:4326',
+                    '-of', 'Gtiff',
+                    '-te', '-180', '-90', '180', '90',
+                    '-r', 'average',
+                    '-ot', 'Float32',
+                    '-co', 'COMPRESS=LZW',
+                    '-co', 'BIGTIFF=YES',
+                    '-overwrite',
+                    f'/{vrt_filename}',
+                    out_dir + f'/{var_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(var_=var_, year_= str(year_)),
+                ]
                 subprocess.run(gdalwarp_command, check=True)
-                os.remove(out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)))
                 
-                iter_ += 1
-        
-            input_files = glob.glob(os.path.join(out_dir, '*_nodata.tif'))
-            vrt_filename = out_dir + '/{var_}.vrt'.format(var_ = var_)
+                for tif_file in input_files:
+                      os.remove(tif_file)
                 
-            gdalbuildvrt_command = [
-                'gdalbuildvrt',
-                vrt_filename
-            ] + input_files
+                da_ =  rio.open_rasterio(out_dir + f'/{var_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(var_=var_, year_= str(year_)))
+                da_ =  da_.rename({"x": 'longitude', "y": 'latitude', 'band': "time"}).to_dataset(name = var_)
+                da_['time'] = [year_]
                 
-            subprocess.run(gdalbuildvrt_command, check=True)
-                
-            gdalwarp_command = [
-                'gdalwarp',
-                '-srcnodata', '-9999',
-                '-dstnodata', '-9999',
-                '-tr', str(self.upscaling_config['resample_resolution']), str(self.upscaling_config['resample_resolution']),
-                '-t_srs', 'EPSG:4326',
-                '-of', 'Gtiff',
-                '-te', '-180', '-90', '180', '90',
-                '-r', 'average',
-                '-ot', 'Float32',
-                '-co', 'COMPRESS=LZW',
-                '-co', 'BIGTIFF=YES',
-                '-overwrite',
-                f'/{vrt_filename}',
-               self.study_dir + f'/{var_}_{self.upscaling_config["resample_resolution"]}deg.tif'.format(var_=var_),
-            ]
-            subprocess.run(gdalwarp_command, check=True)
+                ds_.append(da_)
+            zarr_out_.append(xr.concat(ds_, dim='time'))
             
-            if os.path.exists(out_dir):
-                shutil.rmtree(out_dir)
-                
-            da_ =  rio.open_rasterio(self.study_dir + f'/{var_}_{self.upscaling_config["resample_resolution"]}deg.tif'.format(var_=var_))
-            da_ =  da_.rename({"x": 'longitude', "y": 'latitude', 'band': "time"}).to_dataset(name = var_)
-            da_['time'] =  age_cube.time
-            
-            zarr_out_.append(da_)
-        
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/ForestAge_{resolution}deg'.format(resolution = str(self.upscaling_config['resample_resolution'])), mode= 'w')
         
-        tif_files = glob.glob(os.path.join(self.study_dir, '*.tif'))
-        for tif_file in tif_files:
-              os.remove(tif_file)
+        for var_ in set(age_cube.variables.keys()) - set(age_cube.dims):
+            shutil.rmtree(os.path.join(self.study_dir, 'tmp/{var_}'.format(var_ = var_)))
        
     def norm(self, 
              x: np.array,
