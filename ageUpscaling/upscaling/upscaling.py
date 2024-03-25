@@ -627,8 +627,12 @@ class UpscaleAge(ABC):
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/ForestAge_{resolution}deg'.format(resolution = str(self.upscaling_config['resample_resolution'])), mode= 'w')
         
         for var_ in set(age_cube.variables.keys()) - set(age_cube.dims):
-            shutil.rmtree(os.path.join(self.study_dir, 'tmp/{var_}'.format(var_ = var_)))
-       
+            try:
+                var_path = os.path.join(self.study_dir, 'tmp/{var_}'.format(var_=var_))
+                shutil.rmtree(var_path)
+            except OSError as e:
+                print(f"Error: {e.filename} - {e.strerror}.")
+                        
     def norm(self, 
              x: np.array,
              norm_stats:dict) -> np.array:

@@ -293,7 +293,11 @@ class DifferenceAge(ABC):
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/AgeDiff_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
         for var_ in {item for item in set(age_diff_cube.variables.keys()) - set(age_diff_cube.dims) if 'partition' not in item}:
-            shutil.rmtree(os.path.join(self.study_dir, 'tmp/{var_}'.format(var_ = var_)))
+            try:
+                var_path = os.path.join(self.study_dir, 'tmp/{var_}'.format(var_=var_))
+                shutil.rmtree(var_path)
+            except OSError as e:
+                print(f"Error: {e.filename} - {e.strerror}.")
     
     def AgeDiffPartitionResample(self) -> None:
         """

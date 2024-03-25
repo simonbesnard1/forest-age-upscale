@@ -249,7 +249,11 @@ class ManagementType(ABC):
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/ManagementPartition_fraction_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
         for var_ in set(management_partition_cube.variables.keys()) - set(management_partition_cube.dims):
-            shutil.rmtree(os.path.join(self.study_dir, 'tmp/{var_}'.format(var_ = var_)))
+            try:
+                var_path = os.path.join(self.study_dir, 'tmp/{var_}'.format(var_=var_))
+                shutil.rmtree(var_path)
+            except OSError as e:
+                print(f"Error: {e.filename} - {e.strerror}.")
         
         
 

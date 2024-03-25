@@ -296,7 +296,7 @@ class DifferenceBiomass(ABC):
                 '-t_srs', 'EPSG:4326',
                 '-of', 'Gtiff',
                 '-te', '-180', '-90', '180', '90',
-                '-r', 'med',
+                '-r', 'average',
                 '-ot', 'Float32',
                 '-co', 'COMPRESS=LZW',
                 '-co', 'BIGTIFF=YES',
@@ -314,7 +314,11 @@ class DifferenceBiomass(ABC):
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/BiomassDiffPartition_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
         for var_ in set(agb_diff_cube.variables.keys()) - set(agb_diff_cube.dims):
-            shutil.rmtree(os.path.join(self.study_dir, 'tmp/{var_}'.format(var_ = var_)))
+            try:
+                var_path = os.path.join(self.study_dir, 'tmp/{var_}'.format(var_=var_))
+                shutil.rmtree(var_path)
+            except OSError as e:
+                print(f"Error: {e.filename} - {e.strerror}.")
         
 
                 
