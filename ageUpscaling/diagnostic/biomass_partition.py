@@ -103,50 +103,52 @@ class BiomassPartition(ABC):
         subset_age_cube = self.age_cube.sel(IN)[[self.config_file['forest_age_var']]]
         subset_agb_cube = self.agb_cube.sel(IN)[['aboveground_biomass']]
         subset_agb_cube = subset_agb_cube.where(subset_agb_cube>0)
-        
+                
         diff_age = subset_age_cube.sel(time= '2020-01-01') - subset_age_cube.sel(time= '2010-01-01')
         diff_age = diff_age.where(diff_age != 0, 10).where(np.isfinite(diff_age))
         agb_2020 = subset_agb_cube.sel(time= '2020-01-01')
         
-        stand_replaced_class = xr.where(diff_age < 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'stand_replaced_class'})
-        aging_forest_class = xr.where(diff_age >= 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'aging_forest_class'})
-        diff_age = diff_age.rename({self.config_file['forest_age_var']: 'age_difference'})        
-        
-        age_class = np.array(self.config_file['age_classes'])
-        age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
+        if not np.isnan(diff_age.to_array().values).all():
 
-        for i in range(len(age_labels)):
-            age_range = age_labels[i]
-            lower_limit, upper_limit = map(int, age_range.split('-'))
+            stand_replaced_class = xr.where(diff_age < 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'stand_replaced_class'})
+            aging_forest_class = xr.where(diff_age >= 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'aging_forest_class'})
+            diff_age = diff_age.rename({self.config_file['forest_age_var']: 'age_difference'})        
             
-            if lower_limit == 0:
-                age_class_mask = (subset_age_cube.sel(time= '2010-01-01') >= lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit+1)
-            else:
-                age_class_mask = (subset_age_cube.sel(time= '2010-01-01') > lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit +1)
+            age_class = np.array(self.config_file['age_classes'])
+            age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
+    
+            for i in range(len(age_labels)):
+                age_range = age_labels[i]
+                lower_limit, upper_limit = map(int, age_range.split('-'))
                 
-            age_class_mask = age_class_mask.where(age_class_mask >0)
-        
-            aging_forest = age_class_mask[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)
-            diff_aging = diff_age.where(np.isfinite(aging_forest))
-            aging_class_partition = xr.where(diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference))
-                        
-            stand_replaced_forest = age_class_mask[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)
-            diff_replaced = diff_age.where(np.isfinite(stand_replaced_forest))    
-            stand_replaced_class_partition = xr.where(diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference))
-                
-            if i == len(age_labels) - 1:
-                aging_class_partition = aging_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]})
-                stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]})
-
-            else:
-                aging_class_partition = aging_class_partition.expand_dims({"age_class": [age_range]})
-                stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": [age_range]})
-                
-            stand_replaced_class_partition = agb_2020.where(stand_replaced_class_partition.age_difference ==1).rename({'aboveground_biomass': 'stand_replaced'})
-            aging_class_partition = agb_2020.where(aging_class_partition.age_difference ==1).rename({'aboveground_biomass': 'gradually_ageing'})
-            out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition]).transpose("age_class", 'latitude', 'longitude')
-          
-            self.agbPartition_cube.CubeWriter(out_cube, n_workers=1)
+                if lower_limit == 0:
+                    age_class_mask = (subset_age_cube.sel(time= '2010-01-01') >= lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit+1)
+                else:
+                    age_class_mask = (subset_age_cube.sel(time= '2010-01-01') > lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit +1)
+                    
+                age_class_mask = age_class_mask.where(age_class_mask >0)
+            
+                aging_forest = age_class_mask[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)
+                diff_aging = diff_age.where(np.isfinite(aging_forest))
+                aging_class_partition = xr.where(diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference))
+                            
+                stand_replaced_forest = age_class_mask[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)
+                diff_replaced = diff_age.where(np.isfinite(stand_replaced_forest))    
+                stand_replaced_class_partition = xr.where(diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference))
+                    
+                if i == len(age_labels) - 1:
+                    aging_class_partition = aging_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]})
+                    stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]})
+    
+                else:
+                    aging_class_partition = aging_class_partition.expand_dims({"age_class": [age_range]})
+                    stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": [age_range]})
+                    
+                stand_replaced_class_partition = agb_2020.where(stand_replaced_class_partition.age_difference ==1).rename({'aboveground_biomass': 'stand_replaced'})
+                aging_class_partition = agb_2020.where(aging_class_partition.age_difference ==1).rename({'aboveground_biomass': 'gradually_ageing'})
+                out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition]).transpose("age_class", 'latitude', 'longitude')
+              
+                self.agbPartition_cube.CubeWriter(out_cube, n_workers=1)
         
     def BiomassPartitionCubeInit(self):
         
