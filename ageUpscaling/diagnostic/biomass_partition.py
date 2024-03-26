@@ -66,10 +66,12 @@ class BiomassPartition(ABC):
             shutil.rmtree(sync_file)
             
         self.task_id = int(os.getenv('SLURM_ARRAY_TASK_ID', 0))
+        
         sync_file_features = os.path.abspath(f"{study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync")        
         if os.path.isdir(sync_file_features):
             shutil.rmtree(sync_file_features)            
         self.sync_feature = zarr.ProcessSynchronizer(sync_file_features)
+        
         self.age_cube = xr.open_zarr(self.config_file['ForestAge_cube'], synchronizer=self.sync_feature)
         self.agb_cube = xr.open_zarr(self.config_file['Biomass_cube'], synchronizer=self.sync_feature)
         
@@ -149,6 +151,12 @@ class BiomassPartition(ABC):
     def BiomassPartitionCubeInit(self):
         
         self.agbPartition_cube.init_variable(self.config_file['cube_variables'])
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync"))
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync"))
     
     def BiomassPartitionCalc(self,
                              task_id=None) -> None:
@@ -292,6 +300,12 @@ class BiomassPartition(ABC):
             zarr_out_.append(da_)
         
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/BiomassPartition_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync"))
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync"))
         
         for var_ in set(agbPartition_cube.variables.keys()) - set(agbPartition_cube.dims):
             try:

@@ -12,7 +12,6 @@
 """
 import os
 import shutil
-from tqdm import tqdm
 from itertools import product
 from abc import ABC
 import subprocess
@@ -163,6 +162,12 @@ class BiomassDiffPartition(ABC):
     def BiomassDiffPartitionCubeInit(self):
         
         self.agbDiffPartition_cube.init_variable(self.config_file['cube_variables'])
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync"))
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync"))
     
     def BiomassDiffPartitionCalc(self,
                      task_id=None) -> None:
@@ -307,6 +312,12 @@ class BiomassDiffPartition(ABC):
             zarr_out_.append(da_)
         
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/BiomassDiffPartition_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync"))
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync"))
         
         for var_ in set(agbDiffPartition_cube.variables.keys()) - set(agbDiffPartition_cube.dims):
             try:
