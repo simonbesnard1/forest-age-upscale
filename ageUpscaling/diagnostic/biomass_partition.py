@@ -135,16 +135,16 @@ class BiomassPartition(ABC):
             stand_replaced_class_partition = xr.where(diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference))
                 
             if i == len(age_labels) - 1:
-                aging_class_partition = aging_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]}).transpose("age_class", 'latitude', 'longitude')
-                stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]}).transpose("age_class", 'latitude', 'longitude')
+                aging_class_partition = aging_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]})
+                stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]})
 
             else:
-                aging_class_partition = aging_class_partition.expand_dims({"age_class": [age_range]}).transpose("age_class", 'latitude', 'longitude')
-                stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": [age_range]}).transpose("age_class", 'latitude', 'longitude')
+                aging_class_partition = aging_class_partition.expand_dims({"age_class": [age_range]})
+                stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": [age_range]})
                 
             stand_replaced_class_partition = agb_2020.where(stand_replaced_class_partition.age_difference ==1).rename({'aboveground_biomass': 'stand_replaced'})
             aging_class_partition = agb_2020.where(aging_class_partition.age_difference ==1).rename({'aboveground_biomass': 'gradually_ageing'})
-            out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition])
+            out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition]).transpose("age_class", 'latitude', 'longitude')
           
             self.agbPartition_cube.CubeWriter(out_cube, n_workers=1)
         
