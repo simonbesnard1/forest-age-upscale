@@ -103,62 +103,47 @@ class BiomassDiffPartition(ABC):
         diff_agb = subset_agb_cube.sel(time= '2020-01-01') - subset_agb_cube.sel(time= '2010-01-01')
         #diff_agb = diff_agb.where(mask_qc != 3)
         
-        stand_replaced_class = xr.where(diff_age < 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'stand_replaced_class'})
-        aging_forest_class = xr.where(diff_age >= 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'aging_forest_class'})
-        diff_age = diff_age.rename({self.config_file['forest_age_var']: 'age_difference'})        
-        diff_agb = diff_agb.rename({'aboveground_biomass': 'agb_difference'})
-                       
-        young_2010 = subset_age_cube.sel(time= '2010-01-01').where(subset_age_cube.sel(time= '2010-01-01') < 21)
-        maturing_2010 = subset_age_cube.sel(time= '2010-01-01').where( (subset_age_cube.sel(time= '2010-01-01') > 20) & (subset_age_cube.sel(time= '2010-01-01') < 81) )
-        mature_2010 = subset_age_cube.sel(time= '2010-01-01').where( (subset_age_cube.sel(time= '2010-01-01') > 80) & (subset_age_cube.sel(time= '2010-01-01') < 201) )
-        old_growth_2010 = subset_age_cube.sel(time= '2010-01-01').where(subset_age_cube.sel(time= '2010-01-01') > 200)
+        if not np.isnan(diff_age.to_array().values).all():
+
+            stand_replaced_class = xr.where(diff_age < 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'stand_replaced_class'})
+            aging_forest_class = xr.where(diff_age >= 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'aging_forest_class'})
+            diff_age = diff_age.rename({self.config_file['forest_age_var']: 'age_difference'})        
+            
+            age_class = np.array(self.config_file['age_classes'])
+            age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
+    
+            for i in range(len(age_labels)):
+                age_range = age_labels[i]
+                lower_limit, upper_limit = map(int, age_range.split('-'))
+                
+                if lower_limit == 0:
+                    age_class_mask = (subset_age_cube.sel(time= '2010-01-01') >= lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit+1)
+                else:
+                    age_class_mask = (subset_age_cube.sel(time= '2010-01-01') > lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit +1)
+                    
+                age_class_mask = age_class_mask.where(age_class_mask >0)
+            
+                aging_forest = age_class_mask[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)
+                diff_aging = diff_age.where(np.isfinite(aging_forest))
+                aging_class_partition = xr.where(diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference))
+                            
+                stand_replaced_forest = age_class_mask[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)
+                diff_replaced = diff_age.where(np.isfinite(stand_replaced_forest))    
+                stand_replaced_class_partition = xr.where(diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference))
+                    
+                if i == len(age_labels) - 1:
+                    aging_class_partition = aging_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]})
+                    stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]})
+    
+                else:
+                    aging_class_partition = aging_class_partition.expand_dims({"age_class": [age_range]})
+                    stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": [age_range]})
+                    
+                stand_replaced_class_partition = diff_agb.where(stand_replaced_class_partition.age_difference ==1).rename({'aboveground_biomass': 'stand_replaced'})
+                aging_class_partition = diff_agb.where(aging_class_partition.age_difference ==1).rename({'aboveground_biomass': 'gradually_ageing'})
+                out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition]).transpose("age_class", 'latitude', 'longitude').astype('float16')
+                self.agbDiffPartition_cube.CubeWriter(out_cube, n_workers=1)
         
-        old_growth_2010_replaced = old_growth_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
-        old_growth_diff_replaced = diff_age.where(np.isfinite(old_growth_2010_replaced)).rename({'age_difference': 'OG_stand_replaced_diff'})
-        OG_stand_replaced_class = xr.where(old_growth_diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'OG_stand_replaced_diff': 'OG_stand_replaced_class'})
-        
-        young_2010_replaced = young_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
-        young_diff_replaced = diff_age.where(np.isfinite(young_2010_replaced)).rename({'age_difference': 'young_stand_replaced_diff'})
-        young_stand_replaced_class = xr.where(young_diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'young_stand_replaced_diff': 'young_stand_replaced_class'})
-        
-        maturing_2010_replaced = maturing_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
-        maturing_diff_replaced = diff_age.where(np.isfinite(maturing_2010_replaced)).rename({'age_difference': 'maturing_stand_replaced_diff'})
-        maturing_stand_replaced_class = xr.where(maturing_diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'maturing_stand_replaced_diff': 'maturing_stand_replaced_class'})
-        
-        mature_2010_replaced = mature_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
-        mature_diff_replaced = diff_age.where(np.isfinite(mature_2010_replaced)).rename({'age_difference': 'mature_stand_replaced_diff'})
-        mature_stand_replaced_class = xr.where(mature_diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'mature_stand_replaced_diff': 'mature_stand_replaced_class'})
-        
-        old_growth_2010_aging = old_growth_2010[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)        
-        old_growth_diff_aging = diff_age.where(np.isfinite(old_growth_2010_aging)).rename({'age_difference': 'OG_aging_diff'})
-        OG_aging_class = xr.where(old_growth_diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'OG_aging_diff': 'OG_aging_class'})
-        
-        young_2010_aging = young_2010[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)        
-        young_diff_aging = diff_age.where(np.isfinite(young_2010_aging)).rename({'age_difference': 'young_aging_diff'})
-        young_aging_class = xr.where(young_diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'young_aging_diff': 'young_aging_class'})
-        
-        maturing_2010_aging = maturing_2010[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)        
-        maturing_diff_aging = diff_age.where(np.isfinite(maturing_2010_aging)).rename({'age_difference': 'maturing_aging_diff'})
-        maturing_aging_class = xr.where(maturing_diff_aging >=10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'maturing_aging_diff': 'maturing_aging_class'})
-        
-        mature_2010_aging = mature_2010[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)        
-        mature_diff_aging = diff_age.where(np.isfinite(mature_2010_aging)).rename({'age_difference': 'mature_aging_diff'})
-        mature_aging_class = xr.where(mature_diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'mature_aging_diff': 'mature_aging_class'})
-        
-        old_growth_agb_diff_replaced = diff_agb.where(OG_stand_replaced_class.OG_stand_replaced_class ==1).rename({'agb_difference': 'OG_agb_diff_replaced'})
-        young_agb_diff_replaced = diff_agb.where(young_stand_replaced_class.young_stand_replaced_class ==1).rename({'agb_difference': 'young_agb_diff_replaced'})
-        maturing_agb_diff_replaced = diff_agb.where(maturing_stand_replaced_class.maturing_stand_replaced_class ==1).rename({'agb_difference': 'maturing_agb_diff_replaced'})
-        mature_agb_diff_replaced = diff_agb.where(mature_stand_replaced_class.mature_stand_replaced_class ==1).rename({'agb_difference': 'mature_agb_diff_replaced'})
-        old_growth_agb_diff_aging = diff_agb.where(OG_aging_class.OG_aging_class ==1).rename({'agb_difference': 'OG_agb_diff_aging'})
-        young_agb_diff_aging = diff_agb.where(young_aging_class.young_aging_class ==1).rename({'agb_difference': 'young_agb_diff_aging'})
-        maturing_agb_diff_aging = diff_agb.where(maturing_aging_class.maturing_aging_class ==1).rename({'agb_difference': 'maturing_agb_diff_aging'})
-        mature_agb_diff_aging = diff_agb.where(mature_aging_class.mature_aging_class ==1).rename({'agb_difference': 'mature_agb_diff_aging'})
-        
-        out_cube = xr.merge([old_growth_agb_diff_replaced, young_agb_diff_replaced, maturing_agb_diff_replaced, mature_agb_diff_replaced,
-                             old_growth_agb_diff_aging, young_agb_diff_aging, maturing_agb_diff_aging, mature_agb_diff_aging])
-        
-        self.agbDiffPartition_cube.CubeWriter(out_cube, n_workers=1)
-             
     def BiomassDiffPartitionCubeInit(self):
         
         self.agbDiffPartition_cube.init_variable(self.config_file['cube_variables'])

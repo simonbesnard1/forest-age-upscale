@@ -199,7 +199,7 @@ class ComputeCube(ABC):
             raise RuntimeError(f"Failed to write variable to cube: {str(da)}") from e
         
         # Consolidate metadata for the Zarr dataset
-        zarr.consolidate_metadata(self.cube_location)
+        #zarr.consolidate_metadata(self.cube_location)
 
     def _update(self, 
                 da:Union[xr.DataArray, xr.Dataset]) -> None:
