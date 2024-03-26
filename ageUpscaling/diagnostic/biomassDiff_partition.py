@@ -66,16 +66,23 @@ class BiomassDiffPartition(ABC):
             shutil.rmtree(sync_file)
             
         self.task_id = int(os.getenv('SLURM_ARRAY_TASK_ID', 0))
+        
         sync_file_features = os.path.abspath(f"{study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync")        
         if os.path.isdir(sync_file_features):
             shutil.rmtree(sync_file_features)            
         self.sync_feature = zarr.ProcessSynchronizer(sync_file_features)
+        
         self.age_cube = xr.open_zarr(self.config_file['ForestAge_cube'], synchronizer=self.sync_feature)
         self.agb_cube = xr.open_zarr(self.config_file['Biomass_cube'], synchronizer=self.sync_feature)
+        
+        age_class = np.array(self.config_file['age_classes'])
+        age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
+        age_labels[-1] = '>' + age_labels[-1].split('-')[0]
         
         self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync") 
         self.config_file['output_writer_params']['dims']['latitude'] = self.age_cube.latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  self.age_cube.longitude.values
+        self.config_file['output_writer_params']['dims']['age_class'] = age_labels
         
         self.agbDiffPartition_cube = DataCube(cube_config = self.config_file)
         
