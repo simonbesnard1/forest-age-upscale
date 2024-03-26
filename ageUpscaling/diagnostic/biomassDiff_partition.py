@@ -12,6 +12,7 @@
 """
 import os
 import shutil
+from tqdm import tqdm
 from itertools import product
 from abc import ABC
 import subprocess
@@ -28,7 +29,7 @@ import rioxarray as rio
 
 from ageUpscaling.core.cube import DataCube
 
-class BiomassPartition(ABC):
+class BiomassDiffPartition(ABC):
     """Study abstract class used for cross validation, model training, prediction.
 
     Parameters
@@ -73,16 +74,11 @@ class BiomassPartition(ABC):
         self.age_cube = xr.open_zarr(self.config_file['ForestAge_cube'], synchronizer=self.sync_feature)
         self.agb_cube = xr.open_zarr(self.config_file['Biomass_cube'], synchronizer=self.sync_feature)
         
-        age_class = np.array(self.config_file['age_classes'])
-        age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
-        age_labels[-1] = '>' + age_labels[-1].split('-')[0]
-        
         self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync") 
         self.config_file['output_writer_params']['dims']['latitude'] = self.age_cube.latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  self.age_cube.longitude.values
-        self.config_file['output_writer_params']['dims']['age_class'] = age_labels
         
-        self.agbPartition_cube = DataCube(cube_config = self.config_file)
+        self.agbDiffPartition_cube = DataCube(cube_config = self.config_file)
         
     @dask.delayed
     def _calc_func(self, 
@@ -101,65 +97,83 @@ class BiomassPartition(ABC):
         subset_age_cube = self.age_cube.sel(IN)[[self.config_file['forest_age_var']]]
         subset_agb_cube = self.agb_cube.sel(IN)[['aboveground_biomass']]
         subset_agb_cube = subset_agb_cube.where(subset_agb_cube>0)
+        #mask_qc = self.agb_cube.sel(IN)['quality_check_changes'].sel(time= '2020-01-01')
         
         diff_age = subset_age_cube.sel(time= '2020-01-01') - subset_age_cube.sel(time= '2010-01-01')
         diff_age = diff_age.where(diff_age != 0, 10).where(np.isfinite(diff_age))
-        agb_2020 = subset_agb_cube.sel(time= '2020-01-01')
+        diff_agb = subset_agb_cube.sel(time= '2020-01-01') - subset_agb_cube.sel(time= '2010-01-01')
+        #diff_agb = diff_agb.where(mask_qc != 3)
         
         stand_replaced_class = xr.where(diff_age < 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'stand_replaced_class'})
         aging_forest_class = xr.where(diff_age >= 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'aging_forest_class'})
         diff_age = diff_age.rename({self.config_file['forest_age_var']: 'age_difference'})        
+        diff_agb = diff_agb.rename({'aboveground_biomass': 'agb_difference'})
+                       
+        young_2010 = subset_age_cube.sel(time= '2010-01-01').where(subset_age_cube.sel(time= '2010-01-01') < 21)
+        maturing_2010 = subset_age_cube.sel(time= '2010-01-01').where( (subset_age_cube.sel(time= '2010-01-01') > 20) & (subset_age_cube.sel(time= '2010-01-01') < 81) )
+        mature_2010 = subset_age_cube.sel(time= '2010-01-01').where( (subset_age_cube.sel(time= '2010-01-01') > 80) & (subset_age_cube.sel(time= '2010-01-01') < 201) )
+        old_growth_2010 = subset_age_cube.sel(time= '2010-01-01').where(subset_age_cube.sel(time= '2010-01-01') > 200)
         
-        age_class = np.array(self.config_file['age_classes'])
-        age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
-
-        for i in range(len(age_labels)):
-            age_range = age_labels[i]
-            lower_limit, upper_limit = map(int, age_range.split('-'))
-            
-            if lower_limit == 0:
-                age_class_mask = (subset_age_cube.sel(time= '2010-01-01') >= lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit+1)
-            else:
-                age_class_mask = (subset_age_cube.sel(time= '2010-01-01') > lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit +1)
-                
-            age_class_mask = age_class_mask.where(age_class_mask >0)
+        old_growth_2010_replaced = old_growth_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
+        old_growth_diff_replaced = diff_age.where(np.isfinite(old_growth_2010_replaced)).rename({'age_difference': 'OG_stand_replaced_diff'})
+        OG_stand_replaced_class = xr.where(old_growth_diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'OG_stand_replaced_diff': 'OG_stand_replaced_class'})
         
-            aging_forest = age_class_mask[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)
-            diff_aging = diff_age.where(np.isfinite(aging_forest))
-            aging_class_partition = xr.where(diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference))
-                        
-            stand_replaced_forest = age_class_mask[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)
-            diff_replaced = diff_age.where(np.isfinite(stand_replaced_forest))    
-            stand_replaced_class_partition = xr.where(diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference))
-                
-            if i == len(age_labels) - 1:
-                aging_class_partition = aging_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]}).transpose("age_class", 'latitude', 'longitude')
-                stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]}).transpose("age_class", 'latitude', 'longitude')
-
-            else:
-                aging_class_partition = aging_class_partition.expand_dims({"age_class": [age_range]}).transpose("age_class", 'latitude', 'longitude')
-                stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": [age_range]}).transpose("age_class", 'latitude', 'longitude')
-                
-            stand_replaced_class_partition = agb_2020.where(stand_replaced_class_partition.age_difference ==1).rename({'aboveground_biomass': 'stand_replaced'})
-            aging_class_partition = agb_2020.where(aging_class_partition.age_difference ==1).rename({'aboveground_biomass': 'gradually_ageing'})
-            out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition])
-          
-            self.agbPartition_cube.CubeWriter(out_cube, n_workers=1)
+        young_2010_replaced = young_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
+        young_diff_replaced = diff_age.where(np.isfinite(young_2010_replaced)).rename({'age_difference': 'young_stand_replaced_diff'})
+        young_stand_replaced_class = xr.where(young_diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'young_stand_replaced_diff': 'young_stand_replaced_class'})
         
-    def BiomassPartitionCubeInit(self):
+        maturing_2010_replaced = maturing_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
+        maturing_diff_replaced = diff_age.where(np.isfinite(maturing_2010_replaced)).rename({'age_difference': 'maturing_stand_replaced_diff'})
+        maturing_stand_replaced_class = xr.where(maturing_diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'maturing_stand_replaced_diff': 'maturing_stand_replaced_class'})
         
-        self.agbPartition_cube.init_variable(self.config_file['cube_variables'])
+        mature_2010_replaced = mature_2010[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)        
+        mature_diff_replaced = diff_age.where(np.isfinite(mature_2010_replaced)).rename({'age_difference': 'mature_stand_replaced_diff'})
+        mature_stand_replaced_class = xr.where(mature_diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'mature_stand_replaced_diff': 'mature_stand_replaced_class'})
+        
+        old_growth_2010_aging = old_growth_2010[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)        
+        old_growth_diff_aging = diff_age.where(np.isfinite(old_growth_2010_aging)).rename({'age_difference': 'OG_aging_diff'})
+        OG_aging_class = xr.where(old_growth_diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'OG_aging_diff': 'OG_aging_class'})
+        
+        young_2010_aging = young_2010[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)        
+        young_diff_aging = diff_age.where(np.isfinite(young_2010_aging)).rename({'age_difference': 'young_aging_diff'})
+        young_aging_class = xr.where(young_diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'young_aging_diff': 'young_aging_class'})
+        
+        maturing_2010_aging = maturing_2010[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)        
+        maturing_diff_aging = diff_age.where(np.isfinite(maturing_2010_aging)).rename({'age_difference': 'maturing_aging_diff'})
+        maturing_aging_class = xr.where(maturing_diff_aging >=10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'maturing_aging_diff': 'maturing_aging_class'})
+        
+        mature_2010_aging = mature_2010[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)        
+        mature_diff_aging = diff_age.where(np.isfinite(mature_2010_aging)).rename({'age_difference': 'mature_aging_diff'})
+        mature_aging_class = xr.where(mature_diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference)).rename({'mature_aging_diff': 'mature_aging_class'})
+        
+        old_growth_agb_diff_replaced = diff_agb.where(OG_stand_replaced_class.OG_stand_replaced_class ==1).rename({'agb_difference': 'OG_agb_diff_replaced'})
+        young_agb_diff_replaced = diff_agb.where(young_stand_replaced_class.young_stand_replaced_class ==1).rename({'agb_difference': 'young_agb_diff_replaced'})
+        maturing_agb_diff_replaced = diff_agb.where(maturing_stand_replaced_class.maturing_stand_replaced_class ==1).rename({'agb_difference': 'maturing_agb_diff_replaced'})
+        mature_agb_diff_replaced = diff_agb.where(mature_stand_replaced_class.mature_stand_replaced_class ==1).rename({'agb_difference': 'mature_agb_diff_replaced'})
+        old_growth_agb_diff_aging = diff_agb.where(OG_aging_class.OG_aging_class ==1).rename({'agb_difference': 'OG_agb_diff_aging'})
+        young_agb_diff_aging = diff_agb.where(young_aging_class.young_aging_class ==1).rename({'agb_difference': 'young_agb_diff_aging'})
+        maturing_agb_diff_aging = diff_agb.where(maturing_aging_class.maturing_aging_class ==1).rename({'agb_difference': 'maturing_agb_diff_aging'})
+        mature_agb_diff_aging = diff_agb.where(mature_aging_class.mature_aging_class ==1).rename({'agb_difference': 'mature_agb_diff_aging'})
+        
+        out_cube = xr.merge([old_growth_agb_diff_replaced, young_agb_diff_replaced, maturing_agb_diff_replaced, mature_agb_diff_replaced,
+                             old_growth_agb_diff_aging, young_agb_diff_aging, maturing_agb_diff_aging, mature_agb_diff_aging])
+        
+        self.agbDiffPartition_cube.CubeWriter(out_cube, n_workers=1)
+             
+    def BiomassDiffPartitionCubeInit(self):
+        
+        self.agbDiffPartition_cube.init_variable(self.config_file['cube_variables'])
     
-    def BiomassPartitionCalc(self,
-                             task_id=None) -> None:
+    def BiomassDiffPartitionCalc(self,
+                     task_id=None) -> None:
         """Calculate the fraction of each age class.
         
         """
-        lat_chunk_size, lon_chunk_size = self.agbPartition_cube.cube.chunks['latitude'][0], self.agbPartition_cube.cube.chunks['longitude'][0]
+        lat_chunk_size, lon_chunk_size = self.agbDiffPartition_cube.cube.chunks['latitude'][0], self.agbDiffPartition_cube.cube.chunks['longitude'][0]
 
         # Calculate the number of chunks for each dimension
-        num_lat_chunks = np.ceil(len(self.agbPartition_cube.cube.latitude) / lat_chunk_size).astype(int)
-        num_lon_chunks = np.ceil(len(self.agbPartition_cube.cube.longitude) / lon_chunk_size).astype(int)
+        num_lat_chunks = np.ceil(len(self.agbDiffPartition_cube.cube.latitude) / lat_chunk_size).astype(int)
+        num_lon_chunks = np.ceil(len(self.agbDiffPartition_cube.cube.longitude) / lon_chunk_size).astype(int)
      
         # Generate all combinations of latitude and longitude chunk indices
         chunk_indices = list(product(range(num_lat_chunks), range(num_lon_chunks)))
@@ -171,8 +185,8 @@ class BiomassPartition(ABC):
             lat_slice = slice(lat_idx * lat_chunk_size, (lat_idx + 1) * lat_chunk_size)
             lon_slice = slice(lon_idx * lon_chunk_size, (lon_idx + 1) * lon_chunk_size)
             
-            lat_values = self.agbPartition_cube.cube.latitude.values[lat_slice]
-            lon_values = self.agbPartition_cube.cube.longitude.values[lon_slice]
+            lat_values = self.agbDiffPartition_cube.cube.latitude.values[lat_slice]
+            lon_values = self.agbDiffPartition_cube.cube.longitude.values[lon_slice]
 
             # Select the extent based on the slice indices
             selected_extent = {"latitude": slice(lat_values[0], lat_values[-1]), 
@@ -183,18 +197,19 @@ class BiomassPartition(ABC):
         
         else:
            print(f"Task ID {task_id} is out of range. No chunk to process.")
-
+                    
         if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync"))
         
         if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync"))
+        
                 
     def process_chunk(self, extent):
         
         self._calc_func(extent).compute()
         
-    def BiomassPartitionResample(self) -> None:
+    def BiomassDiffPartitionResample(self) -> None:
         """
             Calculate the age fraction.
             
@@ -215,13 +230,13 @@ class BiomassPartition(ABC):
             - Merges and converts the output into Zarr format.
         """
                         
-        agbPartition_cube = xr.open_zarr(self.config_file['cube_location'])
+        agbDiffPartition_cube = xr.open_zarr(self.config_file['cube_location'])
         zarr_out_ = []
         
-        for var_ in set(agbPartition_cube.variables.keys()) - set(agbPartition_cube.dims):
+        for var_ in set(agbDiffPartition_cube.variables.keys()) - set(agbDiffPartition_cube.dims):
             
-            LatChunks = np.array_split(agbPartition_cube.latitude.values, 3)
-            LonChunks = np.array_split(agbPartition_cube.longitude.values, 3)
+            LatChunks = np.array_split(agbDiffPartition_cube.latitude.values, 3)
+            LonChunks = np.array_split(agbDiffPartition_cube.longitude.values, 3)
             chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
         		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
         		    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))] 
@@ -229,7 +244,7 @@ class BiomassPartition(ABC):
             iter_ = 0
             for chunck in chunk_dict:
                 
-                data_chunk = agbPartition_cube[var_].sel(chunck).transpose('latitude', 'longitude')
+                data_chunk = agbDiffPartition_cube[var_].sel(chunck).transpose('latitude', 'longitude')
                 data_chunk = data_chunk.where(np.isfinite(data_chunk), -9999).astype('float32')  
                 
                 data_chunk.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
@@ -291,9 +306,9 @@ class BiomassPartition(ABC):
                 
             zarr_out_.append(da_)
         
-        xr.merge(zarr_out_).to_zarr(self.study_dir + '/BiomassPartition_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        xr.merge(zarr_out_).to_zarr(self.study_dir + '/BiomassDiffPartition_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
-        for var_ in set(agbPartition_cube.variables.keys()) - set(agbPartition_cube.dims):
+        for var_ in set(agbDiffPartition_cube.variables.keys()) - set(agbDiffPartition_cube.dims):
             try:
                 var_path = os.path.join(self.study_dir, 'tmp/{var_}'.format(var_=var_))
                 shutil.rmtree(var_path)
