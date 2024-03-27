@@ -67,7 +67,7 @@ class BiomassPartition(ABC):
             
         self.task_id = int(os.getenv('SLURM_ARRAY_TASK_ID', 0))
         
-        sync_file_features = os.path.abspath(f"{study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync")        
+        sync_file_features = os.path.abspath(f"{study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync")        
         if os.path.isdir(sync_file_features):
             shutil.rmtree(sync_file_features)            
         self.sync_feature = zarr.ProcessSynchronizer(sync_file_features)
@@ -79,7 +79,7 @@ class BiomassPartition(ABC):
         age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
         age_labels[-1] = '>' + age_labels[-1].split('-')[0]
         
-        self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync") 
+        self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync") 
         self.config_file['output_writer_params']['dims']['latitude'] = self.age_cube.latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  self.age_cube.longitude.values
         self.config_file['output_writer_params']['dims']['age_class'] = age_labels
@@ -154,11 +154,11 @@ class BiomassPartition(ABC):
         
         self.agbPartition_cube.init_variable(self.config_file['cube_variables'])
         
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync"))
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync"))
         
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync"))
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync"))
     
     def BiomassPartitionCalc(self,
                              task_id=None) -> None:
@@ -194,11 +194,11 @@ class BiomassPartition(ABC):
         else:
            print(f"Task ID {task_id} is out of range. No chunk to process.")
 
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync"))
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync"))
         
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync"))
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync"))
                 
     def process_chunk(self, extent):
         
@@ -307,11 +307,11 @@ class BiomassPartition(ABC):
         
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/BiomassPartition_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_features_sync_{self.task_id}.zarrsync"))
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync"))
         
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbDiff_cube_out_sync_{self.task_id}.zarrsync"))
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync"))
         
         try:
             var_path = os.path.join(self.study_dir, 'tmp/agbPartition')
