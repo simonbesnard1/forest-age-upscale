@@ -230,76 +230,80 @@ class BiomassPartition(ABC):
         
         for var_ in set(agbPartition_cube.variables.keys()) - set(agbPartition_cube.dims):
             
-            LatChunks = np.array_split(agbPartition_cube.latitude.values, 3)
-            LonChunks = np.array_split(agbPartition_cube.longitude.values, 3)
-            chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-        		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-        		    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))] 
+            out = []
+            for class_ in agbPartition_cube.age_class.values:
             
-            iter_ = 0
-            for chunck in chunk_dict:
+                LatChunks = np.array_split(agbPartition_cube.latitude.values, 3)
+                LonChunks = np.array_split(agbPartition_cube.longitude.values, 3)
+                chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
+            		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+            		    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))] 
                 
-                data_chunk = agbPartition_cube[var_].sel(chunck).transpose('latitude', 'longitude')
-                data_chunk = data_chunk.where(np.isfinite(data_chunk), -9999).astype('float32')  
-                
-                data_chunk.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
-                data_chunk.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
-                data_chunk = data_chunk.rio.write_crs("epsg:4326", inplace=True)
-                data_chunk.attrs = {'long_name': 'Biomass difference',
-                                    'units': 'Ton /ha',
-                                    'valid_max': 300,
-                                    'valid_min': -300}
-                data_chunk.attrs["_FillValue"] = -9999  
-                out_dir = '{study_dir}/tmp/{var_}/'.format(study_dir = self.study_dir, var_ = var_)
-                if not os.path.exists(out_dir):
-           		    os.makedirs(out_dir)
-                       
-                data_chunk.rio.to_raster(raster_path= out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
-                                         driver="COG", BIGTIFF='YES', compress=None,  dtype= 'float32')      
-                
+                iter_ = 0
+                for chunck in chunk_dict:
+                    
+                    data_chunk = agbPartition_cube[var_].sel(chunck).sel(age_class = class_).transpose('latitude', 'longitude')
+                    data_chunk = data_chunk.where(np.isfinite(data_chunk), -9999).astype('float32')  
+                    
+                    data_chunk.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
+                    data_chunk.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
+                    data_chunk = data_chunk.rio.write_crs("epsg:4326", inplace=True)
+                    data_chunk.attrs = {'long_name': 'Biomass difference',
+                                        'units': 'Ton /ha',
+                                        'valid_max': 300,
+                                        'valid_min': -300}
+                    data_chunk.attrs["_FillValue"] = -9999  
+                    out_dir = '{study_dir}/tmp/{var_}/{class_}'.format(study_dir = self.study_dir, var_ = var_, class_ = class_)
+                    if not os.path.exists(out_dir):
+               		    os.makedirs(out_dir)
+                           
+                    data_chunk.rio.to_raster(raster_path= out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
+                                             driver="COG", BIGTIFF='YES', compress=None,  dtype= 'float32')      
+                    
+                    gdalwarp_command = [
+                                        'gdal_translate',
+                                        '-a_nodata', '-9999',
+                                        out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)),
+                                        out_dir + '{var_}_{iter_}_nodata.tif'.format(var_ = var_, iter_=str(iter_))                
+                                    ]
+                    subprocess.run(gdalwarp_command, check=True)
+                    os.remove(out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)))
+                    
+                    iter_ += 1
+            
+                input_files = glob.glob(os.path.join(out_dir, '*_nodata.tif'))
+                vrt_filename = out_dir + '/{var_}_{class_}.vrt'.format(var_ = var_, class_= class_)
+                    
+                gdalbuildvrt_command = [
+                    'gdalbuildvrt',
+                    vrt_filename
+                ] + input_files
+                    
+                subprocess.run(gdalbuildvrt_command, check=True)
+                    
                 gdalwarp_command = [
-                                    'gdal_translate',
-                                    '-a_nodata', '-9999',
-                                    out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)),
-                                    out_dir + '{var_}_{iter_}_nodata.tif'.format(var_ = var_, iter_=str(iter_))                
-                                ]
+                    'gdalwarp',
+                    '-srcnodata', '-9999',
+                    '-dstnodata', '-9999',
+                    '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
+                    '-t_srs', 'EPSG:4326',
+                    '-of', 'Gtiff',
+                    '-te', '-180', '-90', '180', '90',
+                    '-r', 'average',
+                    '-ot', 'Float32',
+                    '-co', 'COMPRESS=LZW',
+                    '-co', 'BIGTIFF=YES',
+                    '-overwrite',
+                    f'/{vrt_filename}',
+                   out_dir + f'{var_}_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_, class_= class_),
+                ]
                 subprocess.run(gdalwarp_command, check=True)
-                os.remove(out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)))
                 
-                iter_ += 1
-        
-            input_files = glob.glob(os.path.join(out_dir, '*_nodata.tif'))
-            vrt_filename = out_dir + '/{var_}.vrt'.format(var_ = var_)
+                da_ =  rio.open_rasterio(out_dir + f'{var_}_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_, class_= class_))     
+                da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
+                out.append(da_.assign_coords(age_class= class_))
                 
-            gdalbuildvrt_command = [
-                'gdalbuildvrt',
-                vrt_filename
-            ] + input_files
-                
-            subprocess.run(gdalbuildvrt_command, check=True)
-                
-            gdalwarp_command = [
-                'gdalwarp',
-                '-srcnodata', '-9999',
-                '-dstnodata', '-9999',
-                '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
-                '-t_srs', 'EPSG:4326',
-                '-of', 'Gtiff',
-                '-te', '-180', '-90', '180', '90',
-                '-r', 'average',
-                '-ot', 'Float32',
-                '-co', 'COMPRESS=LZW',
-                '-co', 'BIGTIFF=YES',
-                '-overwrite',
-                f'/{vrt_filename}',
-               out_dir + f'{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_),
-            ]
-            subprocess.run(gdalwarp_command, check=True)
-            
-            da_ =  rio.open_rasterio(out_dir + f'{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_))     
-            da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
-                
-            zarr_out_.append(da_)
+            zarr_out_.append(xr.concat(out, dim = 'age_class').transpose('latitude', 'longitude', 'age_class'))
         
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/BiomassPartition_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
