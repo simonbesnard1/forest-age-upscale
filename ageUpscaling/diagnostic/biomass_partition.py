@@ -253,7 +253,7 @@ class BiomassPartition(ABC):
                                         'valid_max': 300,
                                         'valid_min': -300}
                     data_chunk.attrs["_FillValue"] = -9999  
-                    out_dir = '{study_dir}/tmp/agbPartition/{var_}/{class_}'.format(study_dir = self.study_dir, var_ = var_, class_ = class_)
+                    out_dir = '{study_dir}/tmp/agbPartition/{var_}/{class_}/'.format(study_dir = self.study_dir, var_ = var_, class_ = class_)
                     if not os.path.exists(out_dir):
                		    os.makedirs(out_dir)
                            
