@@ -299,6 +299,9 @@ class BiomassPartition(ABC):
                 ]
                 subprocess.run(gdalwarp_command, check=True)
                 
+                for file_ in input_files:
+                    os.remove(file_)
+                
                 da_ =  rio.open_rasterio(out_dir + f'{var_}_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_, class_= class_))     
                 da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
                 out.append(da_.assign_coords(age_class= class_))
