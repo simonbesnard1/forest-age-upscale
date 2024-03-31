@@ -149,6 +149,7 @@ class BiomassPartition(ABC):
                 out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition]).transpose("age_class", 'latitude', 'longitude')
               
                 self.agbPartition_cube.CubeWriter(out_cube, n_workers=1)
+                print('Chunk written successfully')
         
     def BiomassPartitionCubeInit(self):
         
