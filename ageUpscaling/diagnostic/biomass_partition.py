@@ -308,7 +308,7 @@ class BiomassPartition(ABC):
                 
             zarr_out_.append(xr.concat(out, dim = 'age_class').transpose('latitude', 'longitude', 'age_class'))
         
-        xr.merge(zarr_out_).to_zarr(self.study_dir + '/BiomassPartition_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        xr.merge(zarr_out_).to_zarr(self.config_file['BiomassPartitionResample_cube'], mode= 'w')
         
         if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync"))
