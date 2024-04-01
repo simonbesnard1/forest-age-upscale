@@ -149,8 +149,7 @@ class BiomassPartition(ABC):
                 out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition]).transpose("age_class", 'latitude', 'longitude')
               
                 self.agbPartition_cube.CubeWriter(out_cube, n_workers=1)
-                print('Chunk written successfully')
-        
+                
     def BiomassPartitionCubeInit(self):
         
         self.agbPartition_cube.init_variable(self.config_file['cube_variables'])
@@ -290,7 +289,7 @@ class BiomassPartition(ABC):
                     '-t_srs', 'EPSG:4326',
                     '-of', 'Gtiff',
                     '-te', '-180', '-90', '180', '90',
-                    '-r', 'average',
+                    '-r', 'med',
                     '-ot', 'Float32',
                     '-co', 'COMPRESS=LZW',
                     '-co', 'BIGTIFF=YES',
