@@ -16,6 +16,7 @@ from itertools import product
 from abc import ABC
 import subprocess
 import glob
+import concurrent.futures
 
 import numpy as np
 import yaml as yml
@@ -86,6 +87,8 @@ class BiomassPartition(ABC):
         self.config_file['output_writer_params']['dims']['members'] =  self.config_file['num_members']
         
         self.agbPartition_cube = DataCube(cube_config = self.config_file)
+        
+        self.tmp_folder = os.path.join(study_dir, 'tmp_biomassPartition/')
         
     @dask.delayed
     def _calc_func(self, 
@@ -208,7 +211,36 @@ class BiomassPartition(ABC):
         
         self._calc_func(extent).compute()
         
-    def BiomassPartitionResample(self) -> None:
+    def ParallelResampling(self, 
+                           n_jobs:int=20):
+        
+        member_out = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=n_jobs) as executor:
+            # Submit a future for each member
+            futures = [executor.submit(self.BiomassPartitionResample, member_) 
+                       for member_ in np.arange(self.config_file['num_members'])]
+    
+            # As each future completes, get the result and add it to member_out
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    member_out.append(future.result())
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+
+        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['BiomassPartitionResample_cube'], mode= 'w')
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync"))
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync"))
+            
+        try:
+            shutil.rmtree(self.tmp_folder)
+        except OSError as e:
+            print(f"Error: {e.filename} - {e.strerror}.")
+        
+    def BiomassPartitionResample(self, member_:int=0) -> None:
         """
             Calculate the age fraction.
             
@@ -229,7 +261,7 @@ class BiomassPartition(ABC):
             - Merges and converts the output into Zarr format.
         """
                         
-        agbPartition_cube = xr.open_zarr(self.config_file['cube_location'])
+        agbPartition_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_)
         zarr_out_ = []
         
         for var_ in set(agbPartition_cube.variables.keys()) - set(agbPartition_cube.dims):
@@ -257,7 +289,7 @@ class BiomassPartition(ABC):
                                         'valid_max': 300,
                                         'valid_min': -300}
                     data_chunk.attrs["_FillValue"] = -9999  
-                    out_dir = '{study_dir}/tmp/agbPartition/{var_}/{class_}/'.format(study_dir = self.study_dir, var_ = var_, class_ = class_)
+                    out_dir = '{tmp_folder}/{var_}/{class_}/'.format(tmp_folder = self.tmp_folder, var_ = var_, class_ = class_)
                     if not os.path.exists(out_dir):
                		    os.makedirs(out_dir)
                            
@@ -311,21 +343,10 @@ class BiomassPartition(ABC):
                 out.append(da_.assign_coords(age_class= class_))
                 
             zarr_out_.append(xr.concat(out, dim = 'age_class').transpose('latitude', 'longitude', 'age_class'))
-        
-        xr.merge(zarr_out_).to_zarr(self.config_file['BiomassPartitionResample_cube'], mode= 'w')
-        
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync"))
-        
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync"))
-        
-        try:
-            var_path = os.path.join(self.study_dir, 'tmp/agbPartition')
-            shutil.rmtree(var_path)
-        except OSError as e:
-            print(f"Error: {e.filename} - {e.strerror}.")
     
-
+        return xr.merge(zarr_out_).expand_dims({"members": [member_]})
+        
+                
+        
                 
     
