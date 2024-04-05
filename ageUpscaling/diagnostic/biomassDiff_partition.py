@@ -83,6 +83,7 @@ class BiomassDiffPartition(ABC):
         self.config_file['output_writer_params']['dims']['latitude'] = self.age_cube.latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  self.age_cube.longitude.values
         self.config_file['output_writer_params']['dims']['age_class'] = age_labels
+        self.config_file['output_writer_params']['dims']['members'] =  self.config_file['num_members']
         
         self.agbDiffPartition_cube = DataCube(cube_config = self.config_file)
         
@@ -101,13 +102,8 @@ class BiomassDiffPartition(ABC):
         """
         
         subset_age_cube = self.age_cube.sel(IN)[[self.config_file['forest_age_var']]]
-        subset_agb_cube = self.agb_cube.sel(IN)[['aboveground_biomass']]
-        subset_agb_cube = subset_agb_cube.where(subset_agb_cube>0)
-        #mask_qc = self.agb_cube.sel(IN)['quality_check_changes'].sel(time= '2020-01-01')
-        
         diff_age = subset_age_cube.sel(time= '2020-01-01') - subset_age_cube.sel(time= '2010-01-01')
         diff_age = diff_age.where(diff_age != 0, 10).where(np.isfinite(diff_age))
-        diff_agb = subset_agb_cube.sel(time= '2020-01-01') - subset_agb_cube.sel(time= '2010-01-01')
         #diff_agb = diff_agb.where(mask_qc != 3)
         
         if not np.isnan(diff_age.to_array().values).all():
@@ -146,10 +142,18 @@ class BiomassDiffPartition(ABC):
                     aging_class_partition = aging_class_partition.expand_dims({"age_class": [age_range]})
                     stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": [age_range]})
                     
-                stand_replaced_class_partition = diff_agb.where(stand_replaced_class_partition.age_difference ==1).rename({'aboveground_biomass': 'stand_replaced'})
-                aging_class_partition = diff_agb.where(aging_class_partition.age_difference ==1).rename({'aboveground_biomass': 'gradually_ageing'})
-                out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition]).transpose("age_class", 'latitude', 'longitude').astype('float16')
-                self.agbDiffPartition_cube.CubeWriter(out_cube, n_workers=1)
+                out_cube = []    
+                for member_ in np.arange(self.config_file['num_members']):
+                    subset_agb_cube = self.agb_cube.sel(IN).sel(members=member_)[['aboveground_biomass']]
+                    subset_agb_cube = subset_agb_cube.where(subset_agb_cube>0)
+                    diff_agb = subset_agb_cube.sel(time= '2020-01-01') - subset_agb_cube.sel(time= '2010-01-01')
+                    
+                    stand_replaced_class_partition_member = diff_agb.where(stand_replaced_class_partition.age_difference ==1).rename({'aboveground_biomass': 'stand_replaced'})
+                    aging_class_partition_member = diff_agb.where(aging_class_partition.age_difference ==1).rename({'aboveground_biomass': 'gradually_ageing'})
+                    out_cube.append(xr.merge([aging_class_partition_member, stand_replaced_class_partition_member]))
+                    
+                out_cube = xr.concat(out_cube, dim='members').transpose("members", "age_class", 'latitude', 'longitude')
+                self.agbDiffPartition_cube.CubeWriter(out_cube, n_workers=2)
         
     def BiomassDiffPartitionCubeInit(self):
         
@@ -291,7 +295,7 @@ class BiomassDiffPartition(ABC):
                     '-t_srs', 'EPSG:4326',
                     '-of', 'Gtiff',
                     '-te', '-180', '-90', '180', '90',
-                    '-r', 'average',
+                    '-r', 'med',
                     '-ot', 'Float32',
                     '-co', 'COMPRESS=LZW',
                     '-co', 'BIGTIFF=YES',
