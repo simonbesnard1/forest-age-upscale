@@ -76,6 +76,7 @@ class BiomassUncertainty(ABC):
         
         self.agb_members_cube = DataCube(cube_config = self.config_file)
         
+        np.random.seed(0)
         self.permutation_k = [np.clip(np.random.normal(0, 1) / (3 * 1), -1, 1) for i in np.arange(self.config_file['n_members'])]
 
     @dask.delayed
