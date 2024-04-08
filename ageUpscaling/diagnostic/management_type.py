@@ -29,7 +29,7 @@ import rioxarray as rio
 
 from ageUpscaling.core.cube import DataCube
 
-class ManagementPartition(ABC):
+class ManagementType(ABC):
     """Study abstract class used for cross validation, model training, prediction.
 
     Parameters
@@ -72,14 +72,12 @@ class ManagementPartition(ABC):
             shutil.rmtree(sync_file_features)            
         self.sync_feature = zarr.ProcessSynchronizer(sync_file_features)
         self.management_type_cube = xr.open_zarr(self.config_file['ForestManagement_cube'], synchronizer=self.sync_feature).isel(time=0).drop('time')
-        self.age_cube = xr.open_zarr(self.config_file['ForestAge_cube'], synchronizer=self.sync_feature)
-        
         
         self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/management_cube_out_sync_{self.task_id}.zarrsync") 
         self.config_file['output_writer_params']['dims']['latitude'] = self.management_cube.latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  self.management_cube.longitude.values
                 
-        self.management_partition_cube = DataCube(cube_config = self.config_file)
+        self.management_cube = DataCube(cube_config = self.config_file)
         
     @dask.delayed
     def _calc_func(self, 
@@ -95,11 +93,6 @@ class ManagementPartition(ABC):
           - age_class_fraction: xarray DataArray with fractions for each age class.
         """
         
-       
-        subset_age_cube = self.age_cube.sel(IN)[[self.config_file['forest_age_var']]].forest_age
-        diff_age = subset_age_cube.sel(time= '2020-01-01') - subset_age_cube.sel(time= '2010-01-01')
-        diff_age = diff_age.where(diff_age != 0, 10).where(np.isfinite(diff_age))
-        
         subset_management_cube = self.management_type_cube.sel(IN)[[self.config_file['management_var']]]
         
         intact_forests = xr.where(subset_management_cube ==11, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'intact_forests'})
@@ -109,21 +102,14 @@ class ManagementPartition(ABC):
         oil_palm = xr.where(subset_management_cube ==40, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'oil_palm'})
         agroforestry = xr.where(subset_management_cube ==53, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'agroforestry'})
             
-        intact_forests_diff = diff_age.where(intact_forests==1)
-        naturally_regenerated_diff = diff_age.where(naturally_regenerated==1)
-        planted_forest_diff = diff_age.where(planted_forest==1)
-        plantation_forest_diff = diff_age.where(plantation_forest==1)
-        oil_palm_diff = diff_age.where(oil_palm==1)
-        agroforestry_diff = diff_age.where(agroforestry==1)       
-        
-        out_cube = xr.merge([intact_forests_diff, naturally_regenerated_diff, planted_forest_diff, plantation_forest_diff, oil_palm_diff, agroforestry_diff])        
-        self.management_partition_cube.CubeWriter(out_cube, n_workers=1)  
+        out_cube = xr.merge([intact_forests, naturally_regenerated, planted_forest, plantation_forest, oil_palm, agroforestry])        
+        self.management_cube.CubeWriter(out_cube, n_workers=1)  
 
-    def ManagementPartitionCubeInit(self):
+    def ManagementCubeInit(self):
         
-        self.management_partition_cube.init_variable(self.config_file['cube_variables'])
+        self.management_cube.init_variable(self.config_file['cube_variables'])
     
-    def ManagementPartitionCalc(self,
+    def ManagementCalc(self,
                      task_id=None) -> None:
         """Calculate the fraction of each age class.
         
@@ -163,7 +149,7 @@ class ManagementPartition(ABC):
         
         self._calc_func(extent).compute()
 
-    def ManagementPartitionResample(self) -> None:
+    def ManagementResample(self) -> None:
         """
             Calculate the age fraction.
             
@@ -184,15 +170,15 @@ class ManagementPartition(ABC):
             - Merges and converts the output into Zarr format.
         """
                         
-        management_partition_cube = xr.open_zarr(self.config_file['cube_location'])
+        management_cube = xr.open_zarr(self.config_file['cube_location'])
         zarr_out_ = []
-        for var_ in set(management_partition_cube.variables.keys()) - set(management_partition_cube.dims):
+        for var_ in set(management_cube.variables.keys()) - set(management_cube.dims):
                             
             out_dir = '{study_dir}/tmp/{var_}/'.format(study_dir = self.study_dir, var_ = var_)
             if not os.path.exists(out_dir):
        		    os.makedirs(out_dir)
              
-            data_class =management_partition_cube[var_].transpose('latitude', 'longitude')
+            data_class =management_cube[var_].transpose('latitude', 'longitude')
             data_class = data_class.where(np.isfinite(data_class), -9999).astype("int16")     
             data_class.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
             data_class.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
@@ -265,14 +251,10 @@ class ManagementPartition(ABC):
             
         xr.merge(zarr_out_).to_zarr(self.study_dir + '/ManagementPartition_fraction_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
-        for var_ in set(management_partition_cube.variables.keys()) - set(management_partition_cube.dims):
+        for var_ in set(management_cube.variables.keys()) - set(management_cube.dims):
             try:
                 var_path = os.path.join(self.study_dir, 'tmp/{var_}'.format(var_=var_))
                 shutil.rmtree(var_path)
             except OSError as e:
                 print(f"Error: {e.filename} - {e.strerror}.")
         
-        
-
-                
-    
