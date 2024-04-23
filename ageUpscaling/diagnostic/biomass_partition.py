@@ -88,7 +88,7 @@ class BiomassPartition(ABC):
         
         self.agbPartition_cube = DataCube(cube_config = self.config_file)
         
-        self.tmp_folder = os.path.join(study_dir, 'tmp_biomassPartition/')
+        self.tmp_folder = os.path.join(self.config_file['tmp_dir'], 'biomassPartition/')
         
     @dask.delayed
     def _calc_func(self, 
