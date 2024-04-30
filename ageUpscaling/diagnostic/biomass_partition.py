@@ -259,7 +259,7 @@ class BiomassPartition(ABC):
             - Merges and converts the output into Zarr format.
         """
                         
-        agbPartition_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_)
+        agbPartition_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
         zarr_out_ = []
         
         for var_ in set(agbPartition_cube.variables.keys()) - set(agbPartition_cube.dims):
