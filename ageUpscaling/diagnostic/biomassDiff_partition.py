@@ -16,6 +16,8 @@ from itertools import product
 from abc import ABC
 import subprocess
 import glob
+import concurrent.futures
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import yaml as yml
@@ -86,6 +88,7 @@ class BiomassDiffPartition(ABC):
         self.config_file['output_writer_params']['dims']['members'] =  self.config_file['num_members']
         
         self.agbDiffPartition_cube = DataCube(cube_config = self.config_file)
+        self.tmp_folder = os.path.join(self.config_file['tmp_dir'], 'biomassDiffPartition/')
         
     @dask.delayed
     def _calc_func(self, 
@@ -101,59 +104,57 @@ class BiomassDiffPartition(ABC):
           - age_class_fraction: xarray DataArray with fractions for each age class.
         """
         
-        subset_age_cube = self.age_cube.sel(IN)[[self.config_file['forest_age_var']]]
-        diff_age = subset_age_cube.sel(time= '2020-01-01') - subset_age_cube.sel(time= '2010-01-01')
-        diff_age = diff_age.where(diff_age != 0, 10).where(np.isfinite(diff_age))
-        #diff_agb = diff_agb.where(mask_qc != 3)
+        for member_ in np.arange(self.config_file['num_members']):
         
-        if not np.isnan(diff_age.to_array().values).all():
-
-            stand_replaced_class = xr.where(diff_age < 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'stand_replaced_class'})
-            aging_forest_class = xr.where(diff_age >= 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'aging_forest_class'})
-            diff_age = diff_age.rename({self.config_file['forest_age_var']: 'age_difference'})        
+            subset_age_cube = self.age_cube.sel(IN).sel(members=member_)[[self.config_file['forest_age_var']]]
+            diff_age = subset_age_cube.sel(time= '2020-01-01') - subset_age_cube.sel(time= '2010-01-01')
+            diff_age = diff_age.where(diff_age != 0, 10).where(np.isfinite(diff_age))
             
-            age_class = np.array(self.config_file['age_classes'])
-            age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
+            if not np.isnan(diff_age.to_array().values).all():
     
-            for i in range(len(age_labels)):
-                age_range = age_labels[i]
-                lower_limit, upper_limit = map(int, age_range.split('-'))
+                stand_replaced_class = xr.where(diff_age < 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'stand_replaced_class'})
+                aging_forest_class = xr.where(diff_age >= 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'aging_forest_class'})
+                diff_age = diff_age.rename({self.config_file['forest_age_var']: 'age_difference'})        
                 
-                if lower_limit == 0:
-                    age_class_mask = (subset_age_cube.sel(time= '2010-01-01') >= lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit+1)
-                else:
-                    age_class_mask = (subset_age_cube.sel(time= '2010-01-01') > lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit +1)
+                age_class = np.array(self.config_file['age_classes'])
+                age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
+        
+                for i in range(len(age_labels)):
+                    age_range = age_labels[i]
+                    lower_limit, upper_limit = map(int, age_range.split('-'))
                     
-                age_class_mask = age_class_mask.where(age_class_mask >0)
-            
-                aging_forest = age_class_mask[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)
-                diff_aging = diff_age.where(np.isfinite(aging_forest))
-                aging_class_partition = xr.where(diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference))
-                            
-                stand_replaced_forest = age_class_mask[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)
-                diff_replaced = diff_age.where(np.isfinite(stand_replaced_forest))    
-                stand_replaced_class_partition = xr.where(diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference))
-                    
-                if i == len(age_labels) - 1:
-                    aging_class_partition = aging_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]})
-                    stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]})
-    
-                else:
-                    aging_class_partition = aging_class_partition.expand_dims({"age_class": [age_range]})
-                    stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": [age_range]})
-                    
-                out_cube = []    
-                for member_ in np.arange(self.config_file['num_members']):
+                    if lower_limit == 0:
+                        age_class_mask = (subset_age_cube.sel(time= '2010-01-01') >= lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit+1)
+                    else:
+                        age_class_mask = (subset_age_cube.sel(time= '2010-01-01') > lower_limit) & (subset_age_cube.sel(time= '2010-01-01') < upper_limit +1)
+                        
+                    age_class_mask = age_class_mask.where(age_class_mask >0)
+                
+                    aging_forest = age_class_mask[self.config_file['forest_age_var']].where(aging_forest_class.aging_forest_class==1)
+                    diff_aging = diff_age.where(np.isfinite(aging_forest))
+                    aging_class_partition = xr.where(diff_aging >= 10, 1, 0).where(np.isfinite(diff_age.age_difference))
+                                
+                    stand_replaced_forest = age_class_mask[self.config_file['forest_age_var']].where(stand_replaced_class.stand_replaced_class==1)
+                    diff_replaced = diff_age.where(np.isfinite(stand_replaced_forest))    
+                    stand_replaced_class_partition = xr.where(diff_replaced < 10, 1, 0).where(np.isfinite(diff_age.age_difference))
+                        
+                    if i == len(age_labels) - 1:
+                        aging_class_partition = aging_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]})
+                        stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": ['>' + age_range.split('-')[0]]})
+        
+                    else:
+                        aging_class_partition = aging_class_partition.expand_dims({"age_class": [age_range]})
+                        stand_replaced_class_partition = stand_replaced_class_partition.expand_dims({"age_class": [age_range]})
+                        
                     subset_agb_cube = self.agb_cube.sel(IN).sel(members=member_)[['aboveground_biomass']]
                     subset_agb_cube = subset_agb_cube.where(subset_agb_cube>0)
                     diff_agb = subset_agb_cube.sel(time= '2020-01-01') - subset_agb_cube.sel(time= '2010-01-01')
                     
                     stand_replaced_class_partition_member = diff_agb.where(stand_replaced_class_partition.age_difference ==1).rename({'aboveground_biomass': 'stand_replaced'})
                     aging_class_partition_member = diff_agb.where(aging_class_partition.age_difference ==1).rename({'aboveground_biomass': 'gradually_ageing'})
-                    out_cube.append(xr.merge([aging_class_partition_member, stand_replaced_class_partition_member]))
-                    
-                out_cube = xr.concat(out_cube, dim='members').transpose("members", "age_class", 'latitude', 'longitude')
-                self.agbDiffPartition_cube.CubeWriter(out_cube, n_workers=2)
+                    out_cube = xr.merge([aging_class_partition_member, stand_replaced_class_partition_member]).transpose("members", "age_class", 'latitude', 'longitude')
+                      
+                    self.agbDiffPartition_cube.CubeWriter(out_cube, n_workers=2)
         
     def BiomassDiffPartitionCubeInit(self):
         
@@ -210,7 +211,31 @@ class BiomassDiffPartition(ABC):
         
         self._calc_func(extent).compute()
         
-    def BiomassDiffPartitionResample(self) -> None:
+    def ParallelResampling(self, 
+                           n_jobs:int=20):
+        
+        member_out = []
+        with ProcessPoolExecutor(max_workers=n_jobs) as executor:
+            # Submit a future for each member
+            futures = [executor.submit(self.BiomassDiffPartitionResample, member_) 
+                       for member_ in np.arange(self.config_file['num_members'])]
+            
+            # As each future completes, get the result and add it to member_out
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    member_out.append(future.result())
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+
+        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['BiomassPartitionResample_cube'], mode= 'w')
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartitionDiff_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartitionDiff_features_sync_{self.task_id}.zarrsync"))
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartitionDiff_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartitionDiff_cube_out_sync_{self.task_id}.zarrsync"))
+        
+    def BiomassDiffPartitionResample(self, member_:int=0) -> None:
         """
             Calculate the age fraction.
             
@@ -231,7 +256,7 @@ class BiomassDiffPartition(ABC):
             - Merges and converts the output into Zarr format.
         """
                         
-        agbDiffPartition_cube = xr.open_zarr(self.config_file['cube_location'])
+        agbDiffPartition_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
         zarr_out_ = []
         
         for var_ in set(agbDiffPartition_cube.variables.keys()) - set(agbDiffPartition_cube.dims):
@@ -259,7 +284,7 @@ class BiomassDiffPartition(ABC):
                                         'valid_max': 300,
                                         'valid_min': -300}
                     data_chunk.attrs["_FillValue"] = -9999  
-                    out_dir = '{study_dir}/tmp/agbDiffPartition/{var_}/{class_}/'.format(study_dir = self.study_dir, var_ = var_, class_ = class_)
+                    out_dir = '{tmp_folder}/biomassDiff_partition/{member}/{var_}/{class_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_, class_ = class_)
                     if not os.path.exists(out_dir):
                		    os.makedirs(out_dir)
                            
@@ -314,20 +339,9 @@ class BiomassDiffPartition(ABC):
                 
             zarr_out_.append(xr.concat(out, dim = 'age_class').transpose('latitude', 'longitude', 'age_class'))
         
-        xr.merge(zarr_out_).to_zarr(self.study_dir + '/BiomassDiffPartition_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        return xr.merge(zarr_out_).expand_dims({"members": [member_]})
         
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartitionDiff_features_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartitionDiff_features_sync_{self.task_id}.zarrsync"))
         
-        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartitionDiff_cube_out_sync_{self.task_id}.zarrsync")):
-            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartitionDiff_cube_out_sync_{self.task_id}.zarrsync"))
-        
-        try:
-            var_path = os.path.join(self.study_dir, 'tmp/agbDiffPartition')
-            shutil.rmtree(var_path)
-        except OSError as e:
-            print(f"Error: {e.filename} - {e.strerror}.")
-    
 
                 
     

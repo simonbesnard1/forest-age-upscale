@@ -12,11 +12,12 @@
 """
 import os
 import shutil
-from tqdm import tqdm
 from itertools import product
 from abc import ABC
 import subprocess
 import glob
+import concurrent.futures
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import yaml as yml
@@ -102,7 +103,6 @@ class DifferenceAge(ABC):
         
         for member_ in np.arange(self.config_file['num_members']):
         
-        
             subset_age_cube = self.age_cube.sel(IN).sel(members=member_)[[self.config_file['forest_age_var']]]
     
             diff_age = subset_age_cube.sel(time= '2020-01-01') - subset_age_cube.sel(time= '2010-01-01')
@@ -163,42 +163,82 @@ class DifferenceAge(ABC):
         """Calculate the fraction of each age class.
         
         """
-        LatChunks = np.array_split(self.config_file['output_writer_params']['dims']['latitude'], self.config_file["num_chunks"])
-        LonChunks = np.array_split(self.config_file['output_writer_params']['dims']['longitude'], self.config_file["num_chunks"])
-        
-        AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                       "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-                    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-        
-        if  "SLURM_JOB_ID" in os.environ:
-            selected_extent = AllExtents[task_id]
+        lat_chunk_size, lon_chunk_size = self.age_diff_cube.cube.chunks['latitude'][0], self.age_diff_cube.cube.chunks['longitude'][0]
+
+        # Calculate the number of chunks for each dimension
+        num_lat_chunks = np.ceil(len(self.age_diff_cube.cube.latitude) / lat_chunk_size).astype(int)
+        num_lon_chunks = np.ceil(len(self.age_diff_cube.cube.longitude) / lon_chunk_size).astype(int)
+     
+        # Generate all combinations of latitude and longitude chunk indices
+        chunk_indices = list(product(range(num_lat_chunks), range(num_lon_chunks)))
+     
+        if task_id < len(chunk_indices):
+            lat_idx, lon_idx = chunk_indices[task_id]
+     
+            # Calculate slice indices for latitude and longitude
+            lat_slice = slice(lat_idx * lat_chunk_size, (lat_idx + 1) * lat_chunk_size)
+            lon_slice = slice(lon_idx * lon_chunk_size, (lon_idx + 1) * lon_chunk_size)
             
+            lat_values = self.age_diff_cube.cube.latitude.values[lat_slice]
+            lon_values = self.age_diff_cube.cube.longitude.values[lon_slice]
+
+            # Select the extent based on the slice indices
+            selected_extent = {"latitude": slice(lat_values[0], lat_values[-1]), 
+                               "longitude": slice(lon_values[0], lon_values[-1])}
+            
+            # Process the chunk
             self.process_chunk(selected_extent)
-            
+        
         else:
-            if (self.n_jobs > 1):
-                
-                batch_size = 2
-                for i in range(0, len(AllExtents), batch_size):
-                    batch_futures = [self.process_chunk(extent) for extent in AllExtents[i:i+batch_size]]
-                    dask.compute(*batch_futures, num_workers=self.n_jobs)
-                            
-            else:
-                for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-                    self.process_chunk(extent)
+           print(f"Task ID {task_id} is out of range. No chunk to process.")
                     
         if os.path.exists(os.path.abspath(f"{self.study_dir}/ageDiff_features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/ageDiff_features_sync_{self.task_id}.zarrsync"))
         
         if os.path.exists(os.path.abspath(f"{self.study_dir}/ageDiff_cube_out_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/ageDiff_cube_out_sync_{self.task_id}.zarrsync"))
-        
-                
+                        
     def process_chunk(self, extent):
         
         self._calc_func(extent).compute()
+        
+    def ParallelAgeDiffResampling(self, 
+                                  n_jobs:int=20):
+        
+        member_out = []
+        with ProcessPoolExecutor(max_workers=n_jobs) as executor:
+            # Submit a future for each member
+            futures = [executor.submit(self.AgeDiffResample, member_) 
+                       for member_ in np.arange(self.config_file['num_members'])]
+            
+            # As each future completes, get the result and add it to member_out
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    member_out.append(future.result())
+                except Exception as e:
+                    print(f"An error occurred: {e}")
 
-    def AgeDiffResample(self) -> None:
+        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeDiffResample_cube'], mode= 'w')
+        
+    def ParallelAgeDiffPartitionResample(self, 
+                                  n_jobs:int=20):
+        
+        member_out = []
+        with ProcessPoolExecutor(max_workers=n_jobs) as executor:
+            # Submit a future for each member
+            futures = [executor.submit(self.AgeDiffPartitionResample, member_) 
+                       for member_ in np.arange(self.config_file['num_members'])]
+            
+            # As each future completes, get the result and add it to member_out
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    member_out.append(future.result())
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+
+        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeDiffPartition_cube'], mode= 'w')
+
+    def AgeDiffResample(self, member_:int=0) -> None:
         """
             Calculate the age fraction.
             
@@ -219,7 +259,7 @@ class DifferenceAge(ABC):
             - Merges and converts the output into Zarr format.
         """
                         
-        age_diff_cube = xr.open_zarr(self.config_file['cube_location'])
+        age_diff_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
         zarr_out_ = []
         
         for var_ in {item for item in set(age_diff_cube.variables.keys()) - set(age_diff_cube.dims) if 'partition' not in item}:
@@ -244,7 +284,8 @@ class DifferenceAge(ABC):
                                     'valid_max': 1,
                                     'valid_min': 0}
                 data_chunk.attrs["_FillValue"] = -9999  
-                out_dir = '{study_dir}/tmp/{var_}/'.format(study_dir = self.study_dir, var_ = var_)
+                out_dir = '{tmp_folder}/age_partition/{member}/{var_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_)
+
                 if not os.path.exists(out_dir):
            		    os.makedirs(out_dir)
                        
@@ -295,16 +336,9 @@ class DifferenceAge(ABC):
                 
             zarr_out_.append(da_)
         
-        xr.merge(zarr_out_).to_zarr(self.study_dir + '/AgeDiff_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        return xr.merge(zarr_out_).expand_dims({"members": [member_]})
         
-        for var_ in {item for item in set(age_diff_cube.variables.keys()) - set(age_diff_cube.dims) if 'partition' not in item}:
-            try:
-                var_path = os.path.join(self.study_dir, 'tmp/{var_}'.format(var_=var_))
-                shutil.rmtree(var_path)
-            except OSError as e:
-                print(f"Error: {e.filename} - {e.strerror}.")
-    
-    def AgeDiffPartitionResample(self) -> None:
+    def AgeDiffPartitionResample(self, member_:int=0) -> None:
         """
             Calculate the age fraction.
             
@@ -331,7 +365,8 @@ class DifferenceAge(ABC):
             out = []
             for class_ in age_diff_cube.age_class.values:
                 
-                out_dir = '{study_dir}/tmp/{var_}/agePartition_class_{class_}/'.format(study_dir = self.study_dir, var_ = var_, class_ =class_)
+                out_dir = '{tmp_folder}/age_partition/{member}/{var_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_)
+
                 if not os.path.exists(out_dir):
            		    os.makedirs(out_dir)
                  
@@ -407,12 +442,9 @@ class DifferenceAge(ABC):
                 out.append(da_.assign_coords(age_class= class_))
                                   
             zarr_out_.append(xr.concat(out, dim = 'age_class').transpose('age_class', 'latitude', 'longitude'))
-            
-        xr.merge(zarr_out_).to_zarr(self.study_dir + '/AgeDiffPartition_fraction_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
-        
-        for var_ in {item for item in set(age_diff_cube.variables.keys()) - set(age_diff_cube.dims) if 'partition' in item}:
-            shutil.rmtree(os.path.join(self.study_dir, 'tmp/{var_}'.format(var_ = var_)))
-        
+                
+        return xr.merge(zarr_out_).expand_dims({"members": [member_]})
+
         
 
                 

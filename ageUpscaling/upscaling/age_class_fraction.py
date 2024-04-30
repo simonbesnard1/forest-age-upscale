@@ -12,11 +12,12 @@
 """
 import os
 import shutil
-from tqdm import tqdm
 from itertools import product
 from abc import ABC
 import subprocess
 import glob
+import concurrent.futures
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import yaml as yml
@@ -81,8 +82,10 @@ class AgeFraction(ABC):
         self.config_file['output_writer_params']['dims']['latitude'] = self.age_cube.latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  self.age_cube.longitude.values
         self.config_file['output_writer_params']['dims']['age_class'] = age_labels
+        self.config_file['output_writer_params']['dims']['members'] =  self.config_file['num_members']
         
         self.age_class_frac_cube = DataCube(cube_config = self.config_file)
+        self.tmp_folder = os.path.join(self.config_file['tmp_dir'], 'ageClassFraction/')
         
     @dask.delayed
     def _calc_func(self, 
@@ -98,29 +101,31 @@ class AgeFraction(ABC):
           - age_class_fraction: xarray DataArray with fractions for each age class.
        """
        
-        subset_age_cube = self.age_cube.sel(IN)[self.config_file['cube_variables'].keys()]
+        for member_ in np.arange(self.config_file['num_members']):
         
-        age_class = np.array(self.config_file['age_classes'])
-        age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
-        
-        for i in range(len(age_labels)):
-            age_range = age_labels[i]
-            lower_limit, upper_limit = map(int, age_range.split('-'))
-            if lower_limit == 0:
-                age_class_mask = (subset_age_cube >= lower_limit) & (subset_age_cube < upper_limit+1)
-            else:
-                age_class_mask = (subset_age_cube > lower_limit) & (subset_age_cube < upper_limit +1)
-                
-            age_class_mask = age_class_mask.where(np.isfinite(subset_age_cube))
-            age_class_mask = age_class_mask.where(np.isfinite(age_class_mask), -9999)        
+            subset_age_cube = self.age_cube.sel(IN).sel(members=member_)[[self.config_file['forest_age_var']]]
+    
+            age_class = np.array(self.config_file['age_classes'])
+            age_labels = [f"{age1}-{age2}" for age1, age2 in zip(age_class[:-1], age_class[1:])]
             
-            if i == len(age_labels) - 1:
-                age_class_mask = age_class_mask.expand_dims({"age_class": ['>' + age_range.split('-')[0]]}).transpose("age_class", 'latitude', 'longitude', 'time')
-
-            else:
-                age_class_mask = age_class_mask.expand_dims({"age_class": [age_range]}).transpose("age_class", 'latitude', 'longitude', 'time')
-
-            self.age_class_frac_cube.CubeWriter(age_class_mask, n_workers=2)
+            for i in range(len(age_labels)):
+                age_range = age_labels[i]
+                lower_limit, upper_limit = map(int, age_range.split('-'))
+                if lower_limit == 0:
+                    age_class_mask = (subset_age_cube >= lower_limit) & (subset_age_cube < upper_limit+1)
+                else:
+                    age_class_mask = (subset_age_cube > lower_limit) & (subset_age_cube < upper_limit +1)
+                    
+                age_class_mask = age_class_mask.where(np.isfinite(subset_age_cube))
+                age_class_mask = age_class_mask.where(np.isfinite(age_class_mask), -9999)        
+                
+                if i == len(age_labels) - 1:
+                    age_class_mask = age_class_mask.expand_dims({"age_class": ['>' + age_range.split('-')[0]]}).transpose('members', "age_class", 'latitude', 'longitude', 'time')
+    
+                else:
+                    age_class_mask = age_class_mask.expand_dims({"age_class": [age_range]}).transpose('members', "age_class", 'latitude', 'longitude', 'time')
+    
+                self.age_class_frac_cube.CubeWriter(age_class_mask, n_workers=2)
              
     def AgeClassCubeInit(self):
         
@@ -133,29 +138,34 @@ class AgeFraction(ABC):
         
         """
         
-        LatChunks = np.array_split(self.config_file['output_writer_params']['dims']['latitude'], self.config_file["num_chunks"])
-        LonChunks = np.array_split(self.config_file['output_writer_params']['dims']['longitude'], self.config_file["num_chunks"])
-        
-        AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                       "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-                    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-                
-        if  "SLURM_JOB_ID" in os.environ:
-            selected_extent = AllExtents[task_id]
+        lat_chunk_size, lon_chunk_size = self.age_class_frac_cube.cube.chunks['latitude'][0], self.age_diff_cube.cube.chunks['longitude'][0]
+
+        # Calculate the number of chunks for each dimension
+        num_lat_chunks = np.ceil(len(self.age_class_frac_cube.cube.latitude) / lat_chunk_size).astype(int)
+        num_lon_chunks = np.ceil(len(self.age_class_frac_cube.cube.longitude) / lon_chunk_size).astype(int)
+     
+        # Generate all combinations of latitude and longitude chunk indices
+        chunk_indices = list(product(range(num_lat_chunks), range(num_lon_chunks)))
+     
+        if task_id < len(chunk_indices):
+            lat_idx, lon_idx = chunk_indices[task_id]
+     
+            # Calculate slice indices for latitude and longitude
+            lat_slice = slice(lat_idx * lat_chunk_size, (lat_idx + 1) * lat_chunk_size)
+            lon_slice = slice(lon_idx * lon_chunk_size, (lon_idx + 1) * lon_chunk_size)
             
+            lat_values = self.age_class_frac_cube.cube.latitude.values[lat_slice]
+            lon_values = self.age_class_frac_cube.cube.longitude.values[lon_slice]
+
+            # Select the extent based on the slice indices
+            selected_extent = {"latitude": slice(lat_values[0], lat_values[-1]), 
+                               "longitude": slice(lon_values[0], lon_values[-1])}
+            
+            # Process the chunk
             self.process_chunk(selected_extent)
-            
+        
         else:
-            if (self.n_jobs > 1):
-                
-                batch_size = 2
-                for i in range(0, len(AllExtents), batch_size):
-                    batch_futures = [self.process_chunk(extent) for extent in AllExtents[i:i+batch_size]]
-                    dask.compute(*batch_futures, num_workers=self.n_jobs)
-                            
-            else:
-                for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-                    self.process_chunk(extent)
+           print(f"Task ID {task_id} is out of range. No chunk to process.")
                     
         if os.path.exists(os.path.abspath(f"{self.study_dir}/ageClassFrac_features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/ageClassFrac_features_sync_{self.task_id}.zarrsync"))
@@ -167,8 +177,26 @@ class AgeFraction(ABC):
     def process_chunk(self, extent):
         
         self._calc_func(extent).compute()
+        
+    def ParallelAgeFractionResample(self, 
+                                    n_jobs:int=20):
+        
+        member_out = []
+        with ProcessPoolExecutor(max_workers=n_jobs) as executor:
+            # Submit a future for each member
+            futures = [executor.submit(self.AgeFractionCalc, member_) 
+                       for member_ in np.arange(self.config_file['num_members'])]
+            
+            # As each future completes, get the result and add it to member_out
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    member_out.append(future.result())
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+
+        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['ForestAge_fraction_cube'], mode= 'w')
                 
-    def AgeFractionCalc(self) -> None:
+    def AgeFractionCalc(self, member_:int=0) -> None:
         """
             Calculate the age fraction.
             
@@ -189,7 +217,8 @@ class AgeFraction(ABC):
             - Merges and converts the output into Zarr format.
         """
                         
-        age_class_ds = xr.open_zarr(self.config_file['cube_location'])
+        age_class_ds = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
+        
         zarr_out_ = []
         for var_ in self.config_file['cube_variables'].keys():
             
@@ -211,86 +240,77 @@ class AgeFraction(ABC):
             		           "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                               for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
                 
+                out_dir = '{tmp_folder}/age_class_fraction/{member}/{var_}/{class_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_, class_ = class_)
+                if not os.path.exists(out_dir):
+           		    os.makedirs(out_dir)
+                       
                 ds_ = []
                 for year_ in data_class.time.values:
                     
-                    if not os.path.exists(self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(class_=class_, year_= str(year_))):
-                    
-                        iter_ = 0
-                        for chunck in chunk_dict:
-                            
-                            chunck.update({'time': year_})
-                            
-                            if not os.path.exists(self.study_dir + '/age_class_{class_}/'.format(class_ =class_)):
-                                os.makedirs(self.study_dir + '/age_class_{class_}/'.format(class_ =class_))
-                            
-                            if not os.path.exists(self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_))):
-                                data_chunk = data_class.sel(chunck)
-                                #data_chunk = data_chunk.where(data_chunk>=0, -9999)
-                                #data_chunk = data_chunk.rio.write_nodata( -9999, encoded=True, inplace=True) 
-                                data_chunk.attrs["_FillValue"] = -9999    
-                                data_chunk = data_chunk.astype('int16')
-                                data_chunk.rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
-                                                         driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
-                               
-                                gdalwarp_command = [
-                                                    'gdal_translate',
-                                                    '-a_nodata', '-9999',
-                                                    self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)),
-                                                    self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}_nodata.tif'.format(class_ =class_, iter_=str(iter_))
-                                                
-                                                ]
-                                subprocess.run(gdalwarp_command, check=True)
-    
-                                
-                            iter_ += 1
-                          
-                        input_files = glob.glob(os.path.join(self.study_dir, 'age_class_{class_}/*_nodata.tif'.format(class_=class_)))
-                        vrt_filename = self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_)
+                    iter_ = 0
+                    for chunck in chunk_dict:
                         
-                        gdalbuildvrt_command = [
-                            'gdalbuildvrt',
-                            vrt_filename
-                        ] + input_files
-                        
-                        subprocess.run(gdalbuildvrt_command, check=True)
-                        
+                        chunck.update({'time': year_})                        
+                        data_chunk = data_class.sel(chunck)
+                        #data_chunk = data_chunk.where(data_chunk>=0, -9999)
+                        #data_chunk = data_chunk.rio.write_nodata( -9999, encoded=True, inplace=True) 
+                        data_chunk.attrs["_FillValue"] = -9999    
+                        data_chunk = data_chunk.astype('int16')
+                        data_chunk.rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
+                                                 driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
+                       
                         gdalwarp_command = [
-                            'gdalwarp',
-                            '-srcnodata', '-9999',
-                            '-dstnodata', '-9999',
-                            '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
-                            '-t_srs', 'EPSG:4326',
-                            '-of', 'Gtiff',
-                            '-te', '-180', '-90', '180', '90',
-                            '-r', 'average',
-                            '-ot', 'Float32',
-                            '-co', 'COMPRESS=LZW',
-                            '-co', 'BIGTIFF=YES',
-                            '-overwrite',
-                            f'/{vrt_filename}',
-                           self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(class_=class_, year_= str(year_)),
-                        ]
+                                            'gdal_translate',
+                                            '-a_nodata', '-9999',
+                                            out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)),
+                                            out_dir + '{var_}_{iter_}_nodata.tif'.format(var_ = var_, iter_=str(iter_))                
+                                        ]
                         subprocess.run(gdalwarp_command, check=True)
-                
+                        os.remove(out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)))
+                            
+                        iter_ += 1
+                      
+                    input_files = glob.glob(os.path.join(out_dir, '*_nodata.tif'))
+                    vrt_filename = out_dir + '/{var_}_{class_}.vrt'.format(var_ = var_, class_= class_)
+                        
+                    gdalbuildvrt_command = [
+                        'gdalbuildvrt',
+                        vrt_filename
+                    ] + input_files
+                        
+                    subprocess.run(gdalbuildvrt_command, check=True)
+                    
+                    gdalwarp_command = [
+                        'gdalwarp',
+                        '-srcnodata', '-9999',
+                        '-dstnodata', '-9999',
+                        '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
+                        '-t_srs', 'EPSG:4326',
+                        '-of', 'Gtiff',
+                        '-te', '-180', '-90', '180', '90',
+                        '-r', 'med',
+                        '-ot', 'Float32',
+                        '-co', 'COMPRESS=LZW',
+                        '-co', 'BIGTIFF=YES',
+                        '-overwrite',
+                        f'/{vrt_filename}',
+                       out_dir + f'{var_}_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_, class_= class_),
+                    ]
+                    subprocess.run(gdalwarp_command, check=True)
+                    
+                    for file_ in input_files:
+                        os.remove(file_)
+            
                     da_ =  rio.open_rasterio(self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(class_=class_, year_= str(year_)))     
                     da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).to_dataset(name = var_)
                     da_['time'] = [year_]
                     ds_.append(da_)
-                    if os.path.exists(self.study_dir + '/age_class_{class_}/'.format(class_ =class_)):
-                        shutil.rmtree(os.path.join(self.study_dir, 'age_class_{class_}'.format(class_=class_)))
-                        os.remove(self.study_dir + '/age_class_{class_}.vrt'.format(class_=class_))                    
-                    
+                              
                 out.append(xr.concat(ds_, dim='time').assign_coords(age_class= class_))
                                   
-            zarr_out_.append(xr.concat(out, dim = 'age_class').transpose('latitude', 'longitude', 'time', 'age_class'))
+            zarr_out_.append(xr.concat(out, dim = 'age_class').transpose('age_class', 'latitude', 'longitude', 'time'))
             
-            tif_files = glob.glob(os.path.join(self.study_dir, 'age_class_*.tif'))
-            for tif_file in tif_files:
-                  os.remove(tif_file)
-
-        xr.merge(zarr_out_).to_zarr(self.study_dir + '/ForestAge_fraction_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
-
+        return xr.merge(zarr_out_).expand_dims({"members": [member_]})
 
 
     
