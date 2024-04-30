@@ -268,8 +268,8 @@ class BiomassPartition(ABC):
             out = []
             for class_ in agbPartition_cube.age_class.values:
             
-                LatChunks = np.array_split(agbPartition_cube.latitude.values, 3)
-                LonChunks = np.array_split(agbPartition_cube.longitude.values, 3)
+                LatChunks = np.array_split(agbPartition_cube.latitude.values, 10)
+                LonChunks = np.array_split(agbPartition_cube.longitude.values, 10)
                 chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
             		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
             		    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))] 
