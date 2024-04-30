@@ -17,6 +17,7 @@ from abc import ABC
 import subprocess
 import glob
 import concurrent.futures
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import yaml as yml
@@ -213,11 +214,11 @@ class BiomassPartition(ABC):
                            n_jobs:int=20):
         
         member_out = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=n_jobs) as executor:
+        with ProcessPoolExecutor(max_workers=n_jobs) as executor:
             # Submit a future for each member
             futures = [executor.submit(self.BiomassPartitionResample, member_) 
                        for member_ in np.arange(self.config_file['num_members'])]
-    
+            
             # As each future completes, get the result and add it to member_out
             for future in concurrent.futures.as_completed(futures):
                 try:
@@ -287,7 +288,7 @@ class BiomassPartition(ABC):
                                         'valid_max': 300,
                                         'valid_min': -300}
                     data_chunk.attrs["_FillValue"] = -9999  
-                    out_dir = '{tmp_folder}/{var_}/{class_}/'.format(tmp_folder = self.tmp_folder, var_ = var_, class_ = class_)
+                    out_dir = '{tmp_folder}/{member}{var_}/{class_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_, class_ = class_)
                     if not os.path.exists(out_dir):
                		    os.makedirs(out_dir)
                            
