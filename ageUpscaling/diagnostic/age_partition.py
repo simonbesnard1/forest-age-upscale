@@ -112,7 +112,7 @@ class DifferenceAge(ABC):
             stand_replaced_class = xr.where(diff_age < 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'stand_replaced_class'})
             aging_forest_class = xr.where(diff_age >= 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'aging_forest_class'})
             diff_age = diff_age.rename({self.config_file['forest_age_var']: 'age_difference'})        
-            out_cube = xr.merge([diff_age, stand_replaced_age, aging_forest_age, stand_replaced_class, aging_forest_class])        
+            out_cube = xr.merge([diff_age, stand_replaced_age, aging_forest_age, stand_replaced_class, aging_forest_class]).transpose("members",'latitude', 'longitude')     
             self.age_diff_cube.CubeWriter(out_cube, n_workers=1)  
     
             age_class = np.array(self.config_file['age_classes'])
@@ -221,7 +221,7 @@ class DifferenceAge(ABC):
         xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeDiffResample_cube'], mode= 'w')
         
     def ParallelAgeDiffPartitionResample(self, 
-                                  n_jobs:int=20):
+                                         n_jobs:int=20):
         
         member_out = []
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:

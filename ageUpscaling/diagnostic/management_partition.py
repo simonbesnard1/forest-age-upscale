@@ -12,11 +12,12 @@
 """
 import os
 import shutil
-from tqdm import tqdm
 from itertools import product
 from abc import ABC
 import subprocess
 import glob
+import concurrent.futures
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import yaml as yml
@@ -74,12 +75,13 @@ class ManagementPartition(ABC):
         self.management_type_cube = xr.open_zarr(self.config_file['ForestManagement_cube'], synchronizer=self.sync_feature).isel(time=0).drop('time')
         self.age_cube = xr.open_zarr(self.config_file['ForestAge_cube'], synchronizer=self.sync_feature)
         
-        
         self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/management_cube_out_sync_{self.task_id}.zarrsync") 
         self.config_file['output_writer_params']['dims']['latitude'] = self.management_cube.latitude.values
         self.config_file['output_writer_params']['dims']['longitude'] =  self.management_cube.longitude.values
-                
+        self.config_file['output_writer_params']['dims']['members'] =  self.config_file['num_members']
+        
         self.management_partition_cube = DataCube(cube_config = self.config_file)
+        self.tmp_folder = os.path.join(self.config_file['tmp_dir'], 'management_partition/')
         
     @dask.delayed
     def _calc_func(self, 
@@ -96,28 +98,30 @@ class ManagementPartition(ABC):
         """
         
        
-        subset_age_cube = self.age_cube.sel(IN)[[self.config_file['forest_age_var']]].forest_age
-        diff_age = subset_age_cube.sel(time= '2020-01-01') - subset_age_cube.sel(time= '2010-01-01')
-        diff_age = diff_age.where(diff_age != 0, 10).where(np.isfinite(diff_age))
+        for member_ in np.arange(self.config_file['num_members']):
         
-        subset_management_cube = self.management_type_cube.sel(IN)[[self.config_file['management_var']]]
-        
-        intact_forests = xr.where(subset_management_cube ==11, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'intact_forests'})
-        naturally_regenerated = xr.where(subset_management_cube ==20, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'naturally_regenerated'})
-        planted_forest = xr.where(subset_management_cube ==31, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'planted_forest'})
-        plantation_forest = xr.where(subset_management_cube ==32, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'plantation_forest'})
-        oil_palm = xr.where(subset_management_cube ==40, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'oil_palm'})
-        agroforestry = xr.where(subset_management_cube ==53, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'agroforestry'})
+            subset_age_cube = self.age_cube.sel(IN).sel(members=member_)[[self.config_file['forest_age_var']]]
+            diff_age = subset_age_cube.sel(time= '2020-01-01') - subset_age_cube.sel(time= '2010-01-01')
+            diff_age = diff_age.where(diff_age != 0, 10).where(np.isfinite(diff_age))
             
-        intact_forests_diff = diff_age.where(intact_forests==1)
-        naturally_regenerated_diff = diff_age.where(naturally_regenerated==1)
-        planted_forest_diff = diff_age.where(planted_forest==1)
-        plantation_forest_diff = diff_age.where(plantation_forest==1)
-        oil_palm_diff = diff_age.where(oil_palm==1)
-        agroforestry_diff = diff_age.where(agroforestry==1)       
-        
-        out_cube = xr.merge([intact_forests_diff, naturally_regenerated_diff, planted_forest_diff, plantation_forest_diff, oil_palm_diff, agroforestry_diff])        
-        self.management_partition_cube.CubeWriter(out_cube, n_workers=1)  
+            subset_management_cube = self.management_type_cube.sel(IN)[[self.config_file['management_var']]]
+            
+            intact_forests = xr.where(subset_management_cube ==11, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'intact_forests'})
+            naturally_regenerated = xr.where(subset_management_cube ==20, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'naturally_regenerated'})
+            planted_forest = xr.where(subset_management_cube ==31, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'planted_forest'})
+            plantation_forest = xr.where(subset_management_cube ==32, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'plantation_forest'})
+            oil_palm = xr.where(subset_management_cube ==40, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'oil_palm'})
+            agroforestry = xr.where(subset_management_cube ==53, 1, 0).where(np.isfinite(subset_management_cube)).rename({self.config_file['management_var']: 'agroforestry'})
+                
+            intact_forests_diff = diff_age.where(intact_forests==1)
+            naturally_regenerated_diff = diff_age.where(naturally_regenerated==1)
+            planted_forest_diff = diff_age.where(planted_forest==1)
+            plantation_forest_diff = diff_age.where(plantation_forest==1)
+            oil_palm_diff = diff_age.where(oil_palm==1)
+            agroforestry_diff = diff_age.where(agroforestry==1)       
+            
+            out_cube = xr.merge([intact_forests_diff, naturally_regenerated_diff, planted_forest_diff, plantation_forest_diff, oil_palm_diff, agroforestry_diff]).transpose("members",'latitude', 'longitude')     
+            self.management_partition_cube.CubeWriter(out_cube, n_workers=6)  
 
     def ManagementPartitionCubeInit(self):
         
@@ -128,29 +132,34 @@ class ManagementPartition(ABC):
         """Calculate the fraction of each age class.
         
         """
-        LatChunks = np.array_split(self.config_file['output_writer_params']['dims']['latitude'], self.config_file["num_chunks"])
-        LonChunks = np.array_split(self.config_file['output_writer_params']['dims']['longitude'], self.config_file["num_chunks"])
-        
-        AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                       "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-                    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-        
-        if  "SLURM_JOB_ID" in os.environ:
-            selected_extent = AllExtents[task_id]
+        lat_chunk_size, lon_chunk_size = self.management_partition_cube.cube.chunks['latitude'][0], self.management_partition_cube.cube.chunks['longitude'][0]
+
+        # Calculate the number of chunks for each dimension
+        num_lat_chunks = np.ceil(len(self.management_partition_cube.cube.latitude) / lat_chunk_size).astype(int)
+        num_lon_chunks = np.ceil(len(self.management_partition_cube.cube.longitude) / lon_chunk_size).astype(int)
+     
+        # Generate all combinations of latitude and longitude chunk indices
+        chunk_indices = list(product(range(num_lat_chunks), range(num_lon_chunks)))
+     
+        if task_id < len(chunk_indices):
+            lat_idx, lon_idx = chunk_indices[task_id]
+     
+            # Calculate slice indices for latitude and longitude
+            lat_slice = slice(lat_idx * lat_chunk_size, (lat_idx + 1) * lat_chunk_size)
+            lon_slice = slice(lon_idx * lon_chunk_size, (lon_idx + 1) * lon_chunk_size)
             
+            lat_values = self.management_partition_cube.cube.latitude.values[lat_slice]
+            lon_values = self.management_partition_cube.cube.longitude.values[lon_slice]
+
+            # Select the extent based on the slice indices
+            selected_extent = {"latitude": slice(lat_values[0], lat_values[-1]), 
+                               "longitude": slice(lon_values[0], lon_values[-1])}
+            
+            # Process the chunk
             self.process_chunk(selected_extent)
-            
+        
         else:
-            if (self.n_jobs > 1):
-                
-                batch_size = 2
-                for i in range(0, len(AllExtents), batch_size):
-                    batch_futures = [self.process_chunk(extent) for extent in AllExtents[i:i+batch_size]]
-                    dask.compute(*batch_futures, num_workers=self.n_jobs)
-                            
-            else:
-                for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-                    self.process_chunk(extent)
+           print(f"Task ID {task_id} is out of range. No chunk to process.")
                     
         if os.path.exists(os.path.abspath(f"{self.study_dir}/management_features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/management_features_sync_{self.task_id}.zarrsync"))
@@ -162,8 +171,26 @@ class ManagementPartition(ABC):
     def process_chunk(self, extent):
         
         self._calc_func(extent).compute()
+        
+    def ParallelManagementPartitionResample(self, 
+                                            n_jobs:int=20):
+        
+        member_out = []
+        with ProcessPoolExecutor(max_workers=n_jobs) as executor:
+            # Submit a future for each member
+            futures = [executor.submit(self.ManagementPartitionResample, member_) 
+                       for member_ in np.arange(self.config_file['num_members'])]
+            
+            # As each future completes, get the result and add it to member_out
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    member_out.append(future.result())
+                except Exception as e:
+                    print(f"An error occurred: {e}")
 
-    def ManagementPartitionResample(self) -> None:
+        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['ManagementPartition_cube'], mode= 'w')
+
+    def ManagementPartitionResample(self, member_:int=0) -> None:
         """
             Calculate the age fraction.
             
@@ -184,13 +211,14 @@ class ManagementPartition(ABC):
             - Merges and converts the output into Zarr format.
         """
                         
-        management_partition_cube = xr.open_zarr(self.config_file['cube_location'])
+        management_partition_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
         zarr_out_ = []
         for var_ in set(management_partition_cube.variables.keys()) - set(management_partition_cube.dims):
                             
-            out_dir = '{study_dir}/tmp/{var_}/'.format(study_dir = self.study_dir, var_ = var_)
+            out_dir = '{tmp_folder}/management_partition/{member}/{var_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_)
+
             if not os.path.exists(out_dir):
-       		    os.makedirs(out_dir)
+       		    os.makedirs(out_dir)            
              
             data_class =management_partition_cube[var_].transpose('latitude', 'longitude')
             data_class = data_class.where(np.isfinite(data_class), -9999).astype("int16")     
@@ -263,15 +291,7 @@ class ManagementPartition(ABC):
             
             zarr_out_.append(da_.transpose('latitude', 'longitude'))
             
-        xr.merge(zarr_out_).to_zarr(self.study_dir + '/ManagementPartition_fraction_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
-        
-        for var_ in set(management_partition_cube.variables.keys()) - set(management_partition_cube.dims):
-            try:
-                var_path = os.path.join(self.study_dir, 'tmp/{var_}'.format(var_=var_))
-                shutil.rmtree(var_path)
-            except OSError as e:
-                print(f"Error: {e.filename} - {e.strerror}.")
-        
+        return xr.merge(zarr_out_).expand_dims({"members": [member_]})
         
 
                 

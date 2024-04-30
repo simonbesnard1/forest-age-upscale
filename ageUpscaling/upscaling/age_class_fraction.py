@@ -138,7 +138,7 @@ class AgeFraction(ABC):
         
         """
         
-        lat_chunk_size, lon_chunk_size = self.age_class_frac_cube.cube.chunks['latitude'][0], self.age_diff_cube.cube.chunks['longitude'][0]
+        lat_chunk_size, lon_chunk_size = self.age_class_frac_cube.cube.chunks['latitude'][0], self.age_class_frac_cube.cube.chunks['longitude'][0]
 
         # Calculate the number of chunks for each dimension
         num_lat_chunks = np.ceil(len(self.age_class_frac_cube.cube.latitude) / lat_chunk_size).astype(int)
