@@ -187,7 +187,6 @@ class AgeFraction(ABC):
             futures = [executor.submit(self.BiomassPartitionResample, member_) 
                        for member_ in np.arange(self.config_file['num_members'])]
             
-            # As each future completes, get the result and add it to member_out
             for future in concurrent.futures.as_completed(futures):
                 try:
                     member_out.append(future.result())
