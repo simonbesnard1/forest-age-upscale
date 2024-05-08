@@ -157,6 +157,12 @@ class DifferenceAge(ABC):
     def AgeDiffCubeInit(self):
         
         self.age_diff_cube.init_variable(self.config_file['cube_variables'])
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/ageDiff_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/ageDiff_features_sync_{self.task_id}.zarrsync"))
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/ageDiff_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/ageDiff_cube_out_sync_{self.task_id}.zarrsync"))
     
     def AgeDiffCalc(self,
                      task_id=None) -> None:
