@@ -129,9 +129,14 @@ class AgeFraction(ABC):
              
     def AgeClassCubeInit(self):
         
-        self.age_class_frac_cube.init_variable(self.config_file['cube_variables'], 
-                                               njobs= len(self.config_file['cube_variables'].keys()))
-    
+        self.age_class_frac_cube.init_variable(self.config_file['cube_variables'])
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/ageClassFrac_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/ageClassFrac_features_sync_{self.task_id}.zarrsync"))
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/ageClassFrac_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/ageClassFrac_cube_out_sync_{self.task_id}.zarrsync"))
+     
     def AgeClassCalc(self,
                      task_id=None) -> None:
         """Calculate the fraction of each age class.
