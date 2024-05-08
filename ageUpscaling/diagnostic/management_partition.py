@@ -76,8 +76,8 @@ class ManagementPartition(ABC):
         self.age_cube = xr.open_zarr(self.config_file['ForestAge_cube'], synchronizer=self.sync_feature)
         
         self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/management_cube_out_sync_{self.task_id}.zarrsync") 
-        self.config_file['output_writer_params']['dims']['latitude'] = self.management_cube.latitude.values
-        self.config_file['output_writer_params']['dims']['longitude'] =  self.management_cube.longitude.values
+        self.config_file['output_writer_params']['dims']['latitude'] = self.age_cube.latitude.values
+        self.config_file['output_writer_params']['dims']['longitude'] =  self.age_cube.longitude.values
         self.config_file['output_writer_params']['dims']['members'] =  self.config_file['num_members']
         
         self.management_partition_cube = DataCube(cube_config = self.config_file)
