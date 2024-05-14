@@ -120,7 +120,7 @@ class ManagementPartition(ABC):
             oil_palm_diff = diff_age.where(oil_palm==1)
             agroforestry_diff = diff_age.where(agroforestry==1)       
             
-            out_cube = xr.merge([intact_forests_diff, naturally_regenerated_diff, planted_forest_diff, plantation_forest_diff, oil_palm_diff, agroforestry_diff]).transpose("members",'latitude', 'longitude')     
+            out_cube = xr.merge([intact_forests_diff, naturally_regenerated_diff, planted_forest_diff, plantation_forest_diff, oil_palm_diff, agroforestry_diff]).expand_dims("members").transpose("members",'latitude', 'longitude')     
             self.management_partition_cube.CubeWriter(out_cube, n_workers=6)  
 
     def ManagementPartitionCubeInit(self):
