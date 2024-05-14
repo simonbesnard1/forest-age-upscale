@@ -152,7 +152,7 @@ class BiomassPartition(ABC):
                     agb_2020 = subset_agb_cube.sel(time= '2020-01-01')
                     stand_replaced_class_partition_member = agb_2020.where(stand_replaced_class_partition.age_difference ==1).rename({'aboveground_biomass': 'stand_replaced'})
                     aging_class_partition_member = agb_2020.where(aging_class_partition.age_difference ==1).rename({'aboveground_biomass': 'gradually_ageing'})
-                    out_cube = xr.merge([aging_class_partition_member, stand_replaced_class_partition_member]).transpose("members", "age_class", 'latitude', 'longitude')
+                    out_cube = xr.merge([aging_class_partition_member, stand_replaced_class_partition_member]).expand_dims("members").transpose("members", "age_class", 'latitude', 'longitude')
                       
                     self.agbPartition_cube.CubeWriter(out_cube, n_workers=2)
                 
