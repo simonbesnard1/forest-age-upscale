@@ -112,7 +112,7 @@ class DifferenceAge(ABC):
             stand_replaced_class = xr.where(diff_age < 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'stand_replaced_class'})
             aging_forest_class = xr.where(diff_age >= 10, 1, 0).where(np.isfinite(diff_age)).rename({self.config_file['forest_age_var']: 'aging_forest_class'})
             diff_age = diff_age.rename({self.config_file['forest_age_var']: 'age_difference'})        
-            out_cube = xr.merge([diff_age, stand_replaced_age, aging_forest_age, stand_replaced_class, aging_forest_class]).transpose("members",'latitude', 'longitude')     
+            out_cube = xr.merge([diff_age, stand_replaced_age, aging_forest_age, stand_replaced_class, aging_forest_class]).expand_dims("members").transpose("members",'latitude', 'longitude')     
             self.age_diff_cube.CubeWriter(out_cube, n_workers=1)  
     
             age_class = np.array(self.config_file['age_classes'])
@@ -150,7 +150,7 @@ class DifferenceAge(ABC):
                     
                 stand_replaced_class_partition = stand_replaced_class_partition.rename({'age_difference': 'stand_replaced_class_partition'})
                 aging_class_partition = aging_class_partition.rename({'age_difference': 'aging_forest_class_partition'})
-                out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition]).drop_vars('time').transpose("members", "age_class", 'latitude', 'longitude')    
+                out_cube = xr.merge([aging_class_partition, stand_replaced_class_partition]).drop_vars('time').expand_dims("members").transpose("members", "age_class", 'latitude', 'longitude')    
               
                 self.age_diff_cube.CubeWriter(out_cube, n_workers=1)
              
