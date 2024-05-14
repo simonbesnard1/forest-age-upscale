@@ -120,11 +120,11 @@ class AgeFraction(ABC):
                 age_class_mask = age_class_mask.where(np.isfinite(age_class_mask), -9999)        
                 
                 if i == len(age_labels) - 1:
-                    age_class_mask = age_class_mask.expand_dims({"age_class": ['>' + age_range.split('-')[0]]}).transpose('members', "age_class", 'latitude', 'longitude', 'time')
-    
+                    age_class_mask = age_class_mask.expand_dims({"members": [member_], "age_class": ['>' + age_range.split('-')[0]]}).transpose('members', "age_class", 'latitude', 'longitude', 'time')
+
                 else:
-                    age_class_mask = age_class_mask.expand_dims({"age_class": [age_range]}).transpose('members', "age_class", 'latitude', 'longitude', 'time')
-    
+                    age_class_mask = age_class_mask.expand_dims({"members": [member_], "age_class": [age_range]}).transpose('members', "age_class", 'latitude', 'longitude', 'time')
+
                 self.age_class_frac_cube.CubeWriter(age_class_mask, n_workers=2)
              
     def AgeClassCubeInit(self):
