@@ -69,6 +69,7 @@ setuptools.setup(
         "shapely==2.0.2",
         "geopandas==0.14.0",
         "scipy==1.11.3",
-        "sklearn-genetic-opt==0.10.1"],
+        "sklearn-genetic-opt==0.10.1",
+        "statsmodels==0.14.2"],
     include_package_data=True,
 )
