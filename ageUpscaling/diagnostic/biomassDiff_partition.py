@@ -264,8 +264,8 @@ class BiomassDiffPartition(ABC):
             out = []
             for class_ in agbDiffPartition_cube.age_class.values:
             
-                LatChunks = np.array_split(agbDiffPartition_cube.latitude.values, 3)
-                LonChunks = np.array_split(agbDiffPartition_cube.longitude.values, 3)
+                LatChunks = np.array_split(agbDiffPartition_cube.latitude.values, self.config_file['n_chunks'])
+                LonChunks = np.array_split(agbDiffPartition_cube.longitude.values, self.config_file['n_chunks'])
                 chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
             		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
             		    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))] 
@@ -284,7 +284,7 @@ class BiomassDiffPartition(ABC):
                                         'valid_max': 300,
                                         'valid_min': -300}
                     data_chunk.attrs["_FillValue"] = -9999  
-                    out_dir = '{tmp_folder}/biomassDiff_partition/{member}/{var_}/{class_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_, class_ = class_)
+                    out_dir = '{tmp_folder}/{member}/{var_}/{class_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_, class_ = class_)
                     if not os.path.exists(out_dir):
                		    os.makedirs(out_dir)
                            

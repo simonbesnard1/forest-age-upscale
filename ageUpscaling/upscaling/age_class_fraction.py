@@ -244,13 +244,13 @@ class AgeFraction(ABC):
                                     'valid_max': 1,
                                     'valid_min': 0}
                 
-                LatChunks = np.array_split(data_class.latitude.values, 2)
-                LonChunks = np.array_split(data_class.longitude.values, 2)
+                LatChunks = np.array_split(data_class.latitude.values, self.config_file['n_chunks'])
+                LonChunks = np.array_split(data_class.longitude.values, self.config_file['n_chunks'])
                 chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
             		           "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                               for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
                 
-                out_dir = '{tmp_folder}/age_class_fraction/{member}/{var_}/{class_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_, class_ = class_)
+                out_dir = '{tmp_folder}/{member}/{var_}/{class_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_, class_ = class_)
                 if not os.path.exists(out_dir):
            		    os.makedirs(out_dir)
                        
@@ -266,7 +266,7 @@ class AgeFraction(ABC):
                         #data_chunk = data_chunk.rio.write_nodata( -9999, encoded=True, inplace=True) 
                         data_chunk.attrs["_FillValue"] = -9999    
                         data_chunk = data_chunk.astype('int16')
-                        data_chunk.rio.to_raster(raster_path=self.study_dir + '/age_class_{class_}/age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
+                        data_chunk.rio.to_raster(raster_path= out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
                                                  driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
                        
                         gdalwarp_command = [
@@ -304,14 +304,14 @@ class AgeFraction(ABC):
                         '-co', 'BIGTIFF=YES',
                         '-overwrite',
                         f'/{vrt_filename}',
-                       out_dir + f'{var_}_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_, class_= class_),
+                       out_dir + f'{var_}_{class_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(var_=var_, class_= class_,year_= str(year_)),
                     ]
                     subprocess.run(gdalwarp_command, check=True)
                     
                     for file_ in input_files:
                         os.remove(file_)
             
-                    da_ =  rio.open_rasterio(self.study_dir + f'/age_class_fraction_{class_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(class_=class_, year_= str(year_)))     
+                    da_ =  rio.open_rasterio(out_dir + f'{var_}_{class_}_{self.config_file["target_resolution"]}deg_{year_}.tif'.format(var_=var_, class_= class_,year_= str(year_)))     
                     da_ =  da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).to_dataset(name = var_)
                     da_['time'] = [year_]
                     ds_.append(da_)

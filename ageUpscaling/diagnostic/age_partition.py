@@ -270,8 +270,8 @@ class DifferenceAge(ABC):
         
         for var_ in {item for item in set(age_diff_cube.variables.keys()) - set(age_diff_cube.dims) if 'partition' not in item}:
             
-            LatChunks = np.array_split(age_diff_cube.latitude.values, 10)
-            LonChunks = np.array_split(age_diff_cube.longitude.values, 10)
+            LatChunks = np.array_split(age_diff_cube.latitude.values, self.config_file['n_chunks'])
+            LonChunks = np.array_split(age_diff_cube.longitude.values, self.config_file['n_chunks'])
             chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
         		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
         		    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))] 
@@ -290,7 +290,7 @@ class DifferenceAge(ABC):
                                     'valid_max': 1,
                                     'valid_min': 0}
                 data_chunk.attrs["_FillValue"] = -9999  
-                out_dir = '{tmp_folder}/age_partition/{member}/{var_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_)
+                out_dir = '{tmp_folder}/age_diff/{member}/{var_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_)
 
                 if not os.path.exists(out_dir):
            		    os.makedirs(out_dir)
@@ -337,6 +337,9 @@ class DifferenceAge(ABC):
             ]
             subprocess.run(gdalwarp_command, check=True)
             
+            for file_ in input_files:
+                os.remove(file_)
+                        
             da_ =  rio.open_rasterio(out_dir + f'/{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_))     
             da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
                 
@@ -371,7 +374,7 @@ class DifferenceAge(ABC):
             out = []
             for class_ in age_diff_cube.age_class.values:
                 
-                out_dir = '{tmp_folder}/age_partition/{member}/{var_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_)
+                out_dir = '{tmp_folder}/ageDiff_partition/{member}/{var_}/{class_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_, class_ = class_)
 
                 if not os.path.exists(out_dir):
            		    os.makedirs(out_dir)
@@ -398,22 +401,23 @@ class DifferenceAge(ABC):
                     data_chunk = data_class.sel(chunck)
                     data_chunk.attrs["_FillValue"] = -9999    
                     data_chunk = data_chunk.astype('int16')
-                    data_chunk.rio.to_raster(raster_path=out_dir + 'age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)), 
+                    data_chunk.rio.to_raster(raster_path=out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
                                              driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
                    
                     gdalwarp_command = [
                                         'gdal_translate',
                                         '-a_nodata', '-9999',
-                                        out_dir + 'age_class_{class_}_{iter_}.tif'.format(class_ =class_, iter_=str(iter_)),
-                                        out_dir + 'age_class_{class_}_{iter_}_nodata.tif'.format(class_ =class_, iter_=str(iter_))                                                
+                                        out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
+                                        out_dir + '{var_}_{iter_}_nodata.tif'.format(var_ = var_, iter_=str(iter_)),                                               
                                     ]
                     subprocess.run(gdalwarp_command, check=True)
+                    os.remove(out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)))
 
                     iter_ += 1
                       
                 input_files = glob.glob(os.path.join(out_dir, '*_nodata.tif'))
-                vrt_filename = out_dir + '/agePartition_class_{class_}.vrt'.format(class_=class_)
-                    
+                vrt_filename = out_dir + '/{var_}_{class_}.vrt'.format(var_ = var_, class_= class_)
+                
                 gdalbuildvrt_command = [
                     'gdalbuildvrt',
                     vrt_filename
@@ -435,14 +439,14 @@ class DifferenceAge(ABC):
                     '-co', 'BIGTIFF=YES',
                     '-overwrite',
                     f'/{vrt_filename}',
-                    self.study_dir + f'/tmp/{var_}/agePartition_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_= var_, class_=class_),
+                    out_dir + f'{var_}_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_, class_= class_),
                 ]
                 subprocess.run(gdalwarp_command, check=True)
                 
-                if os.path.exists(out_dir):
-                    shutil.rmtree(out_dir)
+                for file_ in input_files:
+                    os.remove(file_)
                 
-                da_ =  rio.open_rasterio(self.study_dir + f'/tmp/{var_}/agePartition_fraction_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_= var_, class_=class_))     
+                da_ =  rio.open_rasterio(out_dir + f'{var_}_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_, class_= class_))     
                 da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
                 
                 out.append(da_.assign_coords(age_class= class_))
