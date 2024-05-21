@@ -224,7 +224,7 @@ class DifferenceAge(ABC):
                 except Exception as e:
                     print(f"An error occurred: {e}")
 
-        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeDiffResample_cube'], mode= 'w')
+        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeDiffResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
     def ParallelAgeDiffPartitionResample(self, 
                                          n_jobs:int=20):
@@ -242,7 +242,7 @@ class DifferenceAge(ABC):
                 except Exception as e:
                     print(f"An error occurred: {e}")
 
-        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeDiffPartition_cube'], mode= 'w')
+        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeDiffPartitionResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
 
     def AgeDiffResample(self, member_:int=0) -> None:
         """

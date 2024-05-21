@@ -183,13 +183,13 @@ class AgeFraction(ABC):
         
         self._calc_func(extent).compute()
         
-    def ParallelAgeFractionResample(self, 
-                                    n_jobs:int=20):
+    def ParallelResampling(self, 
+                           n_jobs:int=20):
         
         member_out = []
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
             # Submit a future for each member
-            futures = [executor.submit(self.BiomassPartitionResample, member_) 
+            futures = [executor.submit(self.AgeFractionCalc, member_) 
                        for member_ in np.arange(self.config_file['num_members'])]
             
             for future in concurrent.futures.as_completed(futures):
@@ -198,7 +198,7 @@ class AgeFraction(ABC):
                 except Exception as e:
                     print(f"An error occurred: {e}")
                     
-        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['ForestAge_fraction_cube'], mode= 'w')
+        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeClassResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
         if os.path.exists(os.path.abspath(f"{self.study_dir}/ageClassFrac_features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/ageClassFrac_features_sync_{self.task_id}.zarrsync"))

@@ -226,7 +226,7 @@ class BiomassPartition(ABC):
                 except Exception as e:
                     print(f"An error occurred: {e}")
 
-        xr.concat(member_out, dim = 'members').sortby('members').to_zarr(self.config_file['BiomassPartitionResample_cube'], mode= 'w')
+        xr.concat(member_out, dim = 'members').sortby('members').to_zarr(self.config_file['BiomassPartitionResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
         if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync"))

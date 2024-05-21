@@ -172,8 +172,8 @@ class ManagementPartition(ABC):
         
         self._calc_func(extent).compute()
         
-    def ParallelManagementPartitionResample(self, 
-                                            n_jobs:int=20):
+    def ParallelResampling(self, 
+                           n_jobs:int=20):
         
         member_out = []
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
@@ -188,7 +188,7 @@ class ManagementPartition(ABC):
                 except Exception as e:
                     print(f"An error occurred: {e}")
 
-        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['ManagementPartition_cube'], mode= 'w')
+        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['ManagementPartitionResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
 
     def ManagementPartitionResample(self, member_:int=0) -> None:
         """
