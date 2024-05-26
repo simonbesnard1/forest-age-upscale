@@ -268,8 +268,8 @@ class BiomassPartition(ABC):
         agbPartition_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
         zarr_out_ = []
         
-        for var_ in set(agbPartition_cube.variables.keys()) - set(agbPartition_cube.dims):
-            
+        for var_ in {item for item in set(agbPartition_cube.variables.keys()) - set(agbPartition_cube.dims) if 'total' not in item}:
+    
             out = []
             for class_ in agbPartition_cube.age_class.values:
             
