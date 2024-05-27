@@ -119,6 +119,8 @@ class BiomassPartition(ABC):
                 subset_agb_cube = self.agb_cube.sel(IN).sel(members=member_)[['aboveground_biomass']]
                 subset_agb_cube = subset_agb_cube.where(subset_agb_cube>0)
                 agb_2020 = subset_agb_cube.sel(time= '2020-01-01')
+                growth_rate = self.calculate_growth_rate(subset_agb_cube.sel(time= '2020-01-01'), 
+                                                         subset_agb_cube.sel(time= '2010-01-01'))
                 
                 stand_replaced_biomass_member = agb_2020.where(stand_replaced_class.stand_replaced_class ==1).rename({'aboveground_biomass': 'stand_replaced_total'})
                 aging_class_biomass_member = agb_2020.where(aging_forest_class.aging_forest_class ==1).rename({'aboveground_biomass': 'gradually_ageing_total'})
@@ -157,7 +159,9 @@ class BiomassPartition(ABC):
                         
                     stand_replaced_class_partition_member = agb_2020.where(stand_replaced_class_partition.age_difference ==1).rename({'aboveground_biomass': 'stand_replaced'})
                     aging_class_partition_member = agb_2020.where(aging_class_partition.age_difference ==1).rename({'aboveground_biomass': 'gradually_ageing'})
-                    out_cube = xr.merge([aging_class_partition_member, stand_replaced_class_partition_member]).expand_dims("members").transpose("members", "age_class", 'latitude', 'longitude')
+                    stand_replaced_growth_rate_member = growth_rate.where(stand_replaced_class_partition.age_difference ==1).rename({'aboveground_biomass': 'stand_replaced_AGR'})
+                    aging_growth_rate_member = growth_rate.where(aging_class_partition.age_difference ==1).rename({'aboveground_biomass': 'gradually_ageing_AGR'})
+                    out_cube = xr.merge([aging_class_partition_member, aging_growth_rate_member, stand_replaced_class_partition_member, stand_replaced_growth_rate_member]).expand_dims("members").transpose("members", "age_class", 'latitude', 'longitude')
                       
                     self.agbPartition_cube.CubeWriter(out_cube, n_workers=2)
                 
@@ -349,6 +353,16 @@ class BiomassPartition(ABC):
             zarr_out_.append(xr.concat(out, dim = 'age_class').transpose('latitude', 'longitude', 'age_class'))
     
         return xr.merge(zarr_out_).expand_dims({"members": [member_]})
+    
+    def calculate_growth_rate(self, biomass_2010, biomass_2020):
+        # Calculate the ratio of biomass in 2020 to biomass in 2010
+        ratio = biomass_2020 / biomass_2010
+        
+        # Calculate the 10th root of the ratio to find the average annual growth rate
+        average_annual_growth_rate = ratio ** (1 / 10) - 1
+        
+        return average_annual_growth_rate
+
         
                 
         
