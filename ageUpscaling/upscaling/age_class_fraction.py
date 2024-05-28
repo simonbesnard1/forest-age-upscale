@@ -262,12 +262,14 @@ class AgeFraction(ABC):
                         
                         chunck.update({'time': year_})                        
                         data_chunk = data_class.sel(chunck)
-                        #data_chunk = data_chunk.where(data_chunk>=0, -9999)
-                        #data_chunk = data_chunk.rio.write_nodata( -9999, encoded=True, inplace=True) 
-                        data_chunk.attrs["_FillValue"] = -9999    
-                        data_chunk = data_chunk.astype('int16')
+                        data_chunk = data_chunk.where(np.isfinite(data_chunk), -9999).astype('int16')  
+                        
+                        data_chunk.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
+                        data_chunk.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
+                        data_chunk = data_chunk.rio.write_crs("epsg:4326", inplace=True)
+                        data_chunk.attrs["_FillValue"] = -9999  
                         data_chunk.rio.to_raster(raster_path= out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
-                                                 driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                            
+                                                 driver="COG", BIGTIFF='YES', compress=None, dtype="int16")                          
                        
                         gdalwarp_command = [
                                             'gdal_translate',
@@ -298,7 +300,7 @@ class AgeFraction(ABC):
                         '-t_srs', 'EPSG:4326',
                         '-of', 'Gtiff',
                         '-te', '-180', '-90', '180', '90',
-                        '-r', 'med',
+                        '-r', 'average',
                         '-ot', 'Float32',
                         '-co', 'COMPRESS=LZW',
                         '-co', 'BIGTIFF=YES',
