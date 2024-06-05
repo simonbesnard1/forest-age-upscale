@@ -17,6 +17,8 @@ from itertools import product
 from abc import ABC
 import subprocess
 import glob
+from concurrent.futures import ProcessPoolExecutor
+import concurrent.futures
 
 import numpy as np
 import yaml as yml
@@ -116,6 +118,7 @@ class UpscaleAge(ABC):
         self.upscaling_config['output_writer_params']['dims']['latitude']  = self.agb_cube.latitude.values
         self.upscaling_config['output_writer_params']['dims']['longitude'] = self.agb_cube.longitude.values
         self.upscaling_config['output_writer_params']['dims']['members'] =  self.upscaling_config['num_members']
+        self.tmp_folder = os.path.join(self.config_file['tmp_dir'], 'AgeUpscaling/')
         
         self.pred_cube = DataCube(cube_config = self.upscaling_config)
         self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
@@ -516,8 +519,26 @@ class UpscaleAge(ABC):
     def process_chunk(self, extent):
         
         self._predict_func(extent).compute()
+                
+    def ParallelResampling(self, 
+                           n_jobs:int=20):
         
-    def AgeResample(self) -> None:
+        member_out = []
+        with ProcessPoolExecutor(max_workers=n_jobs) as executor:
+            # Submit a future for each member
+            futures = [executor.submit(self.AgeResample, member_) 
+                       for member_ in np.arange(self.config_file['num_members'])]
+            
+            # As each future completes, get the result and add it to member_out
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    member_out.append(future.result())
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+
+        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        
+    def AgeResample(self, member_:int=0) -> None:
         """
             Calculate the age fraction.
             
@@ -543,8 +564,8 @@ class UpscaleAge(ABC):
         
         for var_ in set(age_cube.variables.keys()) - set(age_cube.dims):
             
-            LatChunks = np.array_split(age_cube.latitude.values, 3)
-            LonChunks = np.array_split(age_cube.longitude.values, 3)
+            LatChunks = np.array_split(age_cube.latitude.values, self.config_file['n_chunks'])
+            LonChunks = np.array_split(age_cube.longitude.values, self.config_file['n_chunks'])
             chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
         		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
         		    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))] 
@@ -568,7 +589,7 @@ class UpscaleAge(ABC):
                                         'valid_max': 300,
                                         'valid_min': 0}
                     data_chunk.attrs["_FillValue"] = -9999  
-                    out_dir = '{study_dir}/tmp/{var_}/'.format(study_dir = self.study_dir, var_ = var_)
+                    out_dir = '{tmp_folder}/{member}/{var_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_)
                     if not os.path.exists(out_dir):
                		    os.makedirs(out_dir)
                            
@@ -624,14 +645,8 @@ class UpscaleAge(ABC):
                 ds_.append(da_)
             zarr_out_.append(xr.concat(ds_, dim='time'))
             
-        xr.merge(zarr_out_).to_zarr(self.study_dir + '/ForestAge_{resolution}deg'.format(resolution = str(self.upscaling_config['resample_resolution'])), mode= 'w')
-        
-        for var_ in set(age_cube.variables.keys()) - set(age_cube.dims):
-            try:
-                var_path = os.path.join(self.study_dir, 'tmp/{var_}'.format(var_=var_))
-                shutil.rmtree(var_path)
-            except OSError as e:
-                print(f"Error: {e.filename} - {e.strerror}.")
+        return xr.merge(zarr_out_).expand_dims({"members": [member_]})
+
                         
     def norm(self, 
              x: np.array,
