@@ -527,7 +527,7 @@ class UpscaleAge(ABC):
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
             # Submit a future for each member
             futures = [executor.submit(self.AgeResample, member_) 
-                       for member_ in np.arange(self.config_file['num_members'])]
+                       for member_ in np.arange(self.upscaling_config['num_members'])]
             
             # As each future completes, get the result and add it to member_out
             for future in concurrent.futures.as_completed(futures):
@@ -536,7 +536,7 @@ class UpscaleAge(ABC):
                 except Exception as e:
                     print(f"An error occurred: {e}")
 
-        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeResample_cube'] + '_{resolution}deg'.format(resolution = str(self.upscaling_config['resample_resolution'])), mode= 'w')
+        xr.concat(member_out, dim = 'members').to_zarr(self.upscaling_config['AgeResample_cube'] + '_{resolution}deg'.format(resolution = str(self.upscaling_config['resample_resolution'])), mode= 'w')
         
     def AgeResample(self, member_:int=0) -> None:
         """
