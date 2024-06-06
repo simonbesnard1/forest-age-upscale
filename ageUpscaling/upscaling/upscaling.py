@@ -559,7 +559,7 @@ class UpscaleAge(ABC):
             - Merges and converts the output into Zarr format.
         """
            
-        age_cube = xr.open_zarr(self.upscaling_config['cube_location'])
+        age_cube = xr.open_zarr(self.upscaling_config['cube_location']).sel(members = member_).drop_vars('members')
         zarr_out_ = []
         
         for var_ in set(age_cube.variables.keys()) - set(age_cube.dims):
