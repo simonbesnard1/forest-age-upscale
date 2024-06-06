@@ -101,7 +101,7 @@ class UpscaleAge(ABC):
         self.valid_fraction= self.DataConfig["valid_fraction"]
         self.feature_selection= self.DataConfig["feature_selection"]
         self.feature_selection_method= self.DataConfig["feature_selection_method"]      
-        self.upscaling_config['cube_location'] =  os.path.join(self.study_dir, self.upscaling_config['cube_name'])
+        self.upscaling_config['cube_location'] =  self.upscaling_config['cube_location']
         
         self.task_id = int(os.getenv('SLURM_ARRAY_TASK_ID', 0))
         sync_file_features = os.path.abspath(f"{study_dir}/features_sync_{self.task_id}.zarrsync")        
@@ -118,7 +118,7 @@ class UpscaleAge(ABC):
         self.upscaling_config['output_writer_params']['dims']['latitude']  = self.agb_cube.latitude.values
         self.upscaling_config['output_writer_params']['dims']['longitude'] = self.agb_cube.longitude.values
         self.upscaling_config['output_writer_params']['dims']['members'] =  self.upscaling_config['num_members']
-        self.tmp_folder = os.path.join(self.config_file['tmp_dir'], 'AgeUpscaling/')
+        self.tmp_folder = os.path.join(self.upscaling_config['tmp_dir'], 'AgeUpscaling/')
         
         self.pred_cube = DataCube(cube_config = self.upscaling_config)
         self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
@@ -536,7 +536,7 @@ class UpscaleAge(ABC):
                 except Exception as e:
                     print(f"An error occurred: {e}")
 
-        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeResample_cube'] + '_{resolution}deg'.format(resolution = str(self.upscaling_config['resample_resolution'])), mode= 'w')
         
     def AgeResample(self, member_:int=0) -> None:
         """
@@ -564,8 +564,8 @@ class UpscaleAge(ABC):
         
         for var_ in set(age_cube.variables.keys()) - set(age_cube.dims):
             
-            LatChunks = np.array_split(age_cube.latitude.values, self.config_file['n_chunks'])
-            LonChunks = np.array_split(age_cube.longitude.values, self.config_file['n_chunks'])
+            LatChunks = np.array_split(age_cube.latitude.values, self.upscaling_config['n_chunks'])
+            LonChunks = np.array_split(age_cube.longitude.values, self.upscaling_config['n_chunks'])
             chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
         		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
         		    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))] 
