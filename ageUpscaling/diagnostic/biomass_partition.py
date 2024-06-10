@@ -219,7 +219,7 @@ class BiomassPartition(ABC):
         
         self._calc_func(extent).compute()
         
-    def ParallelResampling(self, 
+    def ParallelBiomassPartitionResampling(self, 
                            n_jobs:int=20):
         
         member_out = []
@@ -236,6 +236,35 @@ class BiomassPartition(ABC):
                     print(f"An error occurred: {e}")
 
         xr.concat(member_out, dim = 'members').sortby('members').to_zarr(self.config_file['BiomassPartitionResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync"))
+        
+        if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync")):
+            shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync"))
+            
+        try:
+            shutil.rmtree(self.tmp_folder)
+        except OSError as e:
+            print(f"Error: {e.filename} - {e.strerror}.")
+            
+    def ParallelBiomassTotalResampling(self, 
+                                       n_jobs:int=20):
+        
+        member_out = []
+        with ProcessPoolExecutor(max_workers=n_jobs) as executor:
+            # Submit a future for each member
+            futures = [executor.submit(self.BiomassTotalResample, member_) 
+                       for member_ in np.arange(self.config_file['num_members'])]
+            
+            # As each future completes, get the result and add it to member_out
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    member_out.append(future.result())
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+
+        xr.concat(member_out, dim = 'members').sortby('members').to_zarr(self.config_file['BiomassTotalResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
         if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync"))
@@ -354,6 +383,108 @@ class BiomassPartition(ABC):
     
         return xr.merge(zarr_out_).expand_dims({"members": [member_]})
     
+    def BiomassTotalResample(self, member_:int=0) -> None:
+        """
+            Calculate the age fraction.
+            
+            This function processes forest age class data using the Global Age Mapping Integration dataset,
+            calculating the age fraction distribution changes over time. The results are saved as raster files.
+            
+            Attributes:
+            - age_class_ds: The dataset containing age class information.
+            - zarr_out_: An array to store the output data.
+            
+            The function performs the following operations:
+            - Reads age class data.
+            - Loops through each variable and age class in the dataset.
+            - Transforms and attributes data.
+            - Splits the geographical area into chunks.
+            - Processes each chunk for each year.
+            - Saves processed data as raster files.
+            - Merges and converts the output into Zarr format.
+        """
+                        
+        agbPartition_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
+        zarr_out_ = []
+        
+        for var_ in {item for item in set(agbPartition_cube.variables.keys()) - set(agbPartition_cube.dims) if 'total' in item}:
+    
+            LatChunks = np.array_split(agbPartition_cube.latitude.values, self.config_file['n_chunks'])
+            LonChunks = np.array_split(agbPartition_cube.longitude.values, self.config_file['n_chunks'])
+            chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
+        		        "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
+        		    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))] 
+            
+            iter_ = 0
+            for chunck in chunk_dict:
+                
+                data_chunk = agbPartition_cube[var_].sel(chunck).transpose('latitude', 'longitude')
+                data_chunk = data_chunk.where(np.isfinite(data_chunk), -9999).astype('float32')  
+                
+                data_chunk.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
+                data_chunk.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
+                data_chunk = data_chunk.rio.write_crs("epsg:4326", inplace=True)
+                data_chunk.attrs = {'long_name': 'Biomass difference',
+                                    'units': 'Ton /ha',
+                                    'valid_max': 300,
+                                    'valid_min': -300}
+                data_chunk.attrs["_FillValue"] = -9999  
+                out_dir = '{tmp_folder}/{member}/{var_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_)
+                if not os.path.exists(out_dir):
+           		    os.makedirs(out_dir)
+                       
+                data_chunk.rio.to_raster(raster_path= out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
+                                         driver="COG", BIGTIFF='YES', compress=None,  dtype= 'float32')      
+                
+                gdalwarp_command = [
+                                    'gdal_translate',
+                                    '-a_nodata', '-9999',
+                                    out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)),
+                                    out_dir + '{var_}_{iter_}_nodata.tif'.format(var_ = var_, iter_=str(iter_))                
+                                ]
+                subprocess.run(gdalwarp_command, check=True)
+                os.remove(out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)))
+                
+                iter_ += 1
+        
+            input_files = glob.glob(os.path.join(out_dir, '*_nodata.tif'))
+            vrt_filename = out_dir + '/{var_}.vrt'.format(var_ = var_)
+                
+            gdalbuildvrt_command = [
+                'gdalbuildvrt',
+                vrt_filename
+            ] + input_files
+                
+            subprocess.run(gdalbuildvrt_command, check=True)
+                
+            gdalwarp_command = [
+                'gdalwarp',
+                '-srcnodata', '-9999',
+                '-dstnodata', '-9999',
+                '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
+                '-t_srs', 'EPSG:4326',
+                '-of', 'Gtiff',
+                '-te', '-180', '-90', '180', '90',
+                '-r', 'med',
+                '-ot', 'Float32',
+                '-co', 'COMPRESS=LZW',
+                '-co', 'BIGTIFF=YES',
+                '-overwrite',
+                f'/{vrt_filename}',
+               out_dir + f'{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_),
+            ]
+            subprocess.run(gdalwarp_command, check=True)
+            
+            for file_ in input_files:
+                os.remove(file_)
+            
+            da_ =  rio.open_rasterio(out_dir + f'{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_))     
+            da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
+                
+            zarr_out_.append(da_.transpose('latitude', 'longitude'))
+
+        return xr.merge(zarr_out_).expand_dims({"members": [member_]})
+
     def calculate_growth_rate(self, biomass_2010, biomass_2020):
         # Calculate the ratio of biomass in 2020 to biomass in 2010
         ratio = biomass_2020 / biomass_2010
