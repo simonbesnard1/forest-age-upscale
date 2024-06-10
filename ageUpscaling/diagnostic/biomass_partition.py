@@ -235,7 +235,7 @@ class BiomassPartition(ABC):
                 except Exception as e:
                     print(f"An error occurred: {e}")
 
-        xr.concat(member_out, dim = 'members').sortby('members').to_zarr(self.config_file['BiomassPartitionResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        xr.concat(member_out, dim = 'members').sortby('members').to_zarr(self.config_file['BiomassPartitionResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['resample_resolution'])), mode= 'w')
         
         if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync"))
@@ -264,7 +264,7 @@ class BiomassPartition(ABC):
                 except Exception as e:
                     print(f"An error occurred: {e}")
 
-        xr.concat(member_out, dim = 'members').sortby('members').to_zarr(self.config_file['BiomassTotalResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        xr.concat(member_out, dim = 'members').sortby('members').to_zarr(self.config_file['BiomassTotalResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['resample_resolution'])), mode= 'w')
         
         if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_features_sync_{self.task_id}.zarrsync"))
@@ -358,7 +358,7 @@ class BiomassPartition(ABC):
                     'gdalwarp',
                     '-srcnodata', '-9999',
                     '-dstnodata', '-9999',
-                    '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
+                    '-tr', str(self.config_file['resample_resolution']), str(self.config_file['resample_resolution']),
                     '-t_srs', 'EPSG:4326',
                     '-of', 'Gtiff',
                     '-te', '-180', '-90', '180', '90',
@@ -368,14 +368,14 @@ class BiomassPartition(ABC):
                     '-co', 'BIGTIFF=YES',
                     '-overwrite',
                     f'/{vrt_filename}',
-                   out_dir + f'{var_}_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_, class_= class_),
+                   out_dir + f'{var_}_{class_}_{self.config_file["resample_resolution"]}deg.tif'.format(var_=var_, class_= class_),
                 ]
                 subprocess.run(gdalwarp_command, check=True)
                 
                 for file_ in input_files:
                     os.remove(file_)
                 
-                da_ =  rio.open_rasterio(out_dir + f'{var_}_{class_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_, class_= class_))     
+                da_ =  rio.open_rasterio(out_dir + f'{var_}_{class_}_{self.config_file["resample_resolution"]}deg.tif'.format(var_=var_, class_= class_))     
                 da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
                 out.append(da_.assign_coords(age_class= class_))
                 
@@ -461,7 +461,7 @@ class BiomassPartition(ABC):
                 'gdalwarp',
                 '-srcnodata', '-9999',
                 '-dstnodata', '-9999',
-                '-tr', str(self.config_file['target_resolution']), str(self.config_file['target_resolution']),
+                '-tr', str(self.config_file['resample_resolution']), str(self.config_file['resample_resolution']),
                 '-t_srs', 'EPSG:4326',
                 '-of', 'Gtiff',
                 '-te', '-180', '-90', '180', '90',
@@ -471,14 +471,14 @@ class BiomassPartition(ABC):
                 '-co', 'BIGTIFF=YES',
                 '-overwrite',
                 f'/{vrt_filename}',
-               out_dir + f'{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_),
+               out_dir + f'{var_}_{self.config_file["resample_resolution"]}deg.tif'.format(var_=var_),
             ]
             subprocess.run(gdalwarp_command, check=True)
             
             for file_ in input_files:
                 os.remove(file_)
             
-            da_ =  rio.open_rasterio(out_dir + f'{var_}_{self.config_file["target_resolution"]}deg.tif'.format(var_=var_))     
+            da_ =  rio.open_rasterio(out_dir + f'{var_}_{self.config_file["resample_resolution"]}deg.tif'.format(var_=var_))     
             da_ =  da_.isel(band=0).drop_vars('band').rename({'x': 'longitude', 'y': 'latitude'}).to_dataset(name = var_)
                 
             zarr_out_.append(da_.transpose('latitude', 'longitude'))
