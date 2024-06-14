@@ -258,10 +258,10 @@ class Report:
         
         #%% Extract predicted age for nfi data
         global_age = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_100m'))
-        #dist_data = xr.open_zarr(self.dist_cube)
+        dist_data = xr.open_zarr(self.dist_cube)
         nfi_data = pd.read_csv(self.nfi_data)
         nfi_data['year_of_measurement'] = np.round(nfi_data['year_of_measurement'].values).astype('int16')
-        #nfi_data = nfi_data[nfi_data['year_of_measurement'] >= 2001]
+        nfi_data = nfi_data[nfi_data['year_of_measurement'] >= 2001]
         nfi_data['age'] = np.round(nfi_data['age'].values).astype('int16')
         nfi_data['age'] = nfi_data['age'] + (2020 - nfi_data['year_of_measurement']) 
         nfi_data['age'][nfi_data['age']> 300] = 300
@@ -270,9 +270,9 @@ class Report:
 
         age_extract = []
         for index, row in nfi_data.iterrows():
-            #dist_extract = dist_data.LandsatDisturbanceTime.sel(latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values
-            #if dist_extract == 21:
-            age_extract.append(global_age.forest_age.sel(time = '2020-01-01', latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values)
+            dist_extract = dist_data.LandsatDisturbanceTime.sel(latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values
+            if dist_extract > 20:
+                age_extract.append(global_age.forest_age.sel(time = '2020-01-01', latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values)
         extracted_df = pd.DataFrame(age_extract, columns=['forest_age'])
         nfi_data = pd.concat([nfi_data, extracted_df], axis=1)
         nfi_data = nfi_data.dropna()
@@ -286,7 +286,7 @@ class Report:
         pred_ = pred_[valid_values]
         obs_ = obs_[valid_values]
         im = ax[0].hexbin(pred_,obs_, bins='log', gridsize=100, mincnt=3)
-        ax[0].set_xlabel('Predicted forest age [years]', size=12)   
+        ax[0].set_xlabel('GAMI v2.0 forest age [years]', size=12)   
         ax[0].set_ylabel('NFI forest age [years]', size=12)
         ax[0].spines['top'].set_visible(False)
         ax[0].spines['right'].set_visible(False)
@@ -294,7 +294,7 @@ class Report:
         ax[0].set_ylim(0,310)
         ax[0].set_xlim(0,310)
         slope_, intercept_ = np.polyfit(pred_, obs_, 1)
-        ax[0].plot(obs_, slope_*obs_ + intercept_, color='black', linewidth = 2, linestyle='dashed')
+        ax[0].plot(pred_, slope_*pred_ + intercept_, color='black', linewidth = 2, linestyle='dashed')
         rmse = rmse_gufunc(pred_, obs_)
         nrmse = nrmse_gufunc(pred_, obs_) *100
         text_box = dict(facecolor='white', edgecolor='none', pad=4, alpha=.9)
@@ -304,14 +304,14 @@ class Report:
         ax[0].text(0.55, 0.08, f'{title}  NRMSE={nrmse:.2f} %', horizontalalignment='left',
             verticalalignment='top', transform=ax[0].transAxes, bbox=text_box, size=12)
         ax[0].plot([0, 310], [0, 310], linestyle='--', color='red', linewidth=2)
-        ax[0].text(0.05, 0.95, "A", transform=ax[0].transAxes,
+        ax[0].text(0.05, 0.95, "a", transform=ax[0].transAxes,
                 fontsize=16, fontweight='bold', va='top')
 
         residual = obs_ - pred_
-        age_classes = [(0, 10), (10, 20), (20, 30), (30, 40), (40, 50), (50, 100), (100, 150), (150, 200), (200, 300)]
+        age_classes = [(0, 20), (20, 40), (40, 60), (60, 100), (100, 150), (150, 200), (200, 300)]
         for j in range(len(age_classes)):
             
-            Agemask = (obs_ >= age_classes[j][0]) & (obs_ < age_classes[j][1])
+            Agemask = (pred_ >= age_classes[j][0]) & (pred_ < age_classes[j][1])
             
             residual_masked = residual[Agemask]
             IQ_mask = (residual_masked > np.quantile(residual_masked, 0.25)) & (residual_masked < np.quantile(residual_masked, 0.75))
@@ -325,8 +325,8 @@ class Report:
         # Create the bar plot
         ax[1].spines['top'].set_visible(False)
         ax[1].spines['right'].set_visible(False)
-        ax[1].set_ylabel('Residuals [years]', size=12)
-        ax[1].text(0.05, 0.95, "B", transform=ax[1].transAxes,
+        ax[1].set_ylabel('Age difference [years]', size=12)
+        ax[1].text(0.05, 0.95, "b", transform=ax[1].transAxes,
                 fontsize=16, fontweight='bold', va='top')
         ax[1].set_xticks(range(len(age_classes)))
         ax[1].axhline(y=0, color='black', linestyle='--', linewidth =3)
