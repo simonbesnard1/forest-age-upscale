@@ -212,7 +212,7 @@ class Report:
         
     def GlobalAge_diagnostic(self):
         
-        ds = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_100m')).isel(time=1).forest_age_hybrid
+        ds = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_100m')).isel(time=1).forest_age
         
         fig,ax = plt.subplots(ncols=2,nrows=3,figsize=(6,7), constrained_layout = True)
 
@@ -272,8 +272,8 @@ class Report:
         for index, row in nfi_data.iterrows():
             #dist_extract = dist_data.LandsatDisturbanceTime.sel(latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values
             #if dist_extract == 21:
-            age_extract.append(global_age.forest_age_hybrid.sel(time = '2020-01-01', latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values)
-        extracted_df = pd.DataFrame(age_extract, columns=['forest_age_hybrid'])
+            age_extract.append(global_age.forest_age.sel(time = '2020-01-01', latitude = row['latitude_origin'], longitude = row['longitude_origin'], method = 'nearest').values)
+        extracted_df = pd.DataFrame(age_extract, columns=['forest_age'])
         nfi_data = pd.concat([nfi_data, extracted_df], axis=1)
         nfi_data = nfi_data.dropna()
         
@@ -281,7 +281,7 @@ class Report:
         fig, ax = plt.subplots(1, 2, figsize=(10, 5), constrained_layout= True)
         
         obs_ = nfi_data['age'].values.astype("float32")
-        pred_ = nfi_data['forest_age_hybrid'].values.astype("float32")
+        pred_ = nfi_data['forest_age'].values.astype("float32")
         valid_values = np.isfinite(pred_) & np.isfinite(obs_)
         pred_ = pred_[valid_values]
         obs_ = obs_[valid_values]
