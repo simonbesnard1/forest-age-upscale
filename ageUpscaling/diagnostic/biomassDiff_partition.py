@@ -320,7 +320,7 @@ class BiomassDiffPartition(ABC):
                     '-t_srs', 'EPSG:4326',
                     '-of', 'Gtiff',
                     '-te', '-180', '-90', '180', '90',
-                    '-r', 'med',
+                    '-r', 'average',
                     '-ot', 'Float32',
                     '-co', 'COMPRESS=LZW',
                     '-co', 'BIGTIFF=YES',

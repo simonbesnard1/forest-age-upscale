@@ -362,7 +362,7 @@ class BiomassPartition(ABC):
                     '-t_srs', 'EPSG:4326',
                     '-of', 'Gtiff',
                     '-te', '-180', '-90', '180', '90',
-                    '-r', 'med',
+                    '-r', 'average',
                     '-ot', 'Float32',
                     '-co', 'COMPRESS=LZW',
                     '-co', 'BIGTIFF=YES',
@@ -465,7 +465,7 @@ class BiomassPartition(ABC):
                 '-t_srs', 'EPSG:4326',
                 '-of', 'Gtiff',
                 '-te', '-180', '-90', '180', '90',
-                '-r', 'med',
+                '-r', 'average',
                 '-ot', 'Float32',
                 '-co', 'COMPRESS=LZW',
                 '-co', 'BIGTIFF=YES',
@@ -485,12 +485,12 @@ class BiomassPartition(ABC):
 
         return xr.merge(zarr_out_).expand_dims({"members": [member_]})
 
-    def calculate_growth_rate(self, biomass_2010, biomass_2020):
+    def calculate_growth_rate(self, biomass_2010, biomass_2020, n_years=10):
         # Calculate the ratio of biomass in 2020 to biomass in 2010
         ratio = biomass_2020 / biomass_2010
         
         # Calculate the 10th root of the ratio to find the average annual growth rate
-        average_annual_growth_rate = ratio ** (1 / 10) - 1
+        average_annual_growth_rate = ratio ** (1 / n_years) - 1
         
         return average_annual_growth_rate
 
