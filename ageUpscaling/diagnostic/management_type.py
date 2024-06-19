@@ -78,7 +78,8 @@ class ManagementType(ABC):
         self.config_file['output_writer_params']['dims']['longitude'] =  self.management_cube.longitude.values
                 
         self.management_cube = DataCube(cube_config = self.config_file)
-        
+        self.tmp_folder = os.path.join(self.config_file['tmp_dir'], 'managementType/')
+
     @dask.delayed
     def _calc_func(self, 
                    IN) -> None:
@@ -174,7 +175,7 @@ class ManagementType(ABC):
         zarr_out_ = []
         for var_ in set(management_cube.variables.keys()) - set(management_cube.dims):
                             
-            out_dir = '{study_dir}/tmp/{var_}/'.format(study_dir = self.study_dir, var_ = var_)
+            out_dir = '{tmp_folder}/{var_}/'.format(tmp_folder = self.tmp_folder, var_ = var_)
             if not os.path.exists(out_dir):
        		    os.makedirs(out_dir)
              
@@ -188,8 +189,8 @@ class ManagementType(ABC):
                                 'valid_max': 1,
                                 'valid_min': 0}
             
-            LatChunks = np.array_split(data_class.latitude.values, 10)
-            LonChunks = np.array_split(data_class.longitude.values, 10)
+            LatChunks = np.array_split(data_class.latitude.values, self.config_file['n_chunks'])
+            LonChunks = np.array_split(data_class.longitude.values, self.config_file['n_chunks'])
             chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
         		           "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
                           for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
@@ -249,12 +250,10 @@ class ManagementType(ABC):
             
             zarr_out_.append(da_.transpose('latitude', 'longitude'))
             
-        xr.merge(zarr_out_).to_zarr(self.study_dir + '/ManagementPartition_fraction_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
+        xr.merge(zarr_out_).to_zarr(self.config_file['ForestManagementResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['resample_resolution'])), mode= 'w')
         
-        for var_ in set(management_cube.variables.keys()) - set(management_cube.dims):
-            try:
-                var_path = os.path.join(self.study_dir, 'tmp/{var_}'.format(var_=var_))
-                shutil.rmtree(var_path)
-            except OSError as e:
-                print(f"Error: {e.filename} - {e.strerror}.")
+        try:
+            shutil.rmtree(self.tmp_folder)
+        except OSError as e:
+            print(f"Error: {e.filename} - {e.strerror}.")
         

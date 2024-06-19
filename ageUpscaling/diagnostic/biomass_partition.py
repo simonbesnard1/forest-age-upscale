@@ -306,7 +306,9 @@ class BiomassPartition(ABC):
             out = []
             for class_ in agbPartition_cube.age_class.values:
                 out_dir = '{tmp_folder}/{member}/{var_}/{class_}/'.format(tmp_folder = self.tmp_folder, member= str(member_), var_ = var_, class_ = class_)
-                
+                if not os.path.exists(out_dir):
+           		    os.makedirs(out_dir)
+                       
                 LatChunks = np.array_split(agbPartition_cube.latitude.values, self.config_file['n_chunks'])
                 LonChunks = np.array_split(agbPartition_cube.longitude.values, self.config_file['n_chunks'])
                 chunk_dict = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
@@ -327,8 +329,7 @@ class BiomassPartition(ABC):
                                         'valid_max': 300,
                                         'valid_min': -300}
                     data_chunk.attrs["_FillValue"] = -9999  
-                    if not os.path.exists(out_dir):
-               		    os.makedirs(out_dir)
+                    
                            
                     data_chunk.rio.to_raster(raster_path= out_dir + '{var_}_{iter_}.tif'.format(var_ = var_, iter_=str(iter_)), 
                                              driver="COG", BIGTIFF='YES', compress=None,  dtype= 'float32')      
