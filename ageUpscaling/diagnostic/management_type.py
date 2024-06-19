@@ -74,8 +74,8 @@ class ManagementType(ABC):
         self.management_type_cube = xr.open_zarr(self.config_file['ForestManagement_cube'], synchronizer=self.sync_feature).isel(time=0).drop('time')
         
         self.config_file['sync_file_path'] = os.path.abspath(f"{study_dir}/management_cube_out_sync_{self.task_id}.zarrsync") 
-        self.config_file['output_writer_params']['dims']['latitude'] = self.management_cube.latitude.values
-        self.config_file['output_writer_params']['dims']['longitude'] =  self.management_cube.longitude.values
+        self.config_file['output_writer_params']['dims']['latitude'] = self.management_type_cube.latitude.values
+        self.config_file['output_writer_params']['dims']['longitude'] =  self.management_type_cube.longitude.values
                 
         self.management_cube = DataCube(cube_config = self.config_file)
         self.tmp_folder = os.path.join(self.config_file['tmp_dir'], 'managementType/')
