@@ -115,29 +115,31 @@ class ManagementType(ABC):
         """Calculate the fraction of each age class.
         
         """
-        LatChunks = np.array_split(self.config_file['output_writer_params']['dims']['latitude'], self.config_file["num_chunks"])
-        LonChunks = np.array_split(self.config_file['output_writer_params']['dims']['longitude'], self.config_file["num_chunks"])
-        
-        AllExtents = [{"latitude":slice(LatChunks[lat][0], LatChunks[lat][-1]),
-                       "longitude":slice(LonChunks[lon][0], LonChunks[lon][-1])} 
-                    for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
-        
-        if  "SLURM_JOB_ID" in os.environ:
-            selected_extent = AllExtents[task_id]
+        lat_chunk_size, lon_chunk_size = self.management_cube.cube.chunks['latitude'][0], self.management_cube.cube.chunks['longitude'][0]
+
+        # Calculate the number of chunks for each dimension
+        num_lat_chunks = np.ceil(len(self.management_cube.cube.latitude) / lat_chunk_size).astype(int)
+        num_lon_chunks = np.ceil(len(self.management_cube.cube.longitude) / lon_chunk_size).astype(int)
+     
+        # Generate all combinations of latitude and longitude chunk indices
+        chunk_indices = list(product(range(num_lat_chunks), range(num_lon_chunks)))
+     
+        if task_id < len(chunk_indices):
+            lat_idx, lon_idx = chunk_indices[task_id]
+     
+            # Calculate slice indices for latitude and longitude
+            lat_slice = slice(lat_idx * lat_chunk_size, (lat_idx + 1) * lat_chunk_size)
+            lon_slice = slice(lon_idx * lon_chunk_size, (lon_idx + 1) * lon_chunk_size)
             
+            lat_values = self.management_cube.cube.latitude.values[lat_slice]
+            lon_values = self.management_cube.cube.longitude.values[lon_slice]
+
+            # Select the extent based on the slice indices
+            selected_extent = {"latitude": slice(lat_values[0], lat_values[-1]), 
+                               "longitude": slice(lon_values[0], lon_values[-1])}
+            
+            # Process the chunk
             self.process_chunk(selected_extent)
-            
-        else:
-            if (self.n_jobs > 1):
-                
-                batch_size = 2
-                for i in range(0, len(AllExtents), batch_size):
-                    batch_futures = [self.process_chunk(extent) for extent in AllExtents[i:i+batch_size]]
-                    dask.compute(*batch_futures, num_workers=self.n_jobs)
-                            
-            else:
-                for extent in tqdm(AllExtents, desc='Calculating age class fraction'):
-                    self.process_chunk(extent)
                     
         if os.path.exists(os.path.abspath(f"{self.study_dir}/management_features_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/management_features_sync_{self.task_id}.zarrsync"))
