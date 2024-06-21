@@ -252,7 +252,7 @@ class ManagementType(ABC):
             
             zarr_out_.append(da_.transpose('latitude', 'longitude'))
             
-        xr.merge(zarr_out_).to_zarr(self.config_file['ForestManagementResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['resample_resolution'])), mode= 'w')
+        xr.merge(zarr_out_).to_zarr(self.config_file['ForestManagementResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
         try:
             shutil.rmtree(self.tmp_folder)
