@@ -297,14 +297,14 @@ class AgeFraction(ABC):
                         ]
                         subprocess.run(gdalwarp_command, check=True)
     
-                        for file_ in input_files:
-                            os.remove(file_)
-    
                         da_ = rio.open_rasterio(out_dir + f'{var_}_{class_}_{resolution_}deg_{year_}.tif')
                         da_ = da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).to_dataset(name=var_)
                         da_['time'] = [year_]
                         ds_.append({str(resolution_): {year_: da_}})
-    
+
+                    for file_ in input_files:
+                        os.remove(file_)
+
                 combined_datasets = {}
                 for dataset in ds_:
                     for resolution, data_dict in dataset.items():
