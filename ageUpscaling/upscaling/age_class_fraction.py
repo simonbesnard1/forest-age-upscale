@@ -196,11 +196,11 @@ class AgeFraction(ABC):
                 except Exception as e:
                     print(f"An error occurred: {e}")
     
+        
+        combined_data = self.merge_datasets_by_resolution(member_out)
         for resolution_ in self.config_file['target_resolution']:
-            print(member_out)
             
-            combined_data = xr.concat([member[str(resolution_)] for member in member_out], dim='members')
-            combined_data.to_zarr(self.config_file['AgeClassResample_cube'] + f'_{resolution_}deg', mode='w')
+            combined_data[str(resolution_)].to_zarr(self.config_file['AgeClassResample_cube'] + f'_{resolution_}deg', mode='w')
 
         # # Clean up sync files
         # for sync_file in [f"ageClassFrac_features_sync_{self.task_id}.zarrsync",
@@ -229,7 +229,7 @@ class AgeFraction(ABC):
         zarr_out_ = []
     
         for var_ in self.config_file['cube_variables'].keys():
-            out = []
+            out = {}
             for class_ in age_class_ds.age_class.values:
                 data_class = age_class_ds[var_].sel(age_class=class_).transpose('time', 'latitude', 'longitude')
                 data_class.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
@@ -323,10 +323,33 @@ class AgeFraction(ABC):
     
                 for resolution, data_list in combined_datasets.items():
                     combined_data = xr.concat(data_list, dim='time').assign_coords(age_class=class_)
-                    out.append({resolution: combined_data})
+                    if resolution not in out:
+                        out[resolution] = {}
+                    out[resolution][class_] = combined_data
+                    
     
         for resolution_ in self.config_file['target_resolution']:
-            zarr_out_.append({str(resolution_): xr.concat(out, dim='age_class').transpose('age_class', 'latitude', 'longitude', 'time')})
+            datasets = []
+
+            for age_class, dataset in out[str(resolution_)].items():
+                datasets.append(dataset)
+            
+            zarr_out_.append({str(resolution_): xr.concat(datasets, dim='age_class').transpose('age_class', 'latitude', 'longitude', 'time').expand_dims({"members": [member_]})})
     
-        return {str(resolution_): xr.merge(zarr_out_).expand_dims({"members": [member_]}) for resolution_ in self.config_file['target_resolution']}
+        return zarr_out_
+    
+    def merge_datasets_by_resolution(self, datasets_by_resolution):
+        merged_datasets = {}
+        
+        for group in datasets_by_resolution:
+            for res_dict in group:
+                for resolution, dataset in res_dict.items():
+                    if resolution not in merged_datasets:
+                        merged_datasets[resolution] = []
+                    merged_datasets[resolution].append(dataset)
+        
+        for resolution, dataset_list in merged_datasets.items():
+            merged_datasets[resolution] = xr.concat(dataset_list, dim='members')
+        
+        return merged_datasets
         
