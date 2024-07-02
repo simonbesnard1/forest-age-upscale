@@ -2,13 +2,27 @@
 # -*- coding: utf-8 -*-
 """
 @author: sbesnard
-@File    :   upscaling.py
+@File    :   age_class_fraction.py
 @Time    :   Mon Sep 26 10:47:17 2022
 @Author  :   Simon Besnard
 @Version :   1.0
 @Contact :   besnard.sim@gmail.com
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for upscaling MLP model
+
+This module defines a method class for handling the creation and updating of age class fraction data cubes.
+
+Example usage:
+--------------
+from age_class_fraction import AgeFraction
+
+# Create an AgeFraction instance
+config_path = 'path/to/config.yml'
+study_dir = 'path/to/study_dir'
+
+age_fraction = AgeFraction(Config_path=config_path, study_dir=study_dir)
+age_fraction.AgeClassCubeInit()
+age_fraction.AgeClassCalc(task_id=0)
+age_fraction.ParallelResampling(n_jobs=20)
 """
 import os
 import shutil
@@ -31,24 +45,16 @@ import rioxarray as rio
 from ageUpscaling.core.cube import DataCube
 
 class AgeFraction(ABC):
-    """Study abstract class used for cross validation, model training, prediction.
+    """A class for managing the age class fraction data cubes.
 
     Parameters
     ----------
-    DataConfig_path : DataConfig_path
-        A data configuration path.     
-    out_dir : str
-        The study base directory.
-        See `directory structure` for further details.
-    exp_name : str = 'exp_name'
-        The experiment name.
-        See `directory structure` for further details.
-    study_dir : Optional[str] = None
-        The restore directory. If passed, an existing study is loaded.
-        See `directory structure` for further details.
-    n_jobs : int = 1
-        Number of workers.
-
+    Config_path : str
+        Path to the configuration file.
+    study_dir : str, optional
+        Directory for the study.
+    n_jobs : int, optional
+        Number of workers. Default is 1.
     """
     def __init__(self,
                  Config_path: str,
@@ -89,17 +95,15 @@ class AgeFraction(ABC):
         
     @dask.delayed
     def _calc_func(self, 
-                   IN) -> None:
-        
+                   IN) -> None:        
         """
-          Calculate the fraction of data for each age category based on the age_cube and the age_classes from config_file.
+        Calculate the fraction of data for each age category based on the age_cube and the age_classes from config_file.
         
-          Args:
-          - IN: Dictionary for subsetting the age_cube.
-        
-          Returns:
-          - age_class_fraction: xarray DataArray with fractions for each age class.
-       """
+        Parameters
+        ----------
+        IN : dict
+            Dictionary for subsetting the age_cube.
+        """
        
         for member_ in np.arange(self.config_file['num_members']):
         
@@ -127,7 +131,10 @@ class AgeFraction(ABC):
 
                 self.age_class_frac_cube.CubeWriter(age_class_mask, n_workers=2)
              
-    def AgeClassCubeInit(self):
+    def AgeClassCubeInit(self) -> None:
+        """
+        Initialize the age class fraction cube.
+        """
         
         self.age_class_frac_cube.init_variable(self.config_file['cube_variables'])
         
@@ -139,8 +146,8 @@ class AgeFraction(ABC):
      
     def AgeClassCalc(self,
                      task_id=None) -> None:
-        """Calculate the fraction of each age class.
-        
+        """
+        Calculate the fraction of each age class.
         """
         
         lat_chunk_size, lon_chunk_size = self.age_class_frac_cube.cube.chunks['latitude'][0], self.age_class_frac_cube.cube.chunks['longitude'][0]
@@ -179,11 +186,16 @@ class AgeFraction(ABC):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/ageClassFrac_cube_out_sync_{self.task_id}.zarrsync"))
         
                 
-    def process_chunk(self, extent):
-        
+    def process_chunk(self, extent) -> None:
+        """
+        Process a chunk of the age class fraction cube.
+        """
         self._calc_func(extent).compute()
         
-    def ParallelResampling(self, n_jobs: int = 20):
+    def ParallelResampling(self, n_jobs: int = 20) -> None:
+        """Perform parallel resampling of the age class fraction data.
+        """
+
         member_out = []
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
             # Submit a future for each member
@@ -221,9 +233,10 @@ class AgeFraction(ABC):
         This function processes forest age class data using the Global Age Mapping Integration dataset,
         calculating the age fraction distribution changes over time. The results are saved as raster files.
         
-        Attributes:
-        - age_class_ds: The dataset containing age class information.
-        - zarr_out_: An array to store the output data.
+        Returns
+        -------
+        dict
+            A dictionary containing the resulting datasets for each resolution.
         """
         age_class_ds = xr.open_zarr(self.config_file['cube_location']).sel(members=member_).drop_vars('members')
         zarr_out_ = []
