@@ -8,7 +8,35 @@
 @Version :   1.0
 @Contact :   besnard@gfz-potsdam.de
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for creating diagnostic plots.
+
+This module defines a method class for creating diagnostic plots for model experiments.
+
+Example usage:
+--------------
+from report import Report
+
+# Create a Report instance
+study_dir = 'path/to/study_dir'
+nfi_data = 'path/to/nfi_data.csv'
+dist_cube = 'path/to/dist_cube.zarr'
+
+report = Report(study_dir=study_dir, nfi_data=nfi_data, dist_cube=dist_cube)
+report.generate_diagnostic(diagnostic_type={'cross-validation', 'global-age', 'nfi-valid'})
+
+Attributes:
+-----------
+- `study_dir`: str
+    Path to the directory containing the model experiment.
+- `nfi_data`: str
+    Path to the National Forest Inventory (NFI) data file.
+- `dist_cube`: str
+    Path to the disturbance data cube.
+- `report_dir`: str
+    Path to the directory where the report will be saved.
+
+Classes:
+--------
+- Report: A class for generating diagnostic plots for model experiments.
 """
 
 import os
@@ -26,27 +54,30 @@ from sklearn.metrics import classification_report
 from ageUpscaling.utils.metrics import mef_gufunc, nrmse_gufunc, rmse_gufunc
 
 def violins(data,pos=0,bw_method=None,resolution=50,spread=1,max_num_points=100):
-    """violins(data,pos=0,bw_method=None,resolution=50,spread=1)
-    Jitter violin plot creater
-    Takes points from a distribution and creates data for both a jitter violin and a standard violin plot.
+    """
+    Create jitter and standard violin plots.
+
     Parameters
     ----------
     data : numpy array
-        The data to build the violin plots from
+        The data to build the violin plots from.
     pos : float or int
-        The position the resulting violin will be centered on
+        The position the resulting violin will be centered on.
     bw_method : str, scalar or callable, optional
-        The method used to calculate the estimator bandwidth. This can be ‘scott’, ‘silverman’, a scalar constant or a callable. If a scalar, this will be used directly as kde.factor. If a callable, it should take a gaussian_kde instance as only parameter and return a scalar. If None (default), ‘scott’ is used. See Notes for more details.
+        The method used to calculate the estimator bandwidth.
     resolution : int
-        The resolution of the resulting violin plot
+        The resolution of the resulting violin plot.
     spread : int or float
-        The spread of the violin plots
-     Returns
+        The spread of the violin plots.
+    max_num_points : int
+        The maximum number of data points to include in the plot.
+
+    Returns
     -------
-    pointx,pointy : numpy arrays
-        The resulting data for the jitter violin plot (use with pl.scatter)
-    fillx,filly : numpy array
-        The resulting data for a standard violin plot (use with pl.fill_between)
+    pointx, pointy : numpy arrays
+        The data for the jitter violin plot (use with plt.scatter).
+    fillx, filly : numpy arrays
+        The data for a standard violin plot (use with plt.fill_between).
     """
     if data.size>max_num_points:
         data = np.random.choice(data,size=max_num_points,replace=False)
@@ -64,13 +95,18 @@ def violins(data,pos=0,bw_method=None,resolution=50,spread=1,max_num_points=100)
 class Report: 
 
     """
-    A class for generating a report on a model experiment.
-    
-    Attributes:
-        study_dir (str): The path to the directory containing the model experiment.
-        ds (xarray.Dataset): A dataset containing the model output.
-        report_dir (str): The path to the directory where the report will be saved.
-        
+    A class for generating diagnostic plots for model experiments.
+
+    Attributes
+    ----------
+    study_dir : str
+        The path to the directory containing the model experiment.
+    nfi_data : str
+        The path to the National Forest Inventory (NFI) data file.
+    dist_cube : str
+        The path to the disturbance data cube.
+    report_dir : str
+        The path to the directory where the report will be saved.
     """
     
     def __init__(self, 
@@ -80,12 +116,16 @@ class Report:
         
         """
         Initializes a new instance of the `Report` class.
-        
-        Args:
-            study_dir (str): The path to the directory containing the model experiment.
-            
-        """
-        
+
+        Parameters
+        ----------
+        study_dir : str
+            The path to the directory containing the model experiment.
+        nfi_data : str
+            The path to the National Forest Inventory (NFI) data file.
+        dist_cube : str
+            The path to the disturbance data cube.
+        """        
         self.study_dir = study_dir
         self.nfi_data = nfi_data
         self.dist_cube = dist_cube
@@ -94,7 +134,10 @@ class Report:
         if not os.path.exists(self.report_dir):
             os.makedirs(self.report_dir)
         
-    def xval_diagnostic(self):
+    def xval_diagnostic(self) -> None:
+        """
+        Generate cross-validation diagnostic plots.
+        """
         
         ds = xr.open_zarr(os.path.join(self.study_dir, 'model_prediction'))
         
@@ -210,7 +253,10 @@ class Report:
         plt.savefig(os.path.join(self.report_dir, 'xval_diagnostic.png'), dpi=300)        
         plt.close("all")
         
-    def GlobalAge_diagnostic(self):
+    def GlobalAge_diagnostic(self) -> None:
+        """
+        Generate global forest age diagnostic plots.
+        """
         
         ds = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_100m')).isel(time=1).forest_age
         
@@ -254,7 +300,10 @@ class Report:
         plt.savefig(os.path.join(self.report_dir, 'GlobalAge_diagnostic.png'), dpi=300)        
         plt.close("all")
 
-    def NFI_diagnostic(self):
+    def NFI_diagnostic(self) -> None:
+        """
+        Generate diagnostic plots using National Forest Inventory (NFI) data.
+        """
         
         #%% Extract predicted age for nfi data
         global_age = xr.open_zarr(os.path.join(self.study_dir, 'AgeUpscale_100m'))
@@ -336,7 +385,10 @@ class Report:
         plt.close("all")   
 
     def generate_diagnostic(self,
-                            diagnostic_type: dict = {'cross-validation'}):
+                            diagnostic_type: dict = {'cross-validation'}) -> None:
+        """Generate the specified diagnostic plots.
+        """
+            
         if 'cross-validation' in diagnostic_type:
             print('Computing cross-validation diagnostic')
             self.xval_diagnostic()
