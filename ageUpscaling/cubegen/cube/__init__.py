@@ -1,9 +1,9 @@
 from ageUpscaling.cubegen.cube import soilgrids, canopyHeight, ESABiomass, LandsatDisturbanceTime, BacciniBiomass
 
 __all__ = [
-    'soilgrids'
+    'soilgrids',
     'canopyHeight',
-    'ESABiomass'
+    'ESABiomass',
     'LandsatDisturbanceTime',
     'BacciniBiomass'
 ]
