@@ -2,13 +2,28 @@
 # -*- coding: utf-8 -*-
 """
 @author: sbesnard
-@File    :   upscaling.py
+@File    :   biomass_partition.py
 @Time    :   Mon Sep 26 10:47:17 2022
 @Author  :   Simon Besnard
 @Version :   1.0
 @Contact :   besnard.sim@gmail.com
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for upscaling MLP model
+
+This module defines a method class for handling the creation and updating of biomass partition data cubes.
+
+Example usage:
+--------------
+from biomass_partition import BiomassPartition
+
+# Create a BiomassPartition instance
+config_path = 'path/to/config.yml'
+study_dir = 'path/to/study_dir'
+
+biomass_partition = BiomassPartition(Config_path=config_path, study_dir=study_dir)
+biomass_partition.BiomassPartitionCubeInit()
+biomass_partition.BiomassPartitionCalc(task_id=0)
+biomass_partition.ParallelBiomassPartitionResampling(n_jobs=20)
+biomass_partition.ParallelBiomassTotalResampling(n_jobs=20)
 """
 import os
 import shutil
@@ -31,24 +46,19 @@ import rioxarray as rio
 from ageUpscaling.core.cube import DataCube
 
 class BiomassPartition(ABC):
-    """Study abstract class used for cross validation, model training, prediction.
+    """
+    BiomassPartition class used for creating and updating biomass partition data cubes.
 
     Parameters
     ----------
-    DataConfig_path : DataConfig_path
-        A data configuration path.     
-    out_dir : str
-        The study base directory.
-        See `directory structure` for further details.
-    exp_name : str = 'exp_name'
-        The experiment name.
-        See `directory structure` for further details.
-    study_dir : Optional[str] = None
-        The restore directory. If passed, an existing study is loaded.
-        See `directory structure` for further details.
-    n_jobs : int = 1
-        Number of workers.
-
+    Config_path : str
+        Path to the configuration file.
+    study_dir : str, optional
+        Path to the study directory. Default is None.
+    n_jobs : int, optional
+        Number of workers. Default is 1.
+    **kwargs : additional keyword arguments
+        Additional arguments.
     """
     def __init__(self,
                  Config_path: str,
@@ -96,13 +106,16 @@ class BiomassPartition(ABC):
                    IN) -> None:
         
         """
-          Calculate the fraction of data for each age category based on the age_cube and the age_classes from config_file.
-        
-          Args:
-          - IN: Dictionary for subsetting the age_cube.
-        
-          Returns:
-          - age_class_fraction: xarray DataArray with fractions for each age class.
+        Calculate the fraction of data for each age category based on the age_cube and the age_classes from config_file.
+
+        Parameters
+        ----------
+        IN : dict
+            Dictionary for subsetting the age_cube.
+
+        Returns
+        -------
+        None
         """
         
         for member_ in np.arange(self.config_file['num_members']):
@@ -165,7 +178,10 @@ class BiomassPartition(ABC):
                       
                     self.agbPartition_cube.CubeWriter(out_cube, n_workers=2)
                 
-    def BiomassPartitionCubeInit(self):
+    def BiomassPartitionCubeInit(self) -> None:
+        """
+        Initialize the biomass partition data cube.
+        """
         
         self.agbPartition_cube.init_variable(self.config_file['cube_variables'])
         
@@ -177,8 +193,13 @@ class BiomassPartition(ABC):
     
     def BiomassPartitionCalc(self,
                              task_id=None) -> None:
-        """Calculate the fraction of each age class.
-        
+        """
+        Calculate the fraction of each age class.
+
+        Parameters
+        ----------
+        task_id : int, optional
+            Task ID for parallel processing. Default is None.
         """
         lat_chunk_size, lon_chunk_size = self.agbPartition_cube.cube.chunks['latitude'][0], self.agbPartition_cube.cube.chunks['longitude'][0]
 
@@ -215,12 +236,36 @@ class BiomassPartition(ABC):
         if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartition_cube_out_sync_{self.task_id}.zarrsync"))
                 
-    def process_chunk(self, extent):
+    def process_chunk(self, extent) -> None:
+        """
+        Process a chunk of data.
+
+        Parameters
+        ----------
+        extent : dict
+            Dictionary defining the extent of the chunk to process.
+
+        Returns
+        -------
+        None
+        """
         
         self._calc_func(extent).compute()
         
     def ParallelBiomassPartitionResampling(self, 
-                           n_jobs:int=20):
+                                           n_jobs:int=20) -> None:
+        """
+        Perform parallel biomass partition resampling.
+
+        Parameters
+        ----------
+        n_jobs : int, optional
+            Number of jobs to run in parallel. Default is 20.
+
+        Returns
+        -------
+        None
+        """
         
         member_out = []
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
@@ -249,7 +294,19 @@ class BiomassPartition(ABC):
             print(f"Error: {e.filename} - {e.strerror}.")
             
     def ParallelBiomassTotalResampling(self, 
-                                       n_jobs:int=20):
+                                       n_jobs:int=20) -> None:
+        """
+        Perform parallel biomass total resampling.
+
+        Parameters
+        ----------
+        n_jobs : int, optional
+            Number of jobs to run in parallel. Default is 20.
+
+        Returns
+        -------
+        None
+        """
         
         member_out = []
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
@@ -277,25 +334,19 @@ class BiomassPartition(ABC):
         except OSError as e:
             print(f"Error: {e.filename} - {e.strerror}.")
         
-    def BiomassPartitionResample(self, member_:int=0) -> None:
+    def BiomassPartitionResample(self, member_:int=0) -> xr.Dataset:
         """
-            Calculate the age fraction.
-            
-            This function processes forest age class data using the Global Age Mapping Integration dataset,
-            calculating the age fraction distribution changes over time. The results are saved as raster files.
-            
-            Attributes:
-            - age_class_ds: The dataset containing age class information.
-            - zarr_out_: An array to store the output data.
-            
-            The function performs the following operations:
-            - Reads age class data.
-            - Loops through each variable and age class in the dataset.
-            - Transforms and attributes data.
-            - Splits the geographical area into chunks.
-            - Processes each chunk for each year.
-            - Saves processed data as raster files.
-            - Merges and converts the output into Zarr format.
+        Resample biomass partition data.
+
+        Parameters
+        ----------
+        member_ : int, optional
+            Member index to process. Default is 0.
+
+        Returns
+        -------
+        xr.Dataset
+            Resampled biomass partition data.
         """
                         
         agbPartition_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
@@ -384,25 +435,19 @@ class BiomassPartition(ABC):
     
         return xr.merge(zarr_out_).expand_dims({"members": [member_]})
     
-    def BiomassTotalResample(self, member_:int=0) -> None:
+    def BiomassTotalResample(self, member_:int=0) -> xr.Dataset:
         """
-            Calculate the age fraction.
-            
-            This function processes forest age class data using the Global Age Mapping Integration dataset,
-            calculating the age fraction distribution changes over time. The results are saved as raster files.
-            
-            Attributes:
-            - age_class_ds: The dataset containing age class information.
-            - zarr_out_: An array to store the output data.
-            
-            The function performs the following operations:
-            - Reads age class data.
-            - Loops through each variable and age class in the dataset.
-            - Transforms and attributes data.
-            - Splits the geographical area into chunks.
-            - Processes each chunk for each year.
-            - Saves processed data as raster files.
-            - Merges and converts the output into Zarr format.
+        Resample biomass total data.
+    
+        Parameters
+        ----------
+        member_ : int, optional
+            Member index to process. Default is 0.
+    
+        Returns
+        -------
+        xr.Dataset
+            Resampled biomass total data.
         """
                         
         agbPartition_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
@@ -486,13 +531,30 @@ class BiomassPartition(ABC):
 
         return xr.merge(zarr_out_).expand_dims({"members": [member_]})
 
-    def calculate_growth_rate(self, biomass_2010, biomass_2020, n_years=10):
+    def calculate_growth_rate(self, biomass_2010: xr.DataArray, biomass_2020: xr.DataArray, n_years: int = 10) -> xr.DataArray:
+        """
+        Calculate the average annual growth rate.
+
+        Parameters
+        ----------
+        biomass_2010 : xr.DataArray
+            Biomass data for the year 2010.
+        biomass_2020 : xr.DataArray
+            Biomass data for the year 2020.
+        n_years : int, optional
+            Number of years between the two datasets. Default is 10.
+
+        Returns
+        -------
+        xr.DataArray
+            Average annual growth rate.
+        """
         # Calculate the ratio of biomass in 2020 to biomass in 2010
         ratio = biomass_2020 / biomass_2010
-        
+
         # Calculate the 10th root of the ratio to find the average annual growth rate
         average_annual_growth_rate = ratio ** (1 / n_years) - 1
-        
+
         return average_annual_growth_rate
 
         
