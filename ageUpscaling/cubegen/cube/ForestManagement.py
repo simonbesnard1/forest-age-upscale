@@ -2,13 +2,24 @@
 # -*- coding: utf-8 -*-
 """
 @author  : besnard and runge
-@File    :   LandsatDisturbanceTime.py
+@File    :   ForestManagement.py
 @Time    :   Wed Aug 9 10:47:17 2023
 @Author  :   Simon Besnard
 @Version :   1.0
 @Contact :   besnard@gfz-potsdam.de 
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for handling the creation and updating of regularized cube zarr files.
+
+This module provides functionalities for handling the creation and updating of regularized cube zarr files.
+
+Example usage:
+--------------
+from ForestManagement import ForestManagement
+
+# Create a Forest Management data cube
+base_file = 'path/to/base_file'
+cube_config_path = 'path/to/cube_config.yml'
+forest_management_cube = ForestManagement(base_file, cube_config_path)
+forest_management_cube.CreateCube(var_name='ForestManagementClass', chunk_data=True, n_workers=10)
 """
 
 from ageUpscaling.core.cube import DataCube
@@ -19,13 +30,16 @@ import pandas as pd
 from itertools import product
 
 class ForestManagement(DataCube):
-    """ForestManagement is a subclass of DataCube that is used to create a ForestManagement datacube from a base file and a cube configuration file.
-    
-    Parameters:
-        base_file: str
-            Path to the base file.
-        cube_config_path: str
-            Path to the cube configuration file.
+    """
+    ForestManagement is a subclass of DataCube that is used to create a Forest Management data cube 
+    from a base file and a cube configuration file.
+
+    Parameters
+    ----------
+    base_file : str
+        Path to the base file.
+    cube_config_path : str
+        Path to the cube configuration file.
     """
     def __init__(self,
                  base_file:str, 
@@ -53,17 +67,31 @@ class ForestManagement(DataCube):
                   var_name:str= 'ForestManagementClass',
                   chunk_data:bool = False,
                   n_workers:int=10) -> None:
-        """Fill a data cube from input datasets.
+        """
+        Fill a data cube from input datasets.
 
-        This function processes input datasets stored at the path specified in the `base_file` attribute, 
+        This function processes input datasets stored at the path specified in the `base_file` attribute,
         and generates a data cube based on the configuration specified in the `cube_config` attribute.
-    
-        The function will rename longitude and latitude coordinates to 'longitude' and 'latitude', respectively, 
-        and only include variables specified in the 'output_variables' field of the `cube_config` dictionary. 
-        The resulting data array will be transposed to the dimensions specified in the `dims` attribute of the 
-        `cube` attribute. The data array is then split into chunks and processed by separate workers using the 
+
+        The function will rename longitude and latitude coordinates to 'longitude' and 'latitude', respectively,
+        and only include variables specified in the 'output_variables' field of the `cube_config` dictionary.
+        The resulting data array will be transposed to the dimensions specified in the `dims` attribute of the
+        `cube` attribute. The data array is then split into chunks and processed by separate workers using the
         Dask library, with the number of workers specified.
-    
+
+        Parameters
+        ----------
+        var_name : str, optional
+            The name of the variable to be included in the data cube. Default is 'ForestManagementClass'.
+        chunk_data : bool, optional
+            Whether to split the data into chunks for parallel processing. Default is False.
+        n_workers : int, optional
+            The number of workers to use for parallel processing. Default is 10.
+
+        Raises
+        ------
+        ValueError
+            If the variable specified in `var_name` is not in the data cube configuration.
         """
         
         ds_ = self.da.to_dataset(name = var_name)
