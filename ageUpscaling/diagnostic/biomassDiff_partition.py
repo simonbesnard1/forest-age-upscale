@@ -9,8 +9,20 @@
 @Contact :   besnard.sim@gmail.com
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
 
-A method class for biomass difference partitioning and resampling.
+This module defines a method class for calculating and resampling biomass difference partitioning data cubes.
 
+Example usage:
+--------------
+from biomassDiff_partition import BiomassDiffPartition
+
+# Create a BiomassDiffPartition instance
+config_path = 'path/to/config.yml'
+study_dir = 'path/to/study_dir'
+
+biomass_diff_partition = BiomassDiffPartition(Config_path=config_path, study_dir=study_dir)
+biomass_diff_partition.BiomassDiffPartitionCubeInit()
+biomass_diff_partition.BiomassDiffPartitionCalc(task_id=0)
+biomass_diff_partition.ParallelResampling(n_jobs=20)
 """
 import os
 import shutil
