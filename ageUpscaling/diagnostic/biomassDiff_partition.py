@@ -2,13 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 @author: sbesnard
-@File    :   upscaling.py
+@File    :   biomassDiff_partition.py
 @Time    :   Mon Sep 26 10:47:17 2022
 @Author  :   Simon Besnard
 @Version :   1.0
 @Contact :   besnard.sim@gmail.com
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for upscaling MLP model
+
+A method class for biomass difference partitioning and resampling.
+
 """
 import os
 import shutil
@@ -31,24 +33,16 @@ import rioxarray as rio
 from ageUpscaling.core.cube import DataCube
 
 class BiomassDiffPartition(ABC):
-    """Study abstract class used for cross validation, model training, prediction.
+    """A class used for calculating and resampling biomass difference partitioning.
 
     Parameters
     ----------
-    DataConfig_path : DataConfig_path
-        A data configuration path.     
-    out_dir : str
-        The study base directory.
-        See `directory structure` for further details.
-    exp_name : str = 'exp_name'
-        The experiment name.
-        See `directory structure` for further details.
-    study_dir : Optional[str] = None
-        The restore directory. If passed, an existing study is loaded.
-        See `directory structure` for further details.
-    n_jobs : int = 1
-        Number of workers.
-
+    Config_path : str
+        Path to the configuration file.
+    study_dir : str, optional
+        Directory for storing study data. If not provided, a new study will be created.
+    n_jobs : int, optional
+        Number of parallel jobs to run. Default is 1.
     """
     def __init__(self,
                  Config_path: str,
@@ -95,13 +89,16 @@ class BiomassDiffPartition(ABC):
                    IN) -> None:
         
         """
-          Calculate the fraction of data for each age category based on the age_cube and the age_classes from config_file.
+        Calculate the fraction of data for each age category based on the age_cube and the age_classes from the config file.
         
-          Args:
-          - IN: Dictionary for subsetting the age_cube.
+        Parameters
+        ----------
+        IN : dict
+            Dictionary for subsetting the age_cube.
         
-          Returns:
-          - age_class_fraction: xarray DataArray with fractions for each age class.
+        Returns
+        -------
+        None
         """
         
         for member_ in np.arange(self.config_file['num_members']):
@@ -156,7 +153,14 @@ class BiomassDiffPartition(ABC):
                       
                     self.agbDiffPartition_cube.CubeWriter(out_cube, n_workers=2)
         
-    def BiomassDiffPartitionCubeInit(self):
+    def BiomassDiffPartitionCubeInit(self) -> None:
+        """
+        Initialize the biomass difference partition cube.
+
+        Returns
+        -------
+        None
+        """
         
         self.agbDiffPartition_cube.init_variable(self.config_file['cube_variables'])
         
@@ -168,8 +172,17 @@ class BiomassDiffPartition(ABC):
     
     def BiomassDiffPartitionCalc(self,
                      task_id=None) -> None:
-        """Calculate the fraction of each age class.
+        """
+        Calculate the fraction of each age class.
+
+        Parameters
+        ----------
+        task_id : int, optional
+            Task ID for parallel processing. Default is None.
         
+        Returns
+        -------
+        None
         """
         lat_chunk_size, lon_chunk_size = self.agbDiffPartition_cube.cube.chunks['latitude'][0], self.agbDiffPartition_cube.cube.chunks['longitude'][0]
 
@@ -207,12 +220,36 @@ class BiomassDiffPartition(ABC):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartitionDiff_cube_out_sync_{self.task_id}.zarrsync"))
         
                 
-    def process_chunk(self, extent):
+    def process_chunk(self, extent) -> None:
+        """
+        Process a chunk of data.
+
+        Parameters
+        ----------
+        extent : dict
+            Dictionary defining the extent of the chunk to process.
+        
+        Returns
+        -------
+        None
+        """
         
         self._calc_func(extent).compute()
         
     def ParallelResampling(self, 
-                           n_jobs:int=20):
+                           n_jobs:int=20) -> None:
+        """
+        Resample the data in parallel.
+
+        Parameters
+        ----------
+        n_jobs : int, optional
+            Number of parallel jobs to run. Default is 20.
+        
+        Returns
+        -------
+        None
+        """
         
         member_out = []
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
@@ -235,25 +272,19 @@ class BiomassDiffPartition(ABC):
         if os.path.exists(os.path.abspath(f"{self.study_dir}/agbPartitionDiff_cube_out_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/agbPartitionDiff_cube_out_sync_{self.task_id}.zarrsync"))
         
-    def BiomassDiffPartitionResample(self, member_:int=0) -> None:
+    def BiomassDiffPartitionResample(self, member_:int=0) -> xr.Dataset:
         """
-            Calculate the age fraction.
-            
-            This function processes forest age class data using the Global Age Mapping Integration dataset,
-            calculating the age fraction distribution changes over time. The results are saved as raster files.
-            
-            Attributes:
-            - age_class_ds: The dataset containing age class information.
-            - zarr_out_: An array to store the output data.
-            
-            The function performs the following operations:
-            - Reads age class data.
-            - Loops through each variable and age class in the dataset.
-            - Transforms and attributes data.
-            - Splits the geographical area into chunks.
-            - Processes each chunk for each year.
-            - Saves processed data as raster files.
-            - Merges and converts the output into Zarr format.
+        Resample biomass difference partition data.
+
+        Parameters
+        ----------
+        member_ : int, optional
+            Member index to process. Default is 0.
+
+        Returns
+        -------
+        xr.Dataset
+            Resampled biomass difference partition data.
         """
                         
         agbDiffPartition_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
