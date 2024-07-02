@@ -8,8 +8,22 @@
 @Version :   1.0
 @Contact :   besnard@gfz-potsdam.de
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for cross validation, model training, prediction
+
+This module provides functionalities for cross-validation, model training, and prediction.
+
+Example usage:
+--------------
+from study import Study
+
+study = Study(
+    DataConfig_path='path/to/dataconfig.yml',
+    cube_config_path='path/to/cubeconfig.yml',
+    base_dir='path/to/base_dir',
+    algorithm='MLP',
+    exp_name='experiment_name'
+)
 """
+
 import os
 
 import xarray as xr
@@ -24,31 +38,31 @@ from ageUpscaling.core.cube import DataCube
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 from ageUpscaling.methods.RandomForest import RandomForest
-#from ageUpscaling.methods.autoML import AutoML
 from ageUpscaling.methods.feature_selection import FeatureSelection
 
 class Study(ABC):
-    """Study abstract class for cross validation, model training, prediction.
+    """
+    Study abstract class for cross-validation, model training, and prediction.
 
     Parameters
     ----------
     DataConfig_path : str
-        Path to the data configuration file.     
+        Path to the data configuration file.
     cube_config_path : str
         Path to the cube configuration file.
     base_dir : str
-        The base directory for the study. See `directory structure` for further details.
+        The base directory for the study.
     algorithm : str, optional
         The algorithm name. Default is 'MLP'.
-        See `directory structure` for further details.
+    exp_name : str, optional
+        The experiment name. Default is None.
     study_dir : str, optional
         The directory to restore an existing study. If passed, an existing study is loaded.
-        See `directory structure` for further details.
+        Default is None.
     n_jobs : int, optional
         Number of workers. Default is 1.
     **kwargs : additional keyword arguments
         Additional keyword arguments.
-
     """
     def __init__(self,
                  DataConfig_path: str,
@@ -85,17 +99,20 @@ class Study(ABC):
                     base_dir: str,
                     exp_name:str,
                     algorithm: str) -> str:
-        """Creates a new version of a directory by appending the version number to the end of the directory name.
-    
+        """
+        Creates a new version of a directory by appending the version number to the end of the directory name.
+
         If the directory already exists, it will be renamed to include the version number before the new directory is created.
-        
+
         Parameters
         ----------
         base_dir : str
             The base directory where the new version of the study directory will be created.
+        exp_name : str
+            The experiment name.
         algorithm : str
             The name of the study directory.
-            
+
         Returns
         -------
         str
@@ -108,15 +125,18 @@ class Study(ABC):
     def increment_dir_version(base_dir: str,
                               exp_name:str,
                               algorithm:str) -> str:
-        """Increments the version of a directory by appending the next available version number to the end of the directory name.
-        
+        """
+        Increments the version of a directory by appending the next available version number to the end of the directory name.
+
         Parameters
         ----------
         base_dir : str
             The base directory for the study.
+        exp_name : str
+            The experiment name.
         algorithm : str
             The name of the study.
-        
+
         Returns
         -------
         str
@@ -152,24 +172,20 @@ class Study(ABC):
                          valid_fraction:float=0.3,
                          feature_selection:bool=False,
                          feature_selection_method:str=None) -> None:
-        """Perform cross-validation on the data.
-    
+        """
+        Perform cross-validation on the data.
+
         Parameters
         ----------
         n_folds : int, optional
-            The number of cross-validation folds.
-            Default is 10.
+            The number of cross-validation folds. Default is 10.
         valid_fraction : float, optional
-            The fraction of the data to use as the validation set.
-            Range is between 0 and 1.
-            Default is 0.3.
+            The fraction of the data to use as the validation set. Range is between 0 and 1. Default is 0.3.
         feature_selection : bool, optional
-            Whether to perform feature selection before training the model.
-            Default is False.
+            Whether to perform feature selection before training the model. Default is False.
         feature_selection_method : str, optional
-            The method to use for feature selection.
-            Only applicable if `feature_selection` is True.
-            Default is None.    
+            The method to use for feature selection. Only applicable if `feature_selection` is True. Default is None.
+
         Notes
         -----
         - If `feature_selection` is True, `feature_selection_method` must be specified.
@@ -223,10 +239,6 @@ class Study(ABC):
                     ml_method = RandomForest(study_dir=self.study_dir, 
                                               DataConfig= self.DataConfig,
                                               method=self.algorithm + task_)
-                # elif self.algorithm == "AutoML":
-                #     ml_method = AutoML(study_dir=self.study_dir, 
-                #                       DataConfig= self.DataConfig,
-                #                       method=self.algorithm + task_)
                     
                 ml_method.train(train_subset=train_subset,
                                   valid_subset=valid_subset, 
