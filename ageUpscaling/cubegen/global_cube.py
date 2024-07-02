@@ -8,7 +8,18 @@
 @Version :   1.0
 @Contact :   besnard@gfz-potsdam.de
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for creating global cube
+
+This module provides functionalities for creating global data cubes.
+
+Example usage:
+--------------
+from global_cube import GlobalCube
+
+# Create a global data cube
+base_file_path = 'path/to/base/files'
+cube_config_path = 'path/to/cube_config.yml'
+global_cube = GlobalCube(base_file_path, cube_config_path)
+global_cube.generate_cube()
 """
 import xarray as xr
 import yaml as yml
@@ -21,13 +32,16 @@ import rioxarray as rio
 from ageUpscaling.core.cube import DataCube
 
 class GlobalCube(DataCube):
-    """GlobalCube is a subclass of DataCube that is used to create a global datacube from a base file and a cube configuration file.
-    
-    Parameters:
-        base_file_path: str
-            Path to the base file.
-        cube_config_path: str
-            Path to the cube configuration file.
+    """
+    GlobalCube is a subclass of DataCube that is used to create a global data cube 
+    from a base file and a cube configuration file.
+
+    Parameters
+    ----------
+    base_file_path : str
+        Path to the base file.
+    cube_config_path : str
+        Path to the cube configuration file.
     """
     def __init__(self,
                  base_file_path:str, 
@@ -41,17 +55,17 @@ class GlobalCube(DataCube):
         super().__init__(self.cube_config)
 
     def generate_cube(self) -> None:
-        """Generate a data cube from input datasets.
+        """
+        Generate a data cube from input datasets.
 
-        This function processes input datasets stored at the path specified in the `base_file_path` attribute, 
+        This function processes input datasets stored at the path specified in the `base_file_path` attribute,
         and generates a data cube based on the configuration specified in the `cube_config` attribute.
-    
-        The function will rename longitude and latitude coordinates to 'longitude' and 'latitude', respectively, 
-        and only include variables specified in the 'output_variables' field of the `cube_config` dictionary. 
-        The resulting data array will be transposed to the dimensions specified in the `dims` attribute of the 
-        `cube` attribute. The data array is then split into chunks and processed by separate workers using the 
+
+        The function will rename longitude and latitude coordinates to 'longitude' and 'latitude', respectively,
+        and only include variables specified in the 'output_variables' field of the `cube_config` dictionary.
+        The resulting data array will be transposed to the dimensions specified in the `dims` attribute of the
+        `cube` attribute. The data array is then split into chunks and processed by separate workers using the
         Dask library, with the number of workers specified.
-    
         """
         for f_ in glob.glob(os.path.join(self.base_file_path, '*.nc')) + glob.glob(os.path.join(self.base_file_path, '*.tif')):
             
