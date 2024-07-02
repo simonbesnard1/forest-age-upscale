@@ -2,17 +2,30 @@
 # -*- coding: utf-8 -*-
 """
 @author: sbesnard
-@File    :   upscaling.py
+@File    :   management_type.py
 @Time    :   Mon Sep 26 10:47:17 2022
 @Author  :   Simon Besnard
 @Version :   1.0
 @Contact :   besnard.sim@gmail.com
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for upscaling MLP model
+
+his module defines a method class for handling the creation and updating of management type data cubes.
+
+Example usage:
+--------------
+from management_type import ManagementType
+
+# Create a ManagementType instance
+config_path = 'path/to/config.yml'
+study_dir = 'path/to/study_dir'
+
+management_type = ManagementType(Config_path=config_path, study_dir=study_dir)
+management_type.ManagementCubeInit()
+management_type.ManagementCalc(task_id=0)
+management_type.ManagementResample()
 """
 import os
 import shutil
-from tqdm import tqdm
 from itertools import product
 from abc import ABC
 import subprocess
@@ -30,30 +43,23 @@ import rioxarray as rio
 from ageUpscaling.core.cube import DataCube
 
 class ManagementType(ABC):
-    """Study abstract class used for cross validation, model training, prediction.
+    """A class for handling the creation and updating of management type data cubes.
 
     Parameters
     ----------
-    DataConfig_path : DataConfig_path
-        A data configuration path.     
-    out_dir : str
-        The study base directory.
-        See `directory structure` for further details.
-    exp_name : str = 'exp_name'
-        The experiment name.
-        See `directory structure` for further details.
-    study_dir : Optional[str] = None
-        The restore directory. If passed, an existing study is loaded.
-        See `directory structure` for further details.
-    n_jobs : int = 1
+    Config_path : str
+        Path to the configuration file.
+    study_dir : str, optional
+        Path to the study directory.
+    n_jobs : int, default=1
         Number of workers.
-
     """
     def __init__(self,
                  Config_path: str,
                  study_dir: str = None,
                  n_jobs: int = 1,
                  **kwargs):
+        """Initialize the ManagementType instance."""
 
         with open(Config_path, 'r') as f:
             self.config_file =  yml.safe_load(f)
@@ -85,13 +91,16 @@ class ManagementType(ABC):
                    IN) -> None:
         
         """
-          Calculate the fraction of data for each age category based on the management_cube and the age_classes from config_file.
-        
-          Args:
-          - IN: Dictionary for subsetting the management_cube.
-        
-          Returns:
-          - age_class_fraction: xarray DataArray with fractions for each age class.
+        Calculate the fraction of data for each management category based on the management_cube and the management classes from config_file.
+
+        Args
+        ----
+        IN : dict
+            Dictionary for subsetting the management_cube.
+
+        Returns
+        -------
+        - None
         """
         
         subset_management_cube = self.management_type_cube.sel(IN)[[self.config_file['management_var']]]
@@ -106,14 +115,17 @@ class ManagementType(ABC):
         out_cube = xr.merge([intact_forests, naturally_regenerated, planted_forest, plantation_forest, oil_palm, agroforestry])        
         self.management_cube.CubeWriter(out_cube, n_workers=1)  
 
-    def ManagementCubeInit(self):
+    def ManagementCubeInit(self) -> None:
+        """
+        Initialize the management type data cube.
+        """
         
         self.management_cube.init_variable(self.config_file['cube_variables'])
     
     def ManagementCalc(self,
                      task_id=None) -> None:
-        """Calculate the fraction of each age class.
-        
+        """
+        Calculate the fraction of each management class.        
         """
         lat_chunk_size, lon_chunk_size = self.management_cube.cube.chunks['latitude'][0], self.management_cube.cube.chunks['longitude'][0]
 
@@ -148,29 +160,27 @@ class ManagementType(ABC):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/management_cube_out_sync_{self.task_id}.zarrsync"))
         
                 
-    def process_chunk(self, extent):
+    def process_chunk(self, extent) -> None:
+        """
+        Process a chunk of data based on the given extent.
+        """
         
         self._calc_func(extent).compute()
 
     def ManagementResample(self) -> None:
         """
-            Calculate the age fraction.
-            
-            This function processes forest age class data using the Global Age Mapping Integration dataset,
-            calculating the age fraction distribution changes over time. The results are saved as raster files.
-            
-            Attributes:
-            - age_class_ds: The dataset containing age class information.
-            - zarr_out_: An array to store the output data.
-            
-            The function performs the following operations:
-            - Reads age class data.
-            - Loops through each variable and age class in the dataset.
-            - Transforms and attributes data.
-            - Splits the geographical area into chunks.
-            - Processes each chunk for each year.
-            - Saves processed data as raster files.
-            - Merges and converts the output into Zarr format.
+        Resample the management type data cube.
+
+        This function processes management class data, resampling it over a target resolution and saving the results as raster files.
+
+        The function performs the following operations:
+        - Reads management class data.
+        - Loops through each variable and management class in the dataset.
+        - Transforms and attributes data.
+        - Splits the geographical area into chunks.
+        - Processes each chunk.
+        - Saves processed data as raster files.
+        - Merges and converts the output into Zarr format.
         """
                         
         management_cube = xr.open_zarr(self.config_file['cube_location'])
