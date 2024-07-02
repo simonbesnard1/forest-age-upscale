@@ -2,13 +2,26 @@
 # -*- coding: utf-8 -*-
 """
 @author: sbesnard
-@File    :   upscaling.py
+@File    :   biomass_uncertainty.py
 @Time    :   Mon Sep 26 10:47:17 2022
 @Author  :   Simon Besnard
 @Version :   1.0
 @Contact :   besnard.sim@gmail.com
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for upscaling MLP model
+
+This module defines a method class for handling the creation and updating of biomass uncertainty data cubes.
+
+Example usage:
+--------------
+from biomass_uncertainty import BiomassUncertainty
+
+# Create a BiomassUncertainty instance
+config_path = 'path/to/config.yml'
+study_dir = 'path/to/study_dir'
+
+biomass_uncertainty = BiomassUncertainty(Config_path=config_path, study_dir=study_dir)
+biomass_uncertainty.BiomassUncertaintyCubeInit()
+biomass_uncertainty.BiomassUncertaintyCalc(task_id=0)
 """
 import os
 import shutil
@@ -26,24 +39,16 @@ import zarr
 from ageUpscaling.core.cube import DataCube
 
 class BiomassUncertainty(ABC):
-    """Study abstract class used for cross validation, model training, prediction.
+    """A class for managing the biomass uncertainty data cubes.
 
     Parameters
     ----------
-    DataConfig_path : DataConfig_path
-        A data configuration path.     
-    out_dir : str
-        The study base directory.
-        See `directory structure` for further details.
-    exp_name : str = 'exp_name'
-        The experiment name.
-        See `directory structure` for further details.
-    study_dir : Optional[str] = None
-        The restore directory. If passed, an existing study is loaded.
-        See `directory structure` for further details.
-    n_jobs : int = 1
-        Number of workers.
-
+    Config_path : str
+        Path to the configuration file.
+    study_dir : str, optional
+        Directory for the study.
+    n_jobs : int, optional
+        Number of workers. Default is 1.
     """
     def __init__(self,
                  Config_path: str,
@@ -82,15 +87,13 @@ class BiomassUncertainty(ABC):
     @dask.delayed
     def _calc_func(self, 
                    IN) -> None:
-        
         """
-          Calculate the fraction of data for each age category based on the age_cube and the age_classes from config_file.
-        
-          Args:
-          - IN: Dictionary for subsetting the age_cube.
-        
-          Returns:
-          - age_class_fraction: xarray DataArray with fractions for each age class.
+        Calculate the biomass uncertainty based on the biomass mean and standard deviation from the config file.
+
+        Parameters
+        ----------
+        IN : dict
+            Dictionary for subsetting the agb_cube.
         """
         
         subset_agbMean_cube = self.agb_cube.isel(IN)['aboveground_biomass']
@@ -128,14 +131,18 @@ class BiomassUncertainty(ABC):
             self.agb_members_cube.CubeWriter(out_cube, n_workers=1)
              
     def BiomassUncertaintyCubeInit(self):
+        """
+        Initialize the biomass uncertainty cube.
+        """
         
         self.agb_members_cube.init_variable(self.config_file['cube_variables'])
     
     def BiomassUncertaintyCalc(self,
                                task_id=None) -> None:
-        """Calculate the fraction of each age class.
-        
         """
+        Calculate the biomass uncertainty for each chunk of data.
+        """
+
         lat_chunk_size, lon_chunk_size = self.agb_members_cube.cube.chunks['latitude'][0], self.agb_members_cube.cube.chunks['longitude'][0]
 
         # Calculate the number of chunks for each dimension
@@ -169,7 +176,9 @@ class BiomassUncertainty(ABC):
         
                 
     def process_chunk(self, extent):
-        
+        """
+        Process a chunk of the biomass uncertainty cube.
+        """        
         self._calc_func(extent).compute()
         
 
