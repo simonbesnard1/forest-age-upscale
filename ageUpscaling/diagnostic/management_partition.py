@@ -2,13 +2,27 @@
 # -*- coding: utf-8 -*-
 """
 @author: sbesnard
-@File    :   upscaling.py
+@File    :   management_partition.py
 @Time    :   Mon Sep 26 10:47:17 2022
 @Author  :   Simon Besnard
 @Version :   1.0
 @Contact :   besnard.sim@gmail.com
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for upscaling MLP model
+
+This module defines a method class for handling the creation and updating of management partition data cubes.
+
+Example usage:
+--------------
+from management_partition import ManagementPartition
+
+# Create a ManagementPartition instance
+config_path = 'path/to/config.yml'
+study_dir = 'path/to/study_dir'
+
+management_partition = ManagementPartition(Config_path=config_path, study_dir=study_dir)
+management_partition.ManagementPartitionCubeInit()
+management_partition.ManagementPartitionCalc(task_id=0)
+management_partition.ParallelResampling(n_jobs=20)
 """
 import os
 import shutil
@@ -31,24 +45,16 @@ import rioxarray as rio
 from ageUpscaling.core.cube import DataCube
 
 class ManagementPartition(ABC):
-    """Study abstract class used for cross validation, model training, prediction.
+    """A class for handling the creation and updating of management partition data cubes.
 
     Parameters
     ----------
-    DataConfig_path : DataConfig_path
-        A data configuration path.     
-    out_dir : str
-        The study base directory.
-        See `directory structure` for further details.
-    exp_name : str = 'exp_name'
-        The experiment name.
-        See `directory structure` for further details.
-    study_dir : Optional[str] = None
-        The restore directory. If passed, an existing study is loaded.
-        See `directory structure` for further details.
-    n_jobs : int = 1
+    Config_path : str
+        Path to the configuration file.
+    study_dir : str, optional
+        Path to the study directory.
+    n_jobs : int, default=1
         Number of workers.
-
     """
     def __init__(self,
                  Config_path: str,
@@ -88,15 +94,14 @@ class ManagementPartition(ABC):
                    IN) -> None:
         
         """
-          Calculate the fraction of data for each age category based on the management_cube and the age_classes from config_file.
-        
-          Args:
-          - IN: Dictionary for subsetting the management_cube.
-        
-          Returns:
-          - age_class_fraction: xarray DataArray with fractions for each age class.
+        Calculate the fraction of data for each management category based on the management_cube and the management classes from config_file.
+
+        Args:
+        - IN: Dictionary for subsetting the management_cube.
+
+        Returns:
+        - None
         """
-        
        
         for member_ in np.arange(self.config_file['num_members']):
         
@@ -124,13 +129,16 @@ class ManagementPartition(ABC):
             self.management_partition_cube.CubeWriter(out_cube, n_workers=6)  
 
     def ManagementPartitionCubeInit(self):
+        """
+        Initialize the management partition data cube.
+        """
         
         self.management_partition_cube.init_variable(self.config_file['cube_variables'])
     
     def ManagementPartitionCalc(self,
                      task_id=None) -> None:
-        """Calculate the fraction of each age class.
-        
+        """
+        Calculate the fraction of each management class.
         """
         lat_chunk_size, lon_chunk_size = self.management_partition_cube.cube.chunks['latitude'][0], self.management_partition_cube.cube.chunks['longitude'][0]
 
@@ -168,12 +176,23 @@ class ManagementPartition(ABC):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/management_cube_out_sync_{self.task_id}.zarrsync"))
         
                 
-    def process_chunk(self, extent):
+    def process_chunk(self, extent) -> None:
+        """
+        Process a chunk of data based on the given extent.
+        """
         
         self._calc_func(extent).compute()
         
     def ParallelResampling(self, 
-                           n_jobs:int=20):
+                           n_jobs:int=20) -> None:
+        """
+        Perform parallel resampling of the management partition data cube.
+
+        Parameters
+        ----------
+        n_jobs : int, optional
+            Number of parallel jobs to run.
+        """
         
         member_out = []
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
@@ -190,25 +209,16 @@ class ManagementPartition(ABC):
 
         xr.concat(member_out, dim = 'members').to_zarr(self.config_file['ManagementPartitionResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
 
-    def ManagementPartitionResample(self, member_:int=0) -> None:
+    def ManagementPartitionResample(self, member_:int=0) -> xr.Dataset:
         """
-            Calculate the age fraction.
-            
-            This function processes forest age class data using the Global Age Mapping Integration dataset,
-            calculating the age fraction distribution changes over time. The results are saved as raster files.
-            
-            Attributes:
-            - age_class_ds: The dataset containing age class information.
-            - zarr_out_: An array to store the output data.
-            
-            The function performs the following operations:
-            - Reads age class data.
-            - Loops through each variable and age class in the dataset.
-            - Transforms and attributes data.
-            - Splits the geographical area into chunks.
-            - Processes each chunk for each year.
-            - Saves processed data as raster files.
-            - Merges and converts the output into Zarr format.
+        Resample the management partition data cube.
+
+        This function processes forest management class data, resampling it over a target resolution and saving the results as raster files.
+
+        Parameters
+        ----------
+        member_ : int
+            The member index to process.
         """
                         
         management_partition_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
