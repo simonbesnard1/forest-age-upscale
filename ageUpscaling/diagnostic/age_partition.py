@@ -2,13 +2,28 @@
 # -*- coding: utf-8 -*-
 """
 @author: sbesnard
-@File    :   upscaling.py
+@File    :   age_partiion.py
 @Time    :   Mon Sep 26 10:47:17 2022
 @Author  :   Simon Besnard
 @Version :   1.0
 @Contact :   besnard.sim@gmail.com
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for upscaling MLP model
+
+This module defines a method class for handling the creation and updating of age difference data cubes.
+
+Example usage:
+--------------
+from age_partition import DifferenceAge
+
+# Create a DifferenceAge instance
+config_path = 'path/to/config.yml'
+study_dir = 'path/to/study_dir'
+
+age_difference = DifferenceAge(Config_path=config_path, study_dir=study_dir)
+age_difference.AgeDiffCubeInit()
+age_difference.AgeDiffCalc(task_id=0)
+age_difference.ParallelAgeDiffResampling(n_jobs=20)
+age_difference.ParallelAgeDiffPartitionResample(n_jobs=20)
 """
 import os
 import shutil
@@ -31,24 +46,19 @@ import rioxarray as rio
 from ageUpscaling.core.cube import DataCube
 
 class DifferenceAge(ABC):
-    """Study abstract class used for cross validation, model training, prediction.
+    """
+    DifferenceAge class used for calculating age differences in forest data.
 
     Parameters
     ----------
-    DataConfig_path : DataConfig_path
-        A data configuration path.     
-    out_dir : str
-        The study base directory.
-        See `directory structure` for further details.
-    exp_name : str = 'exp_name'
-        The experiment name.
-        See `directory structure` for further details.
-    study_dir : Optional[str] = None
-        The restore directory. If passed, an existing study is loaded.
-        See `directory structure` for further details.
-    n_jobs : int = 1
-        Number of workers.
-
+    Config_path : str
+        Path to the configuration file.
+    study_dir : str, optional
+        Path to the study directory. Default is None.
+    n_jobs : int, optional
+        Number of workers. Default is 1.
+    **kwargs : additional keyword arguments
+        Additional arguments.
     """
     def __init__(self,
                  Config_path: str,
@@ -89,16 +99,18 @@ class DifferenceAge(ABC):
         
     @dask.delayed
     def _calc_func(self, 
-                   IN) -> None:
-        
+                   IN) -> None:        
         """
-          Calculate the fraction of data for each age category based on the age_cube and the age_classes from config_file.
-        
-          Args:
-          - IN: Dictionary for subsetting the age_cube.
-        
-          Returns:
-          - age_class_fraction: xarray DataArray with fractions for each age class.
+        Calculate the fraction of data for each age category based on the age_cube and the age_classes from config_file.
+    
+        Parameters
+        ----------
+        IN : dict
+            Dictionary for subsetting the age_cube.
+    
+        Returns
+        -------
+        None
         """
         
         for member_ in np.arange(self.config_file['num_members']):
@@ -155,6 +167,9 @@ class DifferenceAge(ABC):
                 self.age_diff_cube.CubeWriter(out_cube, n_workers=1)
              
     def AgeDiffCubeInit(self):
+        """
+        Initialize the age difference data cube.
+        """
         
         self.age_diff_cube.init_variable(self.config_file['cube_variables'])
         
@@ -166,8 +181,13 @@ class DifferenceAge(ABC):
     
     def AgeDiffCalc(self,
                      task_id=None) -> None:
-        """Calculate the fraction of each age class.
-        
+        """
+        Calculate the fraction of each age class.
+
+        Parameters
+        ----------
+        task_id : int, optional
+            Task ID for parallel processing. Default is None.
         """
         lat_chunk_size, lon_chunk_size = self.age_diff_cube.cube.chunks['latitude'][0], self.age_diff_cube.cube.chunks['longitude'][0]
 
@@ -204,12 +224,36 @@ class DifferenceAge(ABC):
         if os.path.exists(os.path.abspath(f"{self.study_dir}/ageDiff_cube_out_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/ageDiff_cube_out_sync_{self.task_id}.zarrsync"))
                         
-    def process_chunk(self, extent):
+    def process_chunk(self, extent) -> None:
+        """
+        Process a chunk of data.
+
+        Parameters
+        ----------
+        extent : dict
+            Dictionary defining the extent of the chunk to process.
+
+        Returns
+        -------
+        None
+        """
         
         self._calc_func(extent).compute()
         
     def ParallelAgeDiffResampling(self, 
-                                  n_jobs:int=20):
+                                  n_jobs:int=20) -> None:
+        """
+        Perform parallel age difference resampling.
+
+        Parameters
+        ----------
+        n_jobs : int, optional
+            Number of jobs to run in parallel. Default is 20.
+
+        Returns
+        -------
+        None
+        """
         
         member_out = []
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
@@ -227,7 +271,19 @@ class DifferenceAge(ABC):
         xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeDiffResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
         
     def ParallelAgeDiffPartitionResample(self, 
-                                         n_jobs:int=20):
+                                         n_jobs:int=20) -> None:
+        """
+        Perform parallel age difference partition resampling.
+
+        Parameters
+        ----------
+        n_jobs : int, optional
+            Number of jobs to run in parallel. Default is 20.
+
+        Returns
+        -------
+        None
+        """
         
         member_out = []
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
@@ -244,25 +300,19 @@ class DifferenceAge(ABC):
 
         xr.concat(member_out, dim = 'members').to_zarr(self.config_file['AgeDiffPartitionResample_cube'] + '_{resolution}deg'.format(resolution = str(self.config_file['target_resolution'])), mode= 'w')
 
-    def AgeDiffResample(self, member_:int=0) -> None:
+    def AgeDiffResample(self, member_:int=0) -> xr.Dataset:
         """
-            Calculate the age fraction.
-            
-            This function processes forest age class data using the Global Age Mapping Integration dataset,
-            calculating the age fraction distribution changes over time. The results are saved as raster files.
-            
-            Attributes:
-            - age_class_ds: The dataset containing age class information.
-            - zarr_out_: An array to store the output data.
-            
-            The function performs the following operations:
-            - Reads age class data.
-            - Loops through each variable and age class in the dataset.
-            - Transforms and attributes data.
-            - Splits the geographical area into chunks.
-            - Processes each chunk for each year.
-            - Saves processed data as raster files.
-            - Merges and converts the output into Zarr format.
+        Resample age difference data.
+
+        Parameters
+        ----------
+        member_ : int, optional
+            Member index to process. Default is 0.
+
+        Returns
+        -------
+        xr.Dataset
+            Resampled age difference data.
         """
                         
         age_diff_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
@@ -347,25 +397,19 @@ class DifferenceAge(ABC):
         
         return xr.merge(zarr_out_).expand_dims({"members": [member_]})
         
-    def AgeDiffPartitionResample(self, member_:int=0) -> None:
+    def AgeDiffPartitionResample(self, member_:int=0) -> xr.Dataset:
         """
-            Calculate the age fraction.
-            
-            This function processes forest age class data using the Global Age Mapping Integration dataset,
-            calculating the age fraction distribution changes over time. The results are saved as raster files.
-            
-            Attributes:
-            - age_class_ds: The dataset containing age class information.
-            - zarr_out_: An array to store the output data.
-            
-            The function performs the following operations:
-            - Reads age class data.
-            - Loops through each variable and age class in the dataset.
-            - Transforms and attributes data.
-            - Splits the geographical area into chunks.
-            - Processes each chunk for each year.
-            - Saves processed data as raster files.
-            - Merges and converts the output into Zarr format.
+        Resample age difference partition data.
+
+        Parameters
+        ----------
+        member_ : int, optional
+            Member index to process. Default is 0.
+
+        Returns
+        -------
+        xr.Dataset
+            Resampled age difference partition data.
         """
                         
         age_diff_cube = xr.open_zarr(self.config_file['cube_location']).sel(members = member_).drop_vars('members')
