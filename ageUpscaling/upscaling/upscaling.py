@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
+upscaling.py
+
+A method class for upscaling forest age ML model.
+
 @author: sbesnard
-@File    :   upscaling.py
-@Time    :   Mon Sep 26 10:47:17 2022
-@Author  :   Simon Besnard
-@Version :   1.0
-@Contact :   besnard.sim@gmail.com
-@License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for upscaling forest age ML model
+@Version: 1.0
+@Contact: besnard.sim@gmail.com
+@License: (C)Copyright 2022-2023, GFZ-Potsdam
 """
 import os
 import shutil
@@ -43,28 +45,27 @@ from ageUpscaling.transformers.spatial import interpolate_worlClim
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 from ageUpscaling.methods.RandomForest import RandomForest
-#from ageUpscaling.methods.autoML import AutoML
 from ageUpscaling.methods.feature_selection import FeatureSelection
 
 class UpscaleAge(ABC):
-    """Study abstract class used for cross validation, model training, prediction.
+    """A class for upscaling forest age ML models.
 
     Parameters
     ----------
-    DataConfig_path : DataConfig_path
-        A data configuration path.     
-    out_dir : str
-        The study base directory.
-        See `directory structure` for further details.
-    exp_name : str = 'exp_name'
+    DataConfig_path : str
+        Path to the data configuration file.
+    upscaling_config_path : str
+        Path to the upscaling configuration file.
+    base_dir : str
+        Base directory for the study.
+    algorithm : str, optional
+        The algorithm to use (default is 'MLP').
+    exp_name : str, optional
         The experiment name.
-        See `directory structure` for further details.
-    study_dir : Optional[str] = None
-        The restore directory. If passed, an existing study is loaded.
-        See `directory structure` for further details.
-    n_jobs : int = 1
-        Number of workers.
-
+    study_dir : str, optional
+        Directory for restoring the study.
+    n_jobs : int, optional
+        Number of workers (default is 1).
     """
     def __init__(self,
                  DataConfig_path: str,
@@ -128,16 +129,18 @@ class UpscaleAge(ABC):
                     base_dir: str,
                     exp_name:str,
                     algorithm: str) -> str:
-        """Creates a new version of a directory by appending the version number to the end of the directory name.
-    
+        """Creates a new version of a directory by appending the version number.
+
         If the directory already exists, it will be renamed to include the version number before the new directory is created.
         
         Parameters
         ----------
         base_dir : str
             The base directory where the new version of the study directory will be created.
+        exp_name : str
+            The experiment name.
         algorithm : str
-            The name of the study directory.
+            The name of the algorithm.
             
         Returns
         -------
@@ -151,14 +154,16 @@ class UpscaleAge(ABC):
     def increment_dir_version(base_dir: str,
                               exp_name:str,
                               algorithm:str) -> str:
-        """Increments the version of a directory by appending the next available version number to the end of the directory name.
-        
+        """Increments the version of a directory by appending the next available version number.
+
         Parameters
         ----------
         base_dir : str
             The base directory for the study.
+        exp_name : str
+            The experiment name.
         algorithm : str
-            The name of the study.
+            The name of the algorithm.
         
         Returns
         -------
@@ -193,6 +198,13 @@ class UpscaleAge(ABC):
     @dask.delayed
     def _predict_func(self, 
                       IN) -> None:
+        """Predict forest age using the trained ML models.
+
+        Parameters
+        ----------
+        IN : dict
+            Dictionary for subsetting the input data cubes.
+        """
           
         lat_start, lat_stop = IN['latitude'].start, IN['latitude'].stop
         lon_start, lon_stop = IN['longitude'].start, IN['longitude'].stop
@@ -302,11 +314,6 @@ class UpscaleAge(ABC):
                         dpred = np.stack([self.norm(dpred[:, features_regressor.index(var_name)], norm_stats_regressor[var_name]) for var_name in features_regressor], axis=1)
                         pred_reg= best_regressor.predict(dpred)
                         
-                    elif self.algorithm == "AutoML":
-                        dpred =  X_upscale_flattened[mask][:, index_mapping_reg]
-                        dpred = pd.DataFrame(dpred, columns = features_regressor)                         
-                        pred_reg= best_regressor.predict(dpred).values
-                        
                     else:
                         dpred =  X_upscale_flattened[mask][:, index_mapping_reg]
                         pred_reg= best_regressor.predict(dpred)
@@ -390,15 +397,21 @@ class UpscaleAge(ABC):
         Parameters
         ----------
         run_ : int, optional
-            Number of model runs. Default is 1.
-        method : str, optional
-            The type of model to use for training. Default is 'MLPRegressor'.
+            Number of model runs (default is 1).
+        task_ : str, optional
+            The type of model to use for training (default is 'Regressor').
+        feature_selection : bool, optional
+            Whether to perform feature selection (default is True).
+        feature_selection_method : str, optional
+            The method for feature selection (default is 'recursive').
+        train_subset : dict, optional
+            Training subset for the model.
+        valid_subset : dict, optional
+            Validation subset for the model.
         
         Returns
         -------
         None
-            The function does not return any values, but it updates the `self.best_model` attribute
-            with the best model found during the tuning process.
         """
         if feature_selection:
             self.DataConfig['features_selected'] = FeatureSelection(method=task_, 
@@ -422,10 +435,6 @@ class UpscaleAge(ABC):
             ml_method = RandomForest(study_dir=self.study_dir, 
                                      DataConfig= self.DataConfig,
                                      method=self.algorithm + task_)
-        # elif self.algorithm == "AutoML":
-        #     ml_method = AutoML(study_dir=self.study_dir, 
-        #                        DataConfig= self.DataConfig,
-        #                        method=self.algorithm + task_)
         
         ml_method.train(train_subset=train_subset,
                         valid_subset=valid_subset,
@@ -441,18 +450,7 @@ class UpscaleAge(ABC):
                          'norm_stats' : ml_method.mldata.norm_stats}, fout)
     
     def model_training(self) -> None:
-        """Perform forward run of the model, which consists of generating high resolution maps of age using the trained model.
-
-        Parameters
-        ----------
-        tree_cover_tresholds : dict[str, Any], optional
-            Dictionary of tree cover tresholds to use for the forward run, default is {'000', '005', '010', '015', '020', '030'}
-        nLatChunks : int, optional
-            Number of chunks to use in the latitude dimension, default is 50
-        nLonChunks : int, optional
-            Number of chunks to use in the longitude dimension, default is 50
-        high_res_pred : bool, optional
-            Boolean indicating whether to perform high resolution prediction, default is False
+        """Train the model and generate high resolution maps of age using the trained model.
         """
         
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
@@ -480,6 +478,13 @@ class UpscaleAge(ABC):
         
     def ForwardRun(self, 
                    task_id=None) -> None:
+        """Perform the forward run of the model, generating high resolution predictions.
+        
+        Parameters
+        ----------
+        task_id : int, optional
+            Task ID for parallel processing (default is None).
+        """
                                 
         lat_chunk_size, lon_chunk_size = self.pred_cube.cube.chunks['latitude'][0], self.pred_cube.cube.chunks['longitude'][0]
 
@@ -516,12 +521,26 @@ class UpscaleAge(ABC):
         if os.path.exists(os.path.abspath(f"{self.study_dir}/cube_out_sync_{self.task_id}.zarrsync")):
             shutil.rmtree(os.path.abspath(f"{self.study_dir}/cube_out_sync_{self.task_id}.zarrsync"))
         
-    def process_chunk(self, extent):
+    def process_chunk(self, extent) -> None:
+        """Process a data chunk for prediction.
+       
+       Parameters
+       ----------
+       extent : dict
+           Dictionary defining the spatial extent to process.
+       """
         
         self._predict_func(extent).compute()
                 
     def ParallelResampling(self, 
-                           n_jobs:int=20):
+                           n_jobs:int=20) -> None:
+        """Perform parallel resampling of the data.
+        
+        Parameters
+        ----------
+        n_jobs : int, optional
+            Number of parallel jobs (default is 20).
+        """
         
         member_out = []
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
@@ -538,25 +557,17 @@ class UpscaleAge(ABC):
 
         xr.concat(member_out, dim = 'members').to_zarr(self.upscaling_config['AgeResample_cube'] + '_{resolution}deg'.format(resolution = str(self.upscaling_config['resample_resolution'])), mode= 'w')
         
-    def AgeResample(self, member_:int=0) -> None:
+    def AgeResample(self, member_:int=0) -> xr.Dataset:
         """
-            Calculate the age fraction.
-            
-            This function processes forest age class data using the Global Age Mapping Integration dataset,
-            calculating the age fraction distribution changes over time. The results are saved as raster files.
-            
-            Attributes:
-            - age_class_ds: The dataset containing age class information.
-            - zarr_out_: An array to store the output data.
-            
-            The function performs the following operations:
-            - Reads age class data.
-            - Loops through each variable and age class in the dataset.
-            - Transforms and attributes data.
-            - Splits the geographical area into chunks.
-            - Processes each chunk for each year.
-            - Saves processed data as raster files.
-            - Merges and converts the output into Zarr format.
+        Calculate the age fraction and resample the data.
+
+        This function processes forest age class data using the Global Age Mapping Integration dataset,
+        calculating the age fraction distribution changes over time. The results are saved as raster files.
+        
+        Attributes
+        ----------
+        member_ : int, optional
+            Model member index (default is 0).
         """
            
         age_cube = xr.open_zarr(self.upscaling_config['cube_location']).sel(members = member_).drop_vars('members')

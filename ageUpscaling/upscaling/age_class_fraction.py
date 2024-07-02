@@ -351,7 +351,7 @@ class AgeFraction(ABC):
     
         return zarr_out_
     
-    def merge_datasets_by_resolution(self, datasets_by_resolution):
+    def merge_datasets_by_resolution(self, datasets_by_resolution) -> xr.Dataset:
         merged_datasets = {}
         
         for group in datasets_by_resolution:

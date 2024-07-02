@@ -82,7 +82,6 @@ class FeatureSelection(ABC):
              
         else :
             Y = Y.where(Y<max_forest_age).to_array().values.reshape(-1)
-            #Y[Y<1] = 1 ## set min age to 1
             
         mask_nan = (np.all(np.isfinite(X), axis=1)) & (np.isfinite(Y))
         
