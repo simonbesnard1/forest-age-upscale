@@ -24,6 +24,7 @@ cube = ComputeCube(
     output_metadata={'description': 'Sample cube dataset'}
 )
 """
+
 from abc import ABC
 from typing import Union
 

@@ -8,8 +8,27 @@
 @Version :   1.0
 @Contact :   besnard@gfz-potsdam.de
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for handling the creation and updating of regularized cube zarr files.
+
+This module provides functionalities for handling the creation and updating of regularized cube zarr files.
+
+Example usage:
+--------------
+from cube import DataCube
+
+cube_config = {
+    'cube_location': 'path/to/cube.zarr',
+    'output_writer_params': {
+        'dims': {'time': 365, 'latitude': 180, 'longitude': 360},
+        'chunksizes': (1, 180, 360)
+    },
+    'temporal_resolution': 86400,  # one day in seconds
+    'spatial_resolution': 1000,    # 1 km
+    'output_metadata': {'description': 'Sample data cube'}
+}
+
+data_cube = DataCube(cube_config)
 """
+
 import os
 from typing import Union
 import shutil
@@ -21,7 +40,8 @@ import zarr
 from ageUpscaling.core.cube_utils import ComputeCube
 
 class DataCube(ComputeCube):
-    """A class for handling the creation and updating of regularized cube zarr files.
+    """
+    A class for handling the creation and updating of regularized cube zarr files.
 
     The `DataCube` class inherits from the `ComputeCube` class and adds additional
     functionality for creating and updating data cubes stored in the zarr format.
@@ -30,7 +50,7 @@ class DataCube(ComputeCube):
 
     Parameters:
     -----------
-    cube_config: dict
+    cube_config : dict
         A dictionary containing the configuration parameters for the data cube.
         The following keys are required:
         - 'cube_location': str
@@ -47,12 +67,12 @@ class DataCube(ComputeCube):
             The spatial resolution of the data.
         - 'output_metadata': dict
             A dictionary of metadata for the data cube.
-    
+
     Attributes:
     -----------
-    cube_config: dict
+    cube_config : dict
         A dictionary containing the configuration parameters for the data cube.
-    cube: xr.Dataset
+    cube : xr.Dataset
         The data cube stored in an xarray Dataset object.
     """
     
@@ -85,18 +105,19 @@ class DataCube(ComputeCube):
                      da: Union[xr.DataArray, xr.Dataset],
                      chunks:dict = None,
                      n_workers:int=20) -> None:
-        """Update the data cube with the provided xarray Dataset or DataArray.
+        """
+        Update the data cube with the provided xarray Dataset or DataArray.
 
         This function updates the data cube with the data in the input xarray Dataset or DataArray. 
         If the `chunks` argument is provided, it should be a dictionary with 
         keys representing the names of variables and values representing the chunk sizes for those 
         variables.
-        
+
         Parameters:
         -----------
-        da: xr.Dataset or xr.DataArray
+        da : xr.Dataset or xr.DataArray
             The dataset or data array containing the data to be updated to the cube.
-        chunks: dict, optional
+        chunks : dict, optional
             A dictionary specifying the chunk sizes for each variable in the data array. The dictionary 
             should have keys representing variable names and values representing chunk sizes.
         """
