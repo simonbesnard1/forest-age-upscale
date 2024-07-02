@@ -8,7 +8,18 @@
 @Version :   1.0
 @Contact :   besnard@gfz-potsdam.de 
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for handling the creation and updating of regularized cube zarr files.
+
+This module provides functionalities for handling the creation and updating of regularized cube zarr files.
+
+Example usage:
+--------------
+from canopyHeight import canopyHeight
+
+# Create a canopy height data cube
+base_file = 'path/to/base_file'
+cube_config_path = 'path/to/cube_config.yml'
+canopy_cube = canopyHeight(base_file, cube_config_path)
+canopy_cube.CreateCube(var_name='canopy_height_potapov', chunk_data=True, n_workers=10)
 """
 
 from ageUpscaling.core.cube import DataCube
@@ -21,13 +32,16 @@ from itertools import product
 import pandas as pd
 
 class canopyHeight(DataCube):
-    """canopyHeight is a subclass of DataCube that is used to create a canopy height datacube from a base file and a cube configuration file.
-    
-    Parameters:
-        base_file: str
-            Path to the base file.
-        cube_config_path: str
-            Path to the cube configuration file.
+    """
+    canopyHeight is a subclass of DataCube that is used to create a canopy height data cube 
+    from a base file and a cube configuration file.
+
+    Parameters
+    ----------
+    base_file : str
+        Path to the base file.
+    cube_config_path : str
+        Path to the cube configuration file.
     """
     def __init__(self,
                  base_file:str, 
@@ -58,16 +72,30 @@ class canopyHeight(DataCube):
                   var_name:str= 'canopy_height_potapov',
                   chunk_data:bool = False,
                   n_workers:int=10) -> None:
-        """Fill a data cube from input datasets.
+        """
+        Fill a data cube from input datasets.
 
-        This function processes input datasets stored at the path specified in the `base_file` attribute, 
+        This function processes input datasets stored at the path specified in the `base_file` attribute,
         and generates a data cube based on the configuration specified in the `cube_config` attribute.
-    
-        The function will only include variables specified in the 'output_variables' field of the `cube_config` dictionary. 
-        The resulting data array will be transposed to the dimensions specified in the `dims` attribute of the 
-        `cube` attribute. The data array is then split into chunks and processed by separate workers using the 
+
+        The function will only include variables specified in the 'output_variables' field of the `cube_config` dictionary.
+        The resulting data array will be transposed to the dimensions specified in the `dims` attribute of the
+        `cube` attribute. The data array is then split into chunks and processed by separate workers using the
         Dask library, with the number of workers specified.
-    
+
+        Parameters
+        ----------
+        var_name : str, optional
+            The name of the variable to be included in the data cube. Default is 'canopy_height_potapov'.
+        chunk_data : bool, optional
+            Whether to split the data into chunks for parallel processing. Default is False.
+        n_workers : int, optional
+            The number of workers to use for parallel processing. Default is 10.
+
+        Raises
+        ------
+        ValueError
+            If the variable specified in `var_name` is not in the data cube configuration.
         """
         
         ds_ = self.da.rename({'canopy_height':var_name}).transpose('latitude', 'longitude', 'time')            
