@@ -8,7 +8,37 @@
 @Version :   1.0
 @Contact :   besnard@gfz-potsdam.de
 @License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for generating dataloaders
+
+This module provides functionalities for generating dataloaders for machine learning models.
+
+Example usage:
+--------------
+from ml_dataloader import MLDataModule
+
+# Create an MLDataModule instance
+data_config = {...}
+target = {...}
+features = {...}
+train_subset = {...}
+valid_subset = {...}
+test_subset = {...}
+norm_stats = {...}
+
+ml_data_module = MLDataModule(
+    method='MLPRegressor',
+    DataConfig=data_config,
+    target=target,
+    features=features,
+    train_subset=train_subset,
+    valid_subset=valid_subset,
+    test_subset=test_subset,
+    normalize=True,
+    norm_stats=norm_stats
+)
+
+train_loader = ml_data_module.train_dataloader()
+valid_loader = ml_data_module.val_dataloader()
+test_loader = ml_data_module.test_dataloader()
 """
 from typing import Any
 
@@ -18,21 +48,31 @@ from ageUpscaling.dataloaders.base import MLData
 
 class MLDataModule(MLData):
     
-    """Define dataloaders.
+    """
+    Define dataloaders.
 
-    Parameters:
-        cube_path: str
-            Path to the datacube.
-        DataConfig: DataConfig
-            The data configuration.
-        train_subset: Dict[str, Any]:
-            Training set selection.
-        valid_subset: Dict[str, Any]:
-            Same as `train_subset`, for validation set.
-        test_subset: Dict[str, Any]:
-            Same as `train_subset`, for test set.
-        **kwargs:
-            Keyword arguments passed to `DataLoader`, same for training, validation and test set loader.
+    Parameters
+    ----------
+    method : str
+        The method used for machine learning.
+    DataConfig : dict[str, Any]
+        The data configuration.
+    target : dict[str, Any]
+        The target variable for the machine learning model.
+    features : dict[str, Any]
+        The features used for the machine learning model.
+    train_subset : dict[str, Any]
+        Training set selection.
+    valid_subset : dict[str, Any]
+        Same as `train_subset`, for validation set.
+    test_subset : dict[str, Any]
+        Same as `train_subset`, for test set.
+    normalize : bool, optional
+        Whether to normalize the data. Default is False.
+    norm_stats : dict[str, dict[str, float]], optional
+        The normalization statistics for the data. Default is an empty dictionary.
+    **kwargs : keyword arguments
+        Additional keyword arguments passed to `DataLoader`.
     """
     
     def __init__(self,
@@ -67,12 +107,14 @@ class MLDataModule(MLData):
             self.norm_stats[var] = {'mean': data_mean, 'std': data_std}
 
     def train_dataloader(self) -> MLData:
-        """Returns a dataloader for the training set.
-
-        Returns:
-            MLData: Dataloader for the training set, containing the features and target values for the training set.
         """
-        
+        Returns a dataloader for the training set.
+
+        Returns
+        -------
+        MLData
+            Dataloader for the training set, containing the features and target values for the training set.
+        """
         train_data = MLData(self.method,
                             self.DataConfig, 
                             self.target, 
@@ -85,12 +127,14 @@ class MLDataModule(MLData):
         return train_data
 
     def val_dataloader(self) -> MLData:
-        """Returns a dataloader for the validation set.
-
-        Returns:
-            MLData: Dataloader for the validation set, containing the features and target values for the validation set.
         """
-        
+        Returns a dataloader for the validation set.
+
+        Returns
+        -------
+        MLData
+            Dataloader for the validation set, containing the features and target values for the validation set.
+        """
         valid_data = MLData(self.method, 
                             self.DataConfig, 
                             self.target, 
@@ -103,12 +147,14 @@ class MLDataModule(MLData):
         return valid_data  
 
     def test_dataloader(self) -> MLData:
-        """Returns a dataloader for the test set.
-
-        Returns:
-            MLData: Dataloader for the test set, containing the features and target values for the test set.
         """
-
+        Returns a dataloader for the test set.
+    
+        Returns
+        -------
+        MLData
+            Dataloader for the test set, containing the features and target values for the test set.
+        """
         test_data = MLData(self.method,
                            self.DataConfig,
                            self.target, 
