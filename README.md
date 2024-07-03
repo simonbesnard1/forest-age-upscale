@@ -7,18 +7,6 @@
 
 ***
 
-## :memo: &nbsp;Overview
-This repository contains the code and data associated with the scientific paper titled "Global covariation of forest age transitions with the net carbon balance". The paper investigates changes in forest age distribution from 2010 to 2020 and their implications for the carbon cycle.
-
-## :anger: &nbsp;Package installation
-You can install the python package as follows:
-
-***Important: a personal token has to be entered as password for the package installation***
-```
-pip install git+https://git.gfz-potsdam.de/global-land-monitoring/forest-age-upscale.git
-
-```
-
 ## :notebook_with_decorative_cover: &nbsp;Table of Contents
 
 - [Overview](#overview)
@@ -32,6 +20,19 @@ pip install git+https://git.gfz-potsdam.de/global-land-monitoring/forest-age-ups
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
+
+
+## :memo: &nbsp;Overview
+This repository contains the code and data associated with the scientific paper titled "Global covariation of forest age transitions with the net carbon balance". The paper investigates changes in forest age distribution from 2010 to 2020 and their implications for the carbon cycle.
+
+## :anger: &nbsp;Package installation
+You can install the python package as follows:
+
+***Important: a personal token has to be entered as password for the package installation***
+```
+pip install git+https://git.gfz-potsdam.de/global-land-monitoring/forest-age-upscale.git
+
+```
 
 ## Repository Structure
 
