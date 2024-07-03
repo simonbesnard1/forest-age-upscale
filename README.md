@@ -63,5 +63,5 @@ We welcome contributions to this project. If you would like to contribute, pleas
 For any questions or inquiries, please contact Simon Besnard (besnard@gfz-potsdam.de)
 
 ## License
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the Apache License - see the LICENSE file for details.
 
