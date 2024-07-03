@@ -7,8 +7,8 @@
 
 ***
 
-## :memo: &nbsp;What is it?
-This Github repo contains all model training and inference modules for upscaling of forest age products
+## :memo: &nbsp;Overview
+This repository contains the code and data associated with the scientific paper titled "Global covariation of forest age transitions with the net carbon balance". The paper investigates changes in forest age distribution from 2010 to 2020 and their implications for the carbon cycle.
 
 ## :anger: &nbsp;Package installation
 You can install the python package as follows:
@@ -16,66 +16,60 @@ You can install the python package as follows:
 ***Important: a personal token has to be entered as password for the package installation***
 ```
 pip install git+https://git.gfz-potsdam.de/global-land-monitoring/forest-age-upscale.git
-mamba install gdal
-```
-
-## :notebook_with_decorative_cover: &nbsp;Getting started
-
-#### 1. Perform a cross-validation study
 
 ```
-#%% Load modules
-from ageUpscaling.core.study import Study
+
+## :notebook_with_decorative_cover: &nbsp;Table of Contents
+
+- [Overview](#overview)
+- [Repository Structure](#repository-structure)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Data Preparation](#data-preparation)
+  - [Running the Experiments](#running-the-experiments)
+  - [Analysis and Visualization](#analysis-and-visualization)
+- [Results](#results)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contact](#contact)
+
+## Repository Structure
+
+```plaintext
+├── data
+│   ├── raw            # Raw data
+│   ├── processed      # Processed data
+├── notebooks          # Jupyter notebooks for experiments and analysis
+├── src
+│   ├── data           # Data processing scripts
+│   ├── models         # Model definitions and training scripts
+│   ├── analysis       # Analysis and visualization scripts
+├── tests              # Unit tests
+├── results            # Results of experiments
+├── figures            # Figures for the paper
+├── requirements.txt   # Python package dependencies
+├── LICENSE
+└── README.md
 ```
 
-```
-#%% Define study
-DataConfig_path= "./experiments/cross_validation/data_config.yaml"
-CubeConfig_path= "./experiments/cross_validation/config_prediction_cube.yaml"
-study_ = Study(DataConfig_path = DataConfig_path,
-                cube_config_path= CubeConfig_path,
-                study_name  = 'Xval_MLPregressor',
-                base_dir= './output/',
-                n_jobs = 10)
-```
- 
-```
-#%% Run cross-validation study
-study_.cross_validation(method ='MLPRegressor',
-                        n_folds=10, 
-                        valid_fraction=0.5, 
-                        feature_selection=True, 
-                        feature_selection_method= 'recursive')
-```
-
-#### 2. Forest age upscaling
-
-```
-#%% Load modules
-from ageUpscaling.upscaling.upscaling import UpscaleAge
-```
-
-```
-#DataConfig_path= "./experiments/forward_run/data_config.yaml"
-CubeConfig_path= "./experiments/forward_run/config_prediction_cube.yaml"
-upscale_init = UpscaleAge(DataConfig_path = DataConfig_path,
-                           cube_config_path= CubeConfig_path,
-                           study_name  = 'test_upscale',
-                           base_dir= './output/',
-                           n_jobs = 10)
-upscale_init.ForwardRun()
-
-```
 ## :busts_in_silhouette: &nbsp;Contributing
-If you find something which doesn't make sense, or something doesn't seem right, please make a pull request and please add valid and well-reasoned explanations about your changes or comments.
 
-Before adding a pull request, please see the **[contributing guidelines](.github/CONTRIBUTING.md)**. You should also remember about this:
+We welcome contributions to this project. If you would like to contribute, please follow these steps:
 
-All **suggestions/PR** are welcome!
+Fork the repository.
+Create a new branch (git checkout -b feature-branch).
+Make your changes.
+Commit your changes (git commit -am 'Add new feature').
+Push to the branch (git push origin feature-branch).
+Create a new Pull Request.
+Please make sure your code follows our coding guidelines and passes all tests.
 
-### Code Contributors
+## Code Contributors
 This project exists thanks to all the people who contribute.
 
 ## :email: &nbsp;Contact person
-Simon Besnard (besnard@gfz-potsdam.de)
+For any questions or inquiries, please contact Simon Besnard (besnard@gfz-potsdam.de)
+
+## License
+This project is licensed under the MIT License - see the LICENSE file for details.
 
