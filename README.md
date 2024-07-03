@@ -64,9 +64,6 @@ We welcome contributions to this project. If you would like to contribute, pleas
 - Create a new Pull Request.
 - Please make sure your code follows our coding guidelines and passes all tests.
 
-## Code Contributors
-This project exists thanks to all the people who contribute.
-
 ## :email: &nbsp;Contact person
 For any questions or inquiries, please contact Simon Besnard (besnard@gfz-potsdam.de)
 
