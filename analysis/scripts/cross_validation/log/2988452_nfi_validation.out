@@ -1,0 +1,6 @@
+/storage/vast-gfz-hpc-01/home/besnard/miniforge3/envs/age_upscale/lib/python3.11/site-packages/ageUpscaling/diagnostic/report.py:267: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  nfi_data['age'][nfi_data['age']> 300] = 300
+Computing validation with NFI data

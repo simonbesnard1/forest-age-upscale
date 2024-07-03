@@ -22,20 +22,25 @@ This repository contains the code and data associated with the scientific paper 
 ## Repository Structure
 
 ```plaintext
-├── data
-│   ├── raw            # Raw data
-│   ├── processed      # Processed data
-├── notebooks          # Jupyter notebooks for experiments and analysis
-├── src
-│   ├── data           # Data processing scripts
-│   ├── models         # Model definitions and training scripts
-│   ├── analysis       # Analysis and visualization scripts
-├── tests              # Unit tests
-├── results            # Results of experiments
-├── figures            # Figures for the paper
-├── requirements.txt   # Python package dependencies
+├── ageUpscaling 		# Core of the package
+│   ├── core
+│   ├── cubegen
+│   ├── dataloaders
+│   ├── diagnostic
+│   ├── fidc_cube
+│   ├── methods
+│   ├── transformers
+│   ├── upscaling
+│   └── utils
+├── analysis			# Scripts to run all the analyis and generate the figures
+│   ├── generate_figures
+│   └── scripts
+├── dev
 ├── LICENSE
-└── README.md
+├── README.md
+├── save_model
+├── setup.cfg
+└── setup.py
 ```
 
 ## :anger: &nbsp;Package installation
