@@ -46,7 +46,6 @@ This repository contains the code and data associated with the scientific paper 
 ## :anger: &nbsp;Package installation
 You can install the python package as follows:
 
-***Important: a personal token has to be entered as password for the package installation***
 ```
 pip install git+https://git.gfz-potsdam.de/global-land-monitoring/forest-age-upscale.git
 
