@@ -56,13 +56,13 @@ pip install git+https://git.gfz-potsdam.de/global-land-monitoring/forest-age-ups
 
 We welcome contributions to this project. If you would like to contribute, please follow these steps:
 
-Fork the repository.
-Create a new branch (git checkout -b feature-branch).
-Make your changes.
-Commit your changes (git commit -am 'Add new feature').
-Push to the branch (git push origin feature-branch).
-Create a new Pull Request.
-Please make sure your code follows our coding guidelines and passes all tests.
+- Fork the repository.
+- Create a new branch (git checkout -b feature-branch).
+- Make your changes.
+- Commit your changes (git commit -am 'Add new feature').
+- Push to the branch (git push origin feature-branch).
+- Create a new Pull Request.
+- Please make sure your code follows our coding guidelines and passes all tests.
 
 ## Code Contributors
 This project exists thanks to all the people who contribute.
