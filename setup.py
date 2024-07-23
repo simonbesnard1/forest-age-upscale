@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences
+# SPDX-FileCopyrightText: 2024 Simon Besnard
+# SPDX-FileCopyrightText: 2024 Basil Kraft
+# SPDX-License-Identifier: EUPL-1.2 
+# Version :   1.0
+# Contact :   besnard@gfz-potsdam.de
+
 import os
 import re
 import setuptools
@@ -40,7 +47,7 @@ setuptools.setup(
                                                'ageUpscaling.*']),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+        "License :: OSI Approved :: EUROPEAN UNION PUBLIC LICENCE v.1.2 (EUPL-1.2)",
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.11.5',

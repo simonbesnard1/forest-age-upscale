@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author: sbesnard
-@File    :   csv_to_fidcCube.py
-@Time    :   Mon Sep 26 10:47:17 2022
-@Author  :   Simon Besnard
-@Version :   1.0
-@Contact :   besnard@gfz-potsdam.de
-@License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for creating FIDC cube
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences
+# SPDX-FileCopyrightText: 2024 Simon Besnard
+# SPDX-License-Identifier: EUPL-1.2 
+# Version :   1.0
+# Contact :   besnard@gfz-potsdam.de
+# File    :   csv_to_fidcCube.py
 """
 from typing import Any
 

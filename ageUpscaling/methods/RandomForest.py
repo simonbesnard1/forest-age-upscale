@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author: sbesnard
-@File    :   RF.py
-@Time    :   Mon Sep 26 10:47:17 2022
-@Author  :   Simon Besnard
-@Version :   1.0
-@Contact :   besnard.sim@gmail.com
-@License :   (C)Copyright 2022-2023, GFZ-Potsdam
-@Desc    :   A method class for training RF model
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences
+# SPDX-FileCopyrightText: 2024 Simon Besnard
+# SPDX-License-Identifier: EUPL-1.2 
+# Version :   1.0
+# Contact :   besnard@gfz-potsdam.de
+# File    :   RandomForest.py
 """
 import os
 import numpy as np
