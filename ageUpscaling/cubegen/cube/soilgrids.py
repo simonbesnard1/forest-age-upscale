@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author  : besnard and runge
-@File    :   SoilGrids.py
-@Time    :   Wed Aug 9 10:47:17 2023
-@Author  :   Simon Besnard
-@Version :   1.0
-@Contact :   besnard@gfz-potsdam.de 
-@License :   (C)Copyright 2022-2023, GFZ-Potsdam
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences
+# SPDX-FileCopyrightText: 2024 Simon Besnard
+# SPDX-License-Identifier: EUPL-1.2 
+# Version :   1.0
+# Contact :   besnard@gfz-potsdam.de
+# File    :   SoilGrids.py
 
 This module provides functionalities for handling the creation and updating of regularized cube zarr files.
 
