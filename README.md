@@ -36,9 +36,7 @@ This repository contains the code and data associated with the scientific paper 
 │   ├── generate_figures
 │   └── scripts
 ├── dev
-├── LICENSE
 ├── README.md
-├── save_model
 ├── setup.cfg
 └── setup.py
 ```
