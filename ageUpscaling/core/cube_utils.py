@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author: sbesnard
-@File    :   cube_utils.py
-@Time    :   Mon Sep 26 10:47:17 2022
-@Author  :   Code adapted from Jake Nelson cube_utils modules
-@Version :   1.0
-@Contact :   besnard@gfz-potsdam.de
-@License :   (C)Copyright 2022-2023, GFZ-Potsdam
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences
+# SPDX-FileCopyrightText: 2024 Simon Besnard
+# SPDX-License-Identifier: EUPL-1.2 
+# Version :   1.0
+# Contact :   besnard@gfz-potsdam.de
+# File    :   cube_utils.py
 
 This module provides functionalities for creating new cube datasets.
 

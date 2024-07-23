@@ -1,5 +1,10 @@
 """
-core
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences
+# SPDX-FileCopyrightText: 2024 Simon Besnard
+# SPDX-License-Identifier: EUPL-1.2 
+# Version :   1.0
+# Contact :   besnard@gfz-potsdam.de
+# File: core.py
 
 This module provides tools for the creation, management, and analysis of data cubes,
 including functionalities for cross-validation, model training, and prediction.
