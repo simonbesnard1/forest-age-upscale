@@ -1,93 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sat Jun 15 13:51:52 2024
-
-@author: simon
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences
+# SPDX-FileCopyrightText: 2024 Simon Besnard
+# SPDX-License-Identifier: EUPL-1.2 
+# Version :   1.0
+# Contact :   besnard@gfz-potsdam.de
 """
 import xarray as xr
 import numpy as np
 import pandas as pd
-from scipy import ndimage
+import os
+from ageUpscaling.utils.plotting import area_weighted_sum
 
-def filter_nan_gaussian_conserving(ds_: xr.DataArray, 
-                                   length_km: float = 1000, 
-                                   length_degree_longitude_equator_km: float = 112.32) -> xr.DataArray:
-    """
-    Apply a Gaussian filter to an xarray DataArray, preserving the total intensity 
-    while considering NaN values.
+#%% Specify data and plot directories
+data_dir = '/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/'
 
-    This function applies a Gaussian filter to the input DataArray `ds_`. The 
-    filtering conserves the total 'intensity' (sum of the values) by redistributing
-    intensity only among non-NaN pixels. The NaN values in the input DataArray remain
-    NaN in the output. The Gaussian distribution weights used for intensity 
-    redistribution consider only available (non-NaN) pixels. 
-
-    The smoothing scale of the Gaussian filter is determined by `length_km`, which 
-    is the physical length scale in kilometers. The sigma of the Gaussian filter is 
-    calculated based on the length in degrees of longitude at the equator, given by
-    `length_degree_longitude_equator_km`.
-
-    Parameters:
-    ds_ (xr.DataArray): The input DataArray to be filtered. It should contain NaN 
-                        values to indicate missing data.
-    length_km (float, optional): The physical length scale in kilometers for the 
-                                 Gaussian filter. Default is 1000 km.
-    length_degree_longitude_equator_km (float, optional): The length in degrees of 
-                                                          longitude at the equator, 
-                                                          used for calculating sigma 
-                                                          of the Gaussian filter. 
-                                                          Default is 112.32 km.
-
-    Returns:
-    xr.DataArray: A new DataArray that has been smoothed with a Gaussian filter. 
-                  NaN values from the original DataArray are preserved.
-    """
-
-    sigma = length_km / length_degree_longitude_equator_km 
-    
-    arr = ds_.values
-    nan_msk = np.isnan(arr)
-
-    loss = np.zeros(arr.shape)
-    loss[nan_msk] = 1
-    loss = ndimage.gaussian_filter(
-            loss, sigma=sigma, mode='constant', cval=1)
-
-    gauss = arr.copy()
-    gauss[nan_msk] = 0
-    gauss = ndimage.gaussian_filter(
-            gauss, sigma=sigma, mode='constant', cval=0)
-    gauss[nan_msk] = np.nan
-
-    gauss += loss * arr
-    
-    out_ = xr.DataArray(gauss, coords=ds_.coords)
-
-    return out_
-
-def AreaGridlatlon(lats,lons,res_lat,res_lon):
-     ER          = 6378160 #Earth radius (m)
-     cols        = lons.shape[0]
-     londel      = np.abs(res_lon)
-     lats1       = lats - res_lat/2.
-     lats2       = lats + res_lat/2.
-     areavec     = (np.pi/180)*ER**2 * np.abs(np.sin(lats1 * 
-                                                     np.pi/180)-np.sin(lats2 * np.pi/180))*londel
-     area_grid   = xr.DataArray(np.matmul(areavec[:,np.newaxis],np.ones([1, cols])), 
-                               dims=['latitude', 'longitude'],
-                               coords={'latitude': lats,
-                                       'longitude': lons})
-     return(area_grid)
- 
-def area_weighted_sum(data, res, scalar_area = 1, scalar_mass=1e-15):
-    area_grid = AreaGridlatlon(data["latitude"].values, data["longitude"].values,res,res)
-    dat_area_weighted = np.nansum(data * area_grid * scalar_area * scalar_mass)
-    return dat_area_weighted
-
-#%% Load forest fraction
-forest_fraction = xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/ForestFraction_1deg').forest_fraction
-
+#%% Load partition age difference
+forest_fraction = xr.open_zarr(os.path.join(data_dir,'ForestFraction_1deg')).forest_fraction
 
 #%% Load transcom regions
 GFED_regions = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/GFED_regions/GFED_regions_360_180_v1.nc').basis_regions
