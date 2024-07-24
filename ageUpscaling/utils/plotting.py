@@ -257,3 +257,14 @@ def determine_next_age_class(current_age_class,
     else:
         # For the last two age classes before '>200', transition to '>200'
         return '>200'
+
+# Mapping age classes to coarser groups
+def map_age_class(age_class):
+    if age_class in ["0-20"]:
+        return "young"
+    elif age_class in ["20-40", "40-60", "60-80"]:
+        return "maturing"
+    elif age_class in ["80-100", "100-120", "120-140", "140-160", "160-180", "180-200"]:
+        return "Mature forests"
+    else:
+        return "old-growth forests"
