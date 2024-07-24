@@ -6,7 +6,6 @@
 # SPDX-License-Identifier: EUPL-1.2 
 # Version :   1.0
 # Contact :   besnard@gfz-potsdam.de
-
 """
 import xarray as xr
 import matplotlib.pyplot as plt
