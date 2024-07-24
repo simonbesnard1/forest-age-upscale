@@ -183,14 +183,14 @@ for member_ in np.arange(20):
 
     #%% Load stand-replaced / aging agb difference
     BiomassDiffPartition_1deg =  xr.open_zarr(os.path.join(data_dir,'BiomassPartition_1deg')).sel(members = member_)
-    Young_stand_replaced =  (BiomassDiffPartition_1deg.stand_replaced.sel(age_class= '0-20') * 0.5)
-    Intermediate_stand_replaced = (BiomassDiffPartition_1deg.stand_replaced.sel(age_class= '20-80') * 0.5)
-    Mature_stand_replaced =   (BiomassDiffPartition_1deg.stand_replaced.sel(age_class= '80-200') * 0.5)
-    OG_stand_replaced =   (BiomassDiffPartition_1deg.stand_replaced.sel(age_class= '>200')* 0.5)
-    Young_aging =  (BiomassDiffPartition_1deg.gradually_ageing.sel(age_class= '0-20') * 0.5) 
-    Intermediate_aging= (BiomassDiffPartition_1deg.gradually_ageing.sel(age_class= '20-80') * 0.5)
-    Mature_aging =   (BiomassDiffPartition_1deg.gradually_ageing.sel(age_class= '80-200') * 0.5)
-    OG_aging =   (BiomassDiffPartition_1deg.gradually_ageing.sel(age_class= '>200')* 0.5)
+    Young_stand_replaced =  (BiomassDiffPartition_1deg.stand_replaced.sel(age_class= '0-20') * 0.47)
+    Intermediate_stand_replaced = (BiomassDiffPartition_1deg.stand_replaced.sel(age_class= '20-80') * 0.47)
+    Mature_stand_replaced =   (BiomassDiffPartition_1deg.stand_replaced.sel(age_class= '80-200') * 0.47)
+    OG_stand_replaced =   (BiomassDiffPartition_1deg.stand_replaced.sel(age_class= '>200')* 0.47)
+    Young_aging =  (BiomassDiffPartition_1deg.gradually_ageing.sel(age_class= '0-20') * 0.47) 
+    Intermediate_aging= (BiomassDiffPartition_1deg.gradually_ageing.sel(age_class= '20-80') * 0.47)
+    Mature_aging =   (BiomassDiffPartition_1deg.gradually_ageing.sel(age_class= '80-200') * 0.47)
+    OG_aging =   (BiomassDiffPartition_1deg.gradually_ageing.sel(age_class= '>200')* 0.47)
     
     #%% Calculate pixel area
     EARTH_RADIUS = 6371.0

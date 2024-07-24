@@ -1,33 +1,39 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences
+# SPDX-FileCopyrightText: 2024 Simon Besnard
+# SPDX-License-Identifier: EUPL-1.2 
+# Version :   1.0
+# Contact :   besnard@gfz-potsdam.de
+"""
 import xarray as xr
 import numpy as np
 import pandas as pd
+import os
+from ageUpscaling.utils.plotting import calculate_pixel_area
 
+#%% Specify data and plot directories
+data_dir = '/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/'
 
 #%% Load forest fraction
-forest_fraction = xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/ForestFraction_1deg').forest_fraction
+forest_fraction = xr.open_zarr(os.path.join(data_dir,'ForestFraction_1deg')).forest_fraction
+pixel_area = calculate_pixel_area(forest_fraction, 
+                                  EARTH_RADIUS = 6378.160, 
+                                  resolution=1)
 
 #%% These should be replaced with your actual age data arrays/matrices for 2010 and 2020
 out = []
 for member_ in np.arange(20):
     
     #%%Load AGB changes
-    BiomassDiffPartition_1deg =  xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/BiomassDiffPartition_1deg').sel(members = member_).stand_replaced
+    BiomassDiffPartition_1deg =  xr.open_zarr(os.path.join(data_dir,'BiomassDiffPartition_1deg')).sel(members = member_).stand_replaced
     
     #%%Load AGB 
-    BiomassPartition_1deg =  xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/BiomassPartition_1deg').sel(members = member_)
+    BiomassPartition_1deg =  xr.open_zarr(os.path.join(data_dir,'BiomassPartition_1deg')).sel(members = member_)
     
     #%% Load stand-replace age class data
-    AgeDiffPartition_fraction_1deg =  xr.open_zarr("/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/AgeDiffPartition_1deg").sel(members = member_)
-
-    
-    #%% Calculate pixel area
-    EARTH_RADIUS = 6371.0
-    delta_lon = np.deg2rad(1)  # Assuming a grid spacing of 1 degree
-    width_of_longitude = EARTH_RADIUS * delta_lon
-    delta_lat = np.deg2rad(1)  # Assuming a grid spacing of 1 degree
-    height_of_latitude = EARTH_RADIUS * delta_lat
-    pixel_area = (width_of_longitude * height_of_latitude *
-                  np.cos(np.deg2rad(forest_fraction.latitude))).broadcast_like(forest_fraction) * 1000000
+    AgeDiffPartition_fraction_1deg =  xr.open_zarr(os.path.join(data_dir,"AgeDiffPartition_1deg")).sel(members = member_)
 
     # Initialize a dictionary to hold the total area for each age class
     total_AGB_changes_stand_replaced = {}
@@ -36,9 +42,9 @@ for member_ in np.arange(20):
     
     # Iterate over each age class, calculate the total area, and store it in the dictionary
     for age_class in AgeDiffPartition_fraction_1deg.age_class.values:
-        AGBchange_stand_replaced =  (BiomassDiffPartition_1deg.sel(age_class= age_class) * 0.5 *-1 *100)/ 10
-        AGB_stand_replaced =  BiomassPartition_1deg.stand_replaced.sel(age_class= age_class) * 0.5
-        AGB_aging =  BiomassPartition_1deg.gradually_ageing.sel(age_class= age_class) * 0.5
+        AGBchange_stand_replaced =  (BiomassDiffPartition_1deg.sel(age_class= age_class) * 0.47 *-1 *100)/ 10
+        AGB_stand_replaced =  BiomassPartition_1deg.stand_replaced.sel(age_class= age_class) * 0.47
+        AGB_aging =  BiomassPartition_1deg.gradually_ageing.sel(age_class= age_class) * 0.47
         
         Fraction_stand_replaced =  AgeDiffPartition_fraction_1deg.sel(age_class = age_class).stand_replaced_class_partition
         Fraction_stand_replaced = Fraction_stand_replaced.where(Fraction_stand_replaced >0)
