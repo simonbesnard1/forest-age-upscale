@@ -47,7 +47,7 @@ average_age = xr.open_zarr(os.path.join(data_dir,'ForestAge_1deg')).forest_age.m
 age_difference = xr.open_zarr(os.path.join(data_dir,'AgeDiff_1deg')).age_difference.median(dim =  'members')
 age_difference = age_difference -10
 pixel_area = calculate_pixel_area(age_difference, 
-                                  EARTH_RADIUS = 6371.0, 
+                                  EARTH_RADIUS = 6378.160, 
                                   resolution=1)
 
 #%% Calculate total area per age class for a given year
