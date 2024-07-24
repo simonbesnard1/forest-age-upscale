@@ -1,25 +1,29 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences
+# SPDX-FileCopyrightText: 2024 Simon Besnard
+# SPDX-License-Identifier: EUPL-1.2 
+# Version :   1.0
+# Contact :   besnard@gfz-potsdam.de
+"""
+
 import xarray as xr
 import numpy as np
 import pandas as pd
+import os
+from ageUpscaling.utils.plotting import map_age_class
 
-# Mapping age classes to coarser groups
-def map_age_class(age_class):
-    if age_class in ["0-20"]:
-        return "young"
-    elif age_class in ["20-40", "40-60", "60-80"]:
-        return "maturing"
-    elif age_class in ["80-100", "100-120", "120-140", "140-160", "160-180", "180-200"]:
-        return "Mature forests"
-    else:
-        return "old-growth forests"
+#%% Specify data directory
+data_dir = '/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/'
 
 #%% These should be replaced with your actual age data arrays/matrices for 2010 and 2020
 out = []
 out_group = []
 for member_ in np.arange(20):
-    age_class_2010 = xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/AgeClass_1deg').sel(time = '2010-01-01', members=member_) 
-    age_class_2020 = xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/AgeClass_1deg').sel(time = '2020-01-01', members=member_)
-    forest_fraction = xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/ForestFraction_1deg').forest_fraction
+    age_class_2010 = xr.open_zarr(os.path.join(data_dir,'AgeClass_1deg')).sel(time = '2010-01-01', members=member_) 
+    age_class_2020 = xr.open_zarr(os.path.join(data_dir,'AgeClass_1deg')).sel(time = '2020-01-01', members=member_)
+    forest_fraction = xr.open_zarr(os.path.join(data_dir,'ForestFraction_1deg')).forest_fraction
     
     # Earth's radius in kilometers
     EARTH_RADIUS = 6371.0

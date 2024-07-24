@@ -1,49 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Nov  6 15:22:16 2023
-
-@author: simon
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences
+# SPDX-FileCopyrightText: 2024 Simon Besnard
+# SPDX-License-Identifier: EUPL-1.2 
+# Version :   1.0
+# Contact :   besnard@gfz-potsdam.de
 """
+
 import xarray as xr
 import numpy as np
 import pandas as pd
+import os
+from ageUpscaling.utils.plotting import area_weighed_mean
 
-
-def AreaGridlatlon(lats,lons,res_lat,res_lon):
-     ER          = 6378160 #Earth radius (m)
-     cols        = lons.shape[0]
-     londel      = np.abs(res_lon)
-     lats1       = lats - res_lat/2.
-     lats2       = lats + res_lat/2.
-     areavec     = (np.pi/180)*ER**2 * np.abs(np.sin(lats1 * 
-                                                     np.pi/180)-np.sin(lats2 * np.pi/180))*londel
-     area_grid   = xr.DataArray(np.matmul(areavec[:,np.newaxis],np.ones([1, cols])), 
-                               dims=['latitude', 'longitude'],
-                               coords={'latitude': lats,
-                                       'longitude': lons})
-     return(area_grid)
- 
-def area_weighed_mean(data, res):
-    area_grid = AreaGridlatlon(data["latitude"].values, data["longitude"].values,res,res).values
-    dat_area_weighted = np.nansum((data * area_grid) / np.nansum(area_grid[~np.isnan(data)]))
-    return dat_area_weighted 
+#%% Specify data directory
+data_dir = '/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/'
 
 #%% Load transcom regions
 GFED_regions = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/GFED_regions/GFED_regions_360_180_v1.nc').basis_regions
-#GFED_regions = GFED_regions.where((GFED_regions == 9) | (GFED_regions == 8))
-#GFED_regions = GFED_regions.where((GFED_regions ==9) | (np.isnan(GFED_regions)), 5)
-#GFED_regions = GFED_regions.where((GFED_regions ==5) | (np.isnan(GFED_regions)), 6)
 GFED_regions = GFED_regions.rename({'lat' : 'latitude', 'lon' : 'longitude'})
-# GFED_regions['latitude'] = Young_stand_replaced_class['latitude']
-# GFED_regions['longitude'] = Young_stand_replaced_class['longitude']
 transcom_regions = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/transcom_regions/transcom_regions_360_180.nc').transcom_regions
 transcom_regions = transcom_regions.reindex(latitude=transcom_regions.latitude[::-1])
 transcom_regions = transcom_regions.where(transcom_regions<=11)
-
-#transcom_regions = transcom_regions.where(transcom_regions<=11)
-#transcom_regions = transcom_regions.where((transcom_regions<5) | (transcom_regions>6) )
-#transcom_regions = transcom_regions.where(np.isfinite(transcom_regions), GFED_regions)
 transcom_mask ={"class_7":{"eco_class" : 7, "name": "Eurasia Boreal"},                
                 "class_1":{"eco_class":  1, "name": "NA Boreal"},
                 "class_8":{"eco_class" : 8, "name": "Eurasia Temperate"},
@@ -60,7 +39,7 @@ transcom_mask ={"class_7":{"eco_class" : 7, "name": "Eurasia Boreal"},
 out = []
 for member_ in np.arange(20):
     
-    average_age = xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/ForestAge_1deg').forest_age.sel(members = member_)
+    average_age = xr.open_zarr(os.path.join(data_dir,'ForestAge_1deg')).forest_age.sel(members = member_)
     average_age_2010 = average_age.sel(time = '2010-01-01')
     average_age_2020 = average_age.sel(time = '2020-01-01')
 
