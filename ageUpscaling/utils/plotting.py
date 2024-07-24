@@ -163,3 +163,79 @@ def violins(data,pos=0,bw_method=None,resolution=50,spread=1,max_num_points=100)
     pointy = pos+np.where(np.random.rand(pointx.shape[0])>0.5,-1,1)*np.random.rand(pointx.shape[0])*pointy*spread
     filly  = (pos-filly*spread,pos+filly*spread)
     return(pointx,pointy,fillx,filly)
+
+def blur_func(num, sigma):
+    """Kernel density function
+    Currently Gaussian, but this can change to need.
+    """
+    assert num % 2 == 1, 'Only with odd numbers!'
+    kernel = np.zeros(num)
+    mu = num // 2
+    for x in range(num):
+        # Could vectorize
+        density = (1/(sigma * (2 * np.pi) ** 0.5) * np.exp(-1/2 * ((x - mu) ** 2) / sigma ** 2))
+        kernel[x] = density
+    return kernel
+
+def get_kernel(sigma_x, sigma_y, kernel_size):
+    """Function to create a 2d kernel based on the creation of 2 1d kernels. """
+    kernel_x = blur_func(kernel_size, sigma_x)
+    kernel_y = blur_func(kernel_size, sigma_y)
+    kernel = np.outer(kernel_y, kernel_x)
+    kernel /= kernel.sum() # Normalize to 1
+    return kernel
+
+def apply_blur(NEE_2010, kernel_size=5, sigmax=2):
+    HALF_KERNEL = int(np.ceil(kernel_size / 2))
+    
+    # Calculate the number of pixels per latitude bin
+    global_lats = NEE_2010.latitude.values
+    sigma_per_lat = 1/np.cos(global_lats / 90) * sigmax
+
+    newmap = NEE_2010.values.copy()
+    for i in range(NEE_2010.shape[0]):
+        for j in range(NEE_2010.shape[1]):
+            
+            sigmay = sigma_per_lat[i]
+            kernel = get_kernel(sigmax, sigmay, kernel_size)
+            starti = max(0, i - (HALF_KERNEL - 1))
+            endi = min(newmap.shape[0], i + HALF_KERNEL)
+            
+            startj = max(0, j - (HALF_KERNEL - 1))
+            endj = min(newmap.shape[1], j + HALF_KERNEL)
+
+            if i - HALF_KERNEL < 0:
+                kernel = kernel[-(i - HALF_KERNEL + 1):, :]
+            elif i + HALF_KERNEL > newmap.shape[0]:
+                kernel = kernel[:newmap.shape[0] - (i + HALF_KERNEL), :]
+                
+            if j - HALF_KERNEL < 0:
+                kernel = kernel[:, -(j - HALF_KERNEL + 1):]
+            elif j + HALF_KERNEL > newmap.shape[1]:
+                kernel = kernel[:, :newmap.shape[1] - (j + HALF_KERNEL)]
+
+            a = newmap[starti: endi,
+                    startj: endj]
+
+            assert a.shape == kernel.shape
+
+            newmap[i, j] = np.average(a, weights=kernel)
+    
+    return xr.DataArray(newmap, coords=NEE_2010.coords)
+
+def rolling_window(data, window_size=10):
+    latitudes = data.latitude.values
+    longitudes = data.longitude.values
+
+    mean_values = []
+
+    for lat in range(int(latitudes.min()), int(latitudes.max()) - window_size + 1):
+        for lon in range(int(longitudes.min()), int(longitudes.max()) - window_size + 1):
+            # Select data in the current window
+            window_data = data.sel(latitude=slice(lat + window_size, lat),
+                                   longitude=slice(lon, lon + window_size))
+            # Calculate area-weighted mean for this window
+            window_mean = window_data.mean(dim=('latitude', 'longitude')).values
+            mean_values.append([window_mean])
+    
+    return np.concatenate(mean_values)
