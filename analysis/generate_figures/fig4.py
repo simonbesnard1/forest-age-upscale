@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Nov  6 15:22:16 2023
-
-@author: simon
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences
+# SPDX-FileCopyrightText: 2024 Simon Besnard
+# SPDX-License-Identifier: EUPL-1.2 
+# Version :   1.0
+# Contact :   besnard@gfz-potsdam.de
 """
 import xarray as xr
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.stats as st
 import matplotlib as mpl
 import pandas as pd
+import os
+
+# Set matplotlib parameters for consistent styling
 params = {
     # font
     'font.family': 'serif',
-    # 'font.serif': 'Times', #'cmr10',
     'font.size': 14,
     # axes
     'axes.titlesize': 12,
@@ -28,72 +31,17 @@ params = {
     'xtick.minor.width': 0.3,
     'ytick.minor.width': 0.3,
     # legend
-    'legend.fontsize': 12,
-    # tex
-    #'text.usetex': True,
-    # layout
-    #'constrained_layout': True
+    'legend.fontsize': 12
 }
 
 mpl.rcParams.update(params)
 
-def violins(data,pos=0,bw_method=None,resolution=50,spread=1,max_num_points=100):
-    """violins(data,pos=0,bw_method=None,resolution=50,spread=1)
-    Jitter violin plot creater
-    Takes points from a distribution and creates data for both a jitter violin and a standard violin plot.
-    Parameters
-    ----------
-    data : numpy array
-        The data to build the violin plots from
-    pos : float or int
-        The position the resulting violin will be centered on
-    bw_method : str, scalar or callable, optional
-        The method used to calculate the estimator bandwidth. This can be ‘scott’, ‘silverman’, a scalar constant or a callable. If a scalar, this will be used directly as kde.factor. If a callable, it should take a gaussian_kde instance as only parameter and return a scalar. If None (default), ‘scott’ is used. See Notes for more details.
-    resolution : int
-        The resolution of the resulting violin plot
-    spread : int or float
-        The spread of the violin plots
-     Returns
-    -------
-    pointx,pointy : numpy arrays
-        The resulting data for the jitter violin plot (use with pl.scatter)
-    fillx,filly : numpy array
-        The resulting data for a standard violin plot (use with pl.fill_between)
-    """
-    if data.size>max_num_points:
-        data = np.random.choice(data,size=max_num_points,replace=False)
-    kde    = st.gaussian_kde(data,bw_method=bw_method)
-    pointx = data
-    pointy = kde.pdf(pointx)
-    pointy = pointy/(2*pointy.max())
-    fillx  = np.linspace(data.min(),data.max(),resolution)
-    filly  = kde.pdf(fillx)
-    filly  = filly/(2*filly.max())
-    pointy = pos+np.where(np.random.rand(pointx.shape[0])>0.5,-1,1)*np.random.rand(pointx.shape[0])*pointy*spread
-    filly  = (pos-filly*spread,pos+filly*spread)
-    return(pointx,pointy,fillx,filly)
-
-def determine_next_age_class(current_age_class):
-    # Define the order of age classes
-    age_classes = ['0-20', '20-40', '40-60', '60-80', '80-100', 
-                   '100-120', '120-140', '140-160', '160-180', '180-200', '>200']
-
-    # Find the index of the current age class
-    current_index = age_classes.index(current_age_class)
-
-    # Check if the current age class is the last one
-    if current_age_class == '>200':
-        # The last age class remains the same
-        return '>200'
-    elif current_index < len(age_classes) - 2:
-        # Return the next age class in the list for all but the last two classes
-        return age_classes[current_index + 1]
-    else:
-        # For the last two age classes before '>200', transition to '>200'
-        return '>200'
+#%% Specify data and plot directories
+data_dir = '/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/'
+plot_dir = '/home/simon/Documents/science/research_paper/global_age_Cdyn/figs/'
 
 #%% These should be replaced with your actual age data arrays/matrices for 2010 and 2020
-forest_fraction = xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/ForestFraction_1deg').forest_fraction
+forest_fraction = xr.open_zarr(os.path.join(data_dir,'ForestFraction_1deg')).forest_fraction
 
 summarized_areas_2020_members = []
 summarized_areas_scenario1_members = []
@@ -101,7 +49,7 @@ AgePartition_total_scenario1 = []
 AgePartition_total_BAU = [] 
 for member_ in np.arange(20):
 
-    age_2020 = xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/AgeClass_1deg').sel(time = '2020-01-01').sel(members= member_).transpose("latitude", "longitude", "age_class").forest_age
+    age_2020 = xr.open_zarr(os.path.join(data_dir,'AgeClass_1deg')).sel(time = '2020-01-01').sel(members= member_).transpose("latitude", "longitude", "age_class").forest_age
     # Sum the '200-299' and '>299' age classes into a new '>200' age class
     combined = age_2020.sel(age_class=['200-299', '>299']).sum(dim='age_class')
     
@@ -234,7 +182,7 @@ for member_ in np.arange(20):
 
 
     #%% Load stand-replaced / aging agb difference
-    BiomassDiffPartition_1deg =  xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/BiomassPartition_1deg').sel(members = member_)
+    BiomassDiffPartition_1deg =  xr.open_zarr(os.path.join(data_dir,'BiomassPartition_1deg')).sel(members = member_)
     Young_stand_replaced =  (BiomassDiffPartition_1deg.stand_replaced.sel(age_class= '0-20') * 0.5)
     Intermediate_stand_replaced = (BiomassDiffPartition_1deg.stand_replaced.sel(age_class= '20-80') * 0.5)
     Mature_stand_replaced =   (BiomassDiffPartition_1deg.stand_replaced.sel(age_class= '80-200') * 0.5)
@@ -254,7 +202,7 @@ for member_ in np.arange(20):
                   np.cos(np.deg2rad(Intermediate_stand_replaced.latitude))).broadcast_like(Intermediate_stand_replaced) * 1000000
     
     #%% Load stand-replace age class data
-    AgeDiffPartition_fraction_1deg =  xr.open_zarr("/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/AgeDiffPartition_1deg").sel(members = member_)
+    AgeDiffPartition_fraction_1deg =  xr.open_zarr(os.path.join(data_dir,"AgeDiffPartition_1deg")).sel(members = member_)
     
     Young_stand_replaced_class =  AgeDiffPartition_fraction_1deg.stand_replaced_class_partition.sel(age_class = '0-20')
     Young_stand_replaced_class = Young_stand_replaced_class.where(Young_stand_replaced_class >0)
@@ -383,8 +331,6 @@ ax[1].text(0.05, 1.05, 'b', transform=ax[1].transAxes,
             fontsize=16, fontweight='bold', va='top')
 ax[1].set_title('Forest age class distribution in 2050', fontsize=14, fontweight='bold')
 
-
-
 x = np.arange(len(np.concatenate([list(class_ranges.keys()) , ['All forests']])))  # the label locations
 median_out = AgePartition_total_scenario1.median(numeric_only=True)
 q5_out = AgePartition_total_scenario1.quantile(numeric_only=True, q=0.05)
@@ -412,4 +358,4 @@ ax[0].spines['right'].set_visible(False)
 ax[0].text(0.05, 1.05, 'a', transform=ax[0].transAxes,
             fontsize=16, fontweight='bold', va='top')
 ax[0].set_title('Total carbon stock in 2050', fontsize=14, fontweight='bold')
-plt.savefig('/home/simon/Documents/science/research_paper/global_age_Cdyn/figs/fig4.png', dpi=300)
+plt.savefig(os.path.join(plot_dir,'fig4.png'), dpi=300)

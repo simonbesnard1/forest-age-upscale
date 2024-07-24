@@ -239,3 +239,21 @@ def rolling_window(data, window_size=10):
             mean_values.append([window_mean])
     
     return np.concatenate(mean_values)
+
+
+def determine_next_age_class(current_age_class, 
+                             age_classes = ['0-20', '20-40', '40-60', '60-80', '80-100', 
+                                            '100-120', '120-140', '140-160', '160-180', '180-200', '>200']):    
+    # Find the index of the current age class
+    current_index = age_classes.index(current_age_class)
+
+    # Check if the current age class is the last one
+    if current_age_class == '>200':
+        # The last age class remains the same
+        return '>200'
+    elif current_index < len(age_classes) - 2:
+        # Return the next age class in the list for all but the last two classes
+        return age_classes[current_index + 1]
+    else:
+        # For the last two age classes before '>200', transition to '>200'
+        return '>200'
