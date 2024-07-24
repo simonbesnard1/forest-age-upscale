@@ -460,6 +460,3 @@ ax[1,1].annotate('Carbon gain', xy=(0.4, -50), xytext=(0.4, -280),
                   ha='center', va='bottom', color='#7570b3', fontweight= 'bold', fontsize=14)
 ax[1,1].axhline(y=0, c='red', linestyle='dashed', linewidth=2)
 plt.savefig(os.path.join(plot_dir,'fig3.png'), dpi=300)
-
-
-
