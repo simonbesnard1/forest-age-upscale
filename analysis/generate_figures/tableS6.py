@@ -1,33 +1,33 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+# SPDX-FileCopyrightText: 2024 Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences
+# SPDX-FileCopyrightText: 2024 Simon Besnard
+# SPDX-License-Identifier: EUPL-1.2 
+# Version :   1.0
+# Contact :   besnard@gfz-potsdam.de
+"""
 import xarray as xr
 import numpy as np
 import pandas as pd
+import os
+from ageUpscaling.utils.plotting import calculate_pixel_area
 
+#%% Specify data and plot directories
+data_dir = '/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/'
+
+#%% Load forest fraction
+forest_fraction = xr.open_zarr(os.path.join(data_dir,'ForestFraction_1deg')).forest_fraction
+pixel_area = calculate_pixel_area(forest_fraction, 
+                                  EARTH_RADIUS = 6378.160, 
+                                  resolution=1)
 
 #%% These should be replaced with your actual age data arrays/matrices for 2010 and 2020
 out = []
 for member_ in np.arange(20):
-    stand_replaced_class_partition = xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/AgeDiffPartition_1deg').sel(members=member_).stand_replaced_class_partition 
-    aging_forest_class_partition = xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/AgeDiffPartition_1deg').sel(members=member_).aging_forest_class_partition 
-    forest_fraction = xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/ForestFraction_1deg').forest_fraction
+    stand_replaced_class_partition = xr.open_zarr(os.path.join(data_dir,'AgeDiffPartition_1deg')).sel(members=member_).stand_replaced_class_partition 
+    aging_forest_class_partition = xr.open_zarr(os.path.join(data_dir,'AgeDiffPartition_1deg')).sel(members=member_).aging_forest_class_partition 
     
-    # Earth's radius in kilometers
-    EARTH_RADIUS = 6371.0
-    
-    # Calculate the width of each longitude slice in radians
-    # Multiply by Earth's radius to get the width in kilometers
-    delta_lon = np.deg2rad(1)  # Assuming a grid spacing of 1 degree
-    width_of_longitude = EARTH_RADIUS * delta_lon
-    
-    # Calculate the height of each latitude slice in radians
-    # Multiply by Earth's radius to get the height in kilometers
-    delta_lat = np.deg2rad(1)  # Assuming a grid spacing of 1 degree
-    height_of_latitude = EARTH_RADIUS * delta_lat
-    
-    # Now, calculate the area of each pixel in square kilometers
-    # cos(latitude) factor accounts for the convergence of meridians at the poles
-    # We need to convert latitude from degrees to radians first
-    pixel_area = (width_of_longitude * height_of_latitude *
-                  np.cos(np.deg2rad(aging_forest_class_partition.latitude))).broadcast_like(aging_forest_class_partition.isel(age_class=0))
     
     # Initialize a dictionary to hold the total area for each age class
     total_area_stand_replaced = {}
