@@ -118,6 +118,3 @@ ax[1].text(0.05, 1.1, 'b', transform=ax[1].transAxes,
             fontsize=16, fontweight='bold', va='top')
 ax[1].tick_params(labelsize=12, rotation=90)
 plt.savefig(os.path.join(plot_dir,'figS15.png'), dpi=300)
-
-
-
