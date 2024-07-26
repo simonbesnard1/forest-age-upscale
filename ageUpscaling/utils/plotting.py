@@ -14,6 +14,10 @@ import numpy as np
 import xarray as xr
 import scipy.stats as st
 from scipy import ndimage
+from pystac.extensions.eo import EOExtension as eo
+import odc.stac
+import pystac_client
+import planetary_computer
 
 def calculate_pixel_area(ds, 
                          EARTH_RADIUS = 6378.160, 
@@ -268,3 +272,26 @@ def map_age_class(age_class):
         return "Mature forests"
     else:
         return "old-growth forests"
+
+# Function to load and plot satellite data
+# Initialize catalog
+catalog = pystac_client.Client.open("https://planetarycomputer.microsoft.com/api/stac/v1", modifier=planetary_computer.sign_inplace)
+def load_and_plot_satellite_data(bbox, ax, bands=["B02", "B03", "B04"], collection="sentinel-2-l2a", time_of_interest="2020-01-01/2020-12-31"):
+    search = catalog.search(collections=[collection], bbox=bbox, datetime=time_of_interest, query={"eo:cloud_cover": {"lt": 10}})
+    items = search.item_collection()
+    selected_item = min(items, key=lambda item: eo.ext(item).cloud_cover)
+
+    data = odc.stac.stac_load([selected_item], bands=bands, bbox=bbox,
+                              crs="EPSG:4326",   resolution=0.00009009).isel(time=0)
+    data[["B04", "B03", "B02"]].to_array().plot.imshow(robust=True, ax=ax)
+
+# Function to calculate and plot forest age difference
+def plot_forest_age_diff(ds, lat_range, lon_range, time1, time2, ax, cmap="bwr_r", vmin=-10, vmax=10):
+    dat_ = ds.sel(latitude=slice(*lat_range), longitude=slice(*lon_range))
+    age_diff_ = dat_.sel(time=time1) - dat_.sel(time=time2)
+    #age_diff_ = age_diff_.where(age_diff_ != 0)
+    cmap = plt.cm.bwr_r  # Replace 'viridis' with your colormap
+    cmap.set_bad(color='grey')
+    age_diff_.attrs['long_name'] = 'Forest Age [years]'
+    age_diff_.plot.imshow(ax=ax, cmap=cmap, vmin=vmin, vmax=vmax,
+                          cbar_kwargs=dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
