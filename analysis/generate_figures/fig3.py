@@ -44,7 +44,7 @@ plot_dir = '/home/simon/Documents/science/research_paper/global_age_Cdyn/figs/'
 
 #%% Compute area weighted age
 age_2010 = xr.open_zarr(os.path.join(data_dir,'AgeClass_1deg')).sel(time = '2010-01-01').forest_age.median(dim = 'members')
-age_2020 = xr.open_zarr('/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/AgeClass_1deg').sel(time = '2020-01-01').forest_age.median(dim = 'members')
+age_2020 = xr.open_zarr(os.path.join(data_dir,'AgeClass_1deg')).sel(time = '2020-01-01').forest_age.median(dim = 'members')
 
 weighted_mean_age_2010 = xr.open_zarr(os.path.join(data_dir,'ForestAge_1deg')).sel(time = '2010-01-01').forest_age.median(dim = 'members').astype("int16")
 weighted_mean_age_2010 = weighted_mean_age_2010.where(weighted_mean_age_2010>0)
