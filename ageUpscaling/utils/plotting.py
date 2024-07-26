@@ -18,6 +18,7 @@ from pystac.extensions.eo import EOExtension as eo
 import odc.stac
 import pystac_client
 import planetary_computer
+import matplotlib.pyplot as plt
 
 def calculate_pixel_area(ds, 
                          EARTH_RADIUS = 6378.160, 
@@ -295,3 +296,31 @@ def plot_forest_age_diff(ds, lat_range, lon_range, time1, time2, ax, cmap="bwr_r
     age_diff_.attrs['long_name'] = 'Forest Age [years]'
     age_diff_.plot.imshow(ax=ax, cmap=cmap, vmin=vmin, vmax=vmax,
                           cbar_kwargs=dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
+
+def get_coordinates_of_class_center(data_array, class_value):
+    """
+    Get the geographic center coordinates of a specified class in a DataArray.
+
+    :param data_array: xarray.DataArray with latitude and longitude dimensions.
+    :param class_value: The class value to find the center of.
+    :return: (latitude, longitude) of the class center.
+    """
+    # Mask the array to include only cells of the specified class
+    mask = data_array == class_value
+
+    # Check if there are any cells of the specified class
+    if mask.sum() == 0:
+        return None, None  # Return None if the class is not present
+
+    # Find indices where the mask is True
+    lat_indices, lon_indices = np.where(mask)
+
+    # Get the coordinates of the cells
+    latitudes = data_array.latitude.values
+    longitudes = data_array.longitude.values
+
+    # Calculate the mean latitude and longitude using the indices
+    mean_lat = latitudes[lat_indices].mean()
+    mean_lon = longitudes[lon_indices].mean()
+
+    return mean_lat, mean_lon
