@@ -96,4 +96,4 @@ for i, (region, (bbox, lat_range, lon_range, time1, time2)) in enumerate(regions
     ax_middle.set_yticks([])
     ax_middle.set_title(f'{region}', fontweight='bold', fontsize=18)
     
-plt.savefig(os.path.join(data_dir,'figS3.png'), dpi=300)
+plt.savefig(os.path.join(plot_dir,'figS3.png'), dpi=300)
