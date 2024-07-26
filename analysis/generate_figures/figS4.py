@@ -71,9 +71,6 @@ fig, ax = plt.subplots(1,1, figsize=(5, 4), constrained_layout=True)
 projection = ccrs.Robinson()
 transcom_regions.plot.imshow(ax=ax, add_colorbar=False, cmap='tab20b')
 
-# Set the 'bad' color in the colormap to grey for NaN values
-#plt.cm.viridis.set_bad(color='grey')
-
 # Annotate regions
 # You will need the coordinates for each class. Here's an example:
 for class_key, class_info in transcom_mask.items():
