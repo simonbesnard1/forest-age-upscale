@@ -63,7 +63,6 @@ We welcome contributions to this project. If you would like to contribute, pleas
 - Commit your changes (git commit -am 'Add new feature').
 - Push to the branch (git push origin feature-branch).
 - Create a new Pull Request.
-- Please make sure your code follows our coding guidelines and passes all tests.
 
 ## :email: &nbsp;Contact person
 For any questions or inquiries, please contact Simon Besnard (besnard@gfz-potsdam.de)
