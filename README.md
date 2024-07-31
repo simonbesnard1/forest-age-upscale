@@ -7,7 +7,9 @@
 ***
 # Global covariation of forest age transitions with the net carbon balance #
 
-
+## Requirements ##
+ - Python 3.11+
+ 
 ## :notebook_with_decorative_cover: &nbsp;Table of Contents
 
 - [Overview](#overview)
