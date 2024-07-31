@@ -5,6 +5,8 @@
 </p>
 
 ***
+# Global covariation of forest age transitions with the net carbon balance #
+
 
 ## :notebook_with_decorative_cover: &nbsp;Table of Contents
 
