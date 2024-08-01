@@ -7,9 +7,6 @@
 ***
 # Global covariation of forest age transitions with the net carbon balance #
 
-## Requirements ##
- - Python 3.11+
- 
 ## :notebook_with_decorative_cover: &nbsp;Table of Contents
 
 - [Overview](#overview)
@@ -46,11 +43,21 @@ This repository contains the code and data associated with the scientific paper 
 ```
 
 ## :anger: &nbsp;Package installation
-You can install the python package as follows:
+
+The code requires `python>=3.11`
+
+Install forest-age-upscale:
 
 ```
 pip install git+https://git.gfz-potsdam.de/global-land-monitoring/forest-age-upscale.git
 
+```
+
+or clone the repository locally and install with
+
+```
+git clone git@git.gfz-potsdam.de:global-land-monitoring/forest-age-upscale.git
+cd forest-age-upscale; pip install -e .
 ```
 
 ## :busts_in_silhouette: &nbsp;Contributing
@@ -69,4 +76,17 @@ For any questions or inquiries, please contact Simon Besnard (besnard@gfz-potsda
 
 ## License
 This project is licensed under the EUROPEAN UNION PUBLIC LICENCE v.1.2 License - see the LICENSE file for details.
+
+## Citing forest-age-upscale
+
+If you use forest-age-upscale in your research, please use the following BibTeX entry.
+
+```
+@article{besnard2024,
+  title={Forest Age Upscale},
+  author={Besnard, Simon},
+  doi={},
+  year={2024}
+}
+```
 
