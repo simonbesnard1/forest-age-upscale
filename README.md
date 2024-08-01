@@ -11,11 +11,11 @@
 
 - [Overview](#overview)
 - [Repository Structure](#repository-structure)
-- [Package installation](#installation)
+- [Package installation](#package-installation)
 - [Contributing](#contributing)
 - [License](#license)
-- [Citing forest-age-upscale](#citation)
-- [Contact person](#contact)
+- [Citing forest-age-upscale](#citing-forest-age-upscale)
+- [Contact person](#contact-person)
 
 ## Overview
 This repository contains the code and data associated with the scientific paper titled "Global covariation of forest age transitions with the net carbon balance". The paper investigates changes in forest age distribution from 2010 to 2020 and their implications for the carbon cycle.
