@@ -7,7 +7,7 @@
 ***
 # Global covariation of forest age transitions with the net carbon balance #
 
-## :notebook_with_decorative_cover: &nbsp;Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Repository Structure](#repository-structure)
@@ -17,7 +17,7 @@
 - [Citing forest-age-upscale](#citation)
 - [Contact person](#contact)
 
-## :memo: &nbsp;Overview
+## Overview
 This repository contains the code and data associated with the scientific paper titled "Global covariation of forest age transitions with the net carbon balance". The paper investigates changes in forest age distribution from 2010 to 2020 and their implications for the carbon cycle.
 
 ## Repository Structure
@@ -42,7 +42,7 @@ This repository contains the code and data associated with the scientific paper 
 └── setup.py
 ```
 
-## :anger: &nbsp;Package installation
+## Package installation
 
 The code requires `python>=3.11`
 
@@ -60,7 +60,7 @@ git clone git@git.gfz-potsdam.de:global-land-monitoring/forest-age-upscale.git
 cd forest-age-upscale; pip install -e .
 ```
 
-## :busts_in_silhouette: &nbsp;Contributing
+## Contributing
 
 We welcome contributions to this project. If you would like to contribute, please follow these steps:
 
@@ -87,6 +87,6 @@ If you use forest-age-upscale in your research, please use the following BibTeX 
 }
 ```
 
-## :email: &nbsp;Contact person
+## Contact person
 For any questions or inquiries, please contact Simon Besnard (besnard@gfz-potsdam.de)
 
