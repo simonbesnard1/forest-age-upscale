@@ -14,6 +14,7 @@
 - [Installation](#installation)
 - [Contributing](#contributing)
 - [License](#license)
+- [Citation](#citation)
 - [Contact](#contact)
 
 
@@ -71,9 +72,6 @@ We welcome contributions to this project. If you would like to contribute, pleas
 - Push to the branch (git push origin feature-branch).
 - Create a new Pull Request.
 
-## :email: &nbsp;Contact person
-For any questions or inquiries, please contact Simon Besnard (besnard@gfz-potsdam.de)
-
 ## License
 This project is licensed under the EUROPEAN UNION PUBLIC LICENCE v.1.2 License - see the LICENSE file for details.
 
@@ -89,4 +87,7 @@ If you use forest-age-upscale in your research, please use the following BibTeX 
   year={2024}
 }
 ```
+
+## :email: &nbsp;Contact person
+For any questions or inquiries, please contact Simon Besnard (besnard@gfz-potsdam.de)
 
