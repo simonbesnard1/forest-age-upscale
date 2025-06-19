@@ -66,7 +66,7 @@ setuptools.setup(
         "bottleneck==1.3.7",
         "rasterio==1.3.9",
         "xgboost==1.7.2",
-        "torch==2.1.0",
+        "torch",
         "shap==0.43.0",
         'tqdm==4.66.1',
         "dask_jobqueue==0.8.2",

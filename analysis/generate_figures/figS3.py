@@ -9,91 +9,79 @@
 # Version :   1.0
 # Contact :   besnard@gfz-potsdam.de
 """
+import cartopy.crs as ccrs
 import xarray as xr
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+import numpy as np
 import matplotlib as mpl
 import os
-from ageUpscaling.utils.plotting import load_and_plot_satellite_data, plot_forest_age_diff
+from ageUpscaling.utils.plotting import get_coordinates_of_class_center
 
 # Set matplotlib parameters for consistent styling
 params = {
     # font
     'font.family': 'serif',
-    'font.size': 14,
+    # 'font.serif': 'Times', #'cmr10',
+    'font.size': 16,
     # axes
     'axes.titlesize': 12,
     'axes.labelsize': 12,
     'axes.linewidth': 0.5,
     # ticks
-    'xtick.labelsize': 12,
-    'ytick.labelsize': 12,
+    'xtick.labelsize': 14,
+    'ytick.labelsize': 14,
     'xtick.major.width': 0.3,
     'ytick.major.width': 0.3,
     'xtick.minor.width': 0.3,
     'ytick.minor.width': 0.3,
     # legend
-    'legend.fontsize': 12
+    'legend.fontsize': 14,
+    # tex
+    'text.usetex': True,
 }
 
 mpl.rcParams.update(params)
 
 #%% Specify data and plot directories
-data_dir = '/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/'
+data_dir = '/home/simon/Documents/science/research_paper/global_age_Cdyn/data/Age_upscale_100m'
 plot_dir = '/home/simon/Documents/science/research_paper/global_age_Cdyn/figs/'
 
-# Load forest age dataset
-ds = xr.open_zarr(os.path.join(data_dir,'AgeUpscale_100m')).forest_age
+#%% Define transcom regions
+GFED_regions = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/GFED_regions/GFED_regions_360_180_v1.nc').basis_regions
+GFED_regions = GFED_regions.where((GFED_regions == 9) | (GFED_regions == 8))
+GFED_regions = GFED_regions.where((GFED_regions ==9) | (np.isnan(GFED_regions)), 5)
+GFED_regions = GFED_regions.where((GFED_regions ==5) | (np.isnan(GFED_regions)), 6)
+GFED_regions = GFED_regions.rename({'lat' : 'latitude', 'lon' : 'longitude'})
+transcom_regions = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/transcom_regions/transcom_regions_360_180.nc').transcom_regions
+transcom_regions = transcom_regions.reindex(latitude=transcom_regions.latitude[::-1])
+transcom_regions = transcom_regions.where(transcom_regions<=11)
+transcom_regions = transcom_regions.where((transcom_regions<5) | (transcom_regions>6) )
+transcom_regions = transcom_regions.where(np.isfinite(transcom_regions), GFED_regions)
+transcom_mask ={"class_1":{"eco_class":  1, "name": "NA Bor."},
+                "class_2":{"eco_class" : 2, "name": "NA Temp."},
+                "class_3":{"eco_class" : 3, "name": "SA Trop."},
+                "class_4":{"eco_class" : 4, "name": "SA Temp."},
+                "class_5":{"eco_class" : 5, "name": "N Africa" },
+                "class_6":{"eco_class" : 6, "name": "S Africa"},
+                "class_7":{"eco_class" : 7, "name": "Eurasia Bor."},
+                "class_8":{"eco_class" : 8, "name": "Eurasia Temp."},
+                "class_9":{"eco_class" : 9, "name": "Trop. Asia"},
+                "class_10":{"eco_class" : 10, "name": "Australia"},
+                "class_11":{"eco_class" : 11, "name": "Europe"}}
 
-# Set up plot
-fig, ax = plt.subplots(ncols=2, nrows=2, figsize=(12, 8), constrained_layout=True)
+fig, ax = plt.subplots(1,1, figsize=(5, 4), constrained_layout=True)
 
-# Define regions of interest
-regions = {
-    "Cost Range, USA - Forest harvest and regrowth": ([-123.4, 43.7, -123.3, 43.8], [43.8, 43.7], [-123.4, -123.3], "2020-01-01", "2010-01-01"),
-    #"Southern Rookies, USA - Wildfire": ([-108.3, 37.3, -108.2, 37.4], [37.4, 37.3], [-108.3, -108.2], "2020-01-01", "2010-01-01"),
-    #"Les Landes, FR - Wildfire": ([0.1, 43.9, 0.2, 44], [0.1, 0.2], [43.9, 44], "2020-01-01", "2010-01-01"),
-    "Scandinavian Peninsula - Plantation": ([14.8, 60.2, 14.9, 60.3], [60.3, 60.2], [14.8, 14.9], "2020-01-01", "2010-01-01"),
-    "Amazon, BR - Secondary forest regrowth": ([-52.3, -3, -52.2, -2.9], [-2.9, -3], [-52.3, -52.2], "2020-01-01", "2010-01-01"),
-    #"Central African Forests, Congo Basin, BR - Selective logging": ([24.3, 0.18, 24.7, 0.21], [0.18, 0.21], [24.3, 24.7], "2020-01-01", "2010-01-01"),
-                                        
-}
+projection = ccrs.Robinson()
+transcom_regions.plot.imshow(ax=ax, add_colorbar=False, cmap='tab20b')
 
-# Iterate over regions and plot data
-fig = plt.figure(figsize=(12, 6 * len(regions)),constrained_layout= True)
-
-# Create a GridSpec for the entire figure
-outer_grid = gridspec.GridSpec(len(regions), 1, figure=fig)
-
-# Iterate over regions
-for i, (region, (bbox, lat_range, lon_range, time1, time2)) in enumerate(regions.items()):
-    # Create a nested 1x2 grid for each region within the outer grid
-    inner_grid = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=outer_grid[i])
-
-    # Create subplots
-    ax1 = fig.add_subplot(inner_grid[0])
-    ax2 = fig.add_subplot(inner_grid[1])
-
-    # Plot satellite data in the first subplot
-    load_and_plot_satellite_data(bbox, ax1)
-    
-    # Plot forest age difference in the second subplot
-    plot_forest_age_diff(ds, lat_range, lon_range, time1, time2, ax2)
-
-    # Set titles and aspect ratio
-    ax1.set_aspect('equal', adjustable='box')
-    ax2.set_aspect('equal', adjustable='box')
-    ax1.set_title('', fontweight='bold')
-    
-    # Set x-axis and y-axis label
-    ax1.set_xlabel('longitude [degrees east]')
-    ax2.set_xlabel('longitude [degrees east]')
-    ax1.set_ylabel('latitude [degrees east]')
-    ax2.set_ylabel('latitude [degrees east]')
-    
-    ax_middle = fig.add_subplot(outer_grid[i], frame_on=False)
-    ax_middle.set_xticks([])
-    ax_middle.set_yticks([])
-    ax_middle.set_title(f'{region}', fontweight='bold', fontsize=18)
-    
+# Annotate regions
+# You will need the coordinates for each class. Here's an example:
+for class_key, class_info in transcom_mask.items():
+    lat, lon = get_coordinates_of_class_center(transcom_regions, class_info['eco_class'])
+    ax.text(lon, lat, class_info['name'], ha='center', fontsize= 8, fontweight='bold')
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+ax.set_ylabel('latitude [degrees north]', size=10)
+ax.set_xlabel('longitude [degrees east]', size=10)
+ax.set_title('')
 plt.savefig(os.path.join(plot_dir,'figS3.png'), dpi=300)

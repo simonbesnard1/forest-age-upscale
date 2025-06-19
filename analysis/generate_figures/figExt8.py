@@ -12,22 +12,20 @@ from ageUpscaling.utils.plotting import filter_nan_gaussian_conserving
 params = {
     # font
     'font.family': 'serif',
-    # 'font.serif': 'Times', #'cmr10',
-    'font.size': 16,
+    'font.size': 14,
     # axes
     'axes.titlesize': 12,
     'axes.labelsize': 12,
     'axes.linewidth': 0.5,
     # ticks
-    'xtick.labelsize': 14,
-    'ytick.labelsize': 14,
+    'xtick.labelsize': 12,
+    'ytick.labelsize': 12,
     'xtick.major.width': 0.3,
     'ytick.major.width': 0.3,
     'xtick.minor.width': 0.3,
     'ytick.minor.width': 0.3,
     # legend
-    'legend.fontsize': 14,
-    # tex
+    'legend.fontsize': 12,
     'text.usetex': True,
 }
 
@@ -201,30 +199,33 @@ for scale in coarse_scales:
 
 #%% Plot data
 
+# Define the scale to plot
+selected_scale = "5"  # Example: 5°×5° resolution
+
+# Load precomputed median dataset for selected scale
+median_dataset = stacked_data[selected_scale].median(dim=["nee_member", 'stand_member'])
+
+
+age_classes = {
+    "Young Forests (0-20 yrs)": "young_stand_replacement_extent",
+    "Maturing Forests (21-80 yrs)": "maturing_stand_replacement_extent",
+    "Mature Forests (81-200 yrs)": "mature_stand_replacement_extent",
+    "Old Forests ($>$200 yrs)": "OG_stand_replacement_extent"
+}
+
+#%% Create figure
+
 # Define subplot grid (2x2) and create figure
 fig, axes = plt.subplots(2, 2, figsize=(12, 11), gridspec_kw={'wspace': 0, 'hspace': 0.1}, constrained_layout=True)
 
 # Define subplot labels
 subplot_labels = ['(a)', '(b)', '(c)', '(d)']
 
-spatial_window_classes = {
-    "Spatial window size = 1": "1",
-    "Spatial window size = 2": "2",
-    "Spatial window size = 5": "5",
-    "Spatial window size = 10": "10"
-}
-
-# Define the scale to plot
-for (i, (window_label, selected_scale)), (row, col) in zip(enumerate(spatial_window_classes.items()), itertools.product(range(2), range(2))):
-
-
-    # Load precomputed median dataset for selected scale
-    median_dataset = stacked_data[selected_scale].median(dim=["nee_member", 'stand_member'])
-
-    # Loop through the age classes, assigning each to a subplot
+# Loop through the age classes, assigning each to a subplot
+for (i, (age_label, age_var)), (row, col) in zip(enumerate(age_classes.items()), itertools.product(range(2), range(2))):
     ax = axes[row, col]  
     # Extract median values for regression
-    x_values = median_dataset['OG_stand_replacement_extent'].values.flatten()
+    x_values = median_dataset[age_var].values.flatten()
     y_values = median_dataset["nee_change"].values.flatten()
     
     # Remove NaNs and filter values
@@ -251,7 +252,7 @@ for (i, (window_label, selected_scale)), (row, col) in zip(enumerate(spatial_win
         jackknife_median = jackknife_dataset.median(dim=["nee_member", "stand_member"])
         
         # Extract values for regression
-        x_jack = jackknife_median['OG_stand_replacement_extent'].values.flatten()
+        x_jack = jackknife_median[age_var].values.flatten()
         y_jack = jackknife_median["nee_change"].values.flatten()
     
         # Remove NaNs and filter
@@ -295,12 +296,12 @@ for (i, (window_label, selected_scale)), (row, col) in zip(enumerate(spatial_win
         member_dataset = full_dataset.sel(nee_member=nee_idx).median(dim="stand_member")
     
         # Extract values for regression
-        x_member = member_dataset['OG_stand_replacement_extent'].values.flatten() #/ member_dataset["OG_class_extent"].values.flatten()
+        x_member = member_dataset[age_var].values.flatten() #/ member_dataset["OG_class_extent"].values.flatten()
         y_member = member_dataset["nee_change"].values.flatten()
     
         # Remove NaNs
-        valid_mask = ~np.isnan(x_member) & ~np.isnan(y_member) & (x_member > 0.005)
-        x_member = (x_member[valid_mask]  /10) * 100
+        valid_mask = ~np.isnan(x_member) & ~np.isnan(y_member) & (x_member > 0.001)
+        x_member = (x_member[valid_mask] /10) * 100
         y_member = y_member[valid_mask]
     
         # Compute regression for individual NEE member
@@ -354,21 +355,21 @@ for (i, (window_label, selected_scale)), (row, col) in zip(enumerate(spatial_win
     ax.spines['right'].set_visible(False)
     
     # # Add annotations
-    # ax.annotate(r'$\uparrow$C source or $\downarrow$C sink  ', xy=(.65, 2), xytext=(.65, 20),
+    # ax.annotate(r'$\uparrow$C source or $\downarrow$C sink  ', xy=(.065, 2), xytext=(.065, 20),
     #             arrowprops=dict(facecolor=color_positive, arrowstyle="<-", linewidth=2),
     #             ha='center', va='bottom', color=color_positive, fontweight='bold', fontsize=13)
     
-    # ax.annotate(r'$\uparrow$C sink', xy=(.65, -2), xytext=(.65, -18),
+    # ax.annotate(r'$\uparrow$C sink', xy=(.065, -2), xytext=(.065, -18),
     #             arrowprops=dict(facecolor=color_negative, arrowstyle="<-", linewidth=2),
     #             ha='center', va='bottom', color=color_negative, fontweight='bold', fontsize=13)
     
     ax.axhline(y=0, c='red', linestyle='dashed', linewidth=2)  # Add zero line
     
     # Panel Label
-    ax.set_title(f"{window_label}", fontsize=14)
+    ax.set_title(f"{age_label}", fontsize=14)
     
     # Panel Label
     ax.text(0.05, 1.05, subplot_labels[i], transform=ax.transAxes,
             fontsize=16, fontweight='bold', va='top')
 # Show plot
-plt.savefig(os.path.join(plot_dir,'figS8.png'), dpi=300)
+plt.savefig(os.path.join(plot_dir,'figExt8.png'), dpi=300)

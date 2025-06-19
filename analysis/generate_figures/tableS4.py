@@ -11,94 +11,56 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 import os
-from ageUpscaling.utils.plotting import area_weighted_sum
+from ageUpscaling.utils.plotting import calculate_pixel_area
 
 #%% Specify data and plot directories
-data_dir = '/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/'
+data_dir = '/home/simon/Documents/science/research_paper/global_age_Cdyn/data/Age_upscale_100m'
 
-#%% Load partition age difference
+#%% Load forest fraction
 forest_fraction = xr.open_zarr(os.path.join(data_dir,'ForestFraction_1deg')).forest_fraction
 
-#%% Load transcom regions
-GFED_regions = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/GFED_regions/GFED_regions_360_180_v1.nc').basis_regions
-GFED_regions = GFED_regions.where((GFED_regions == 9) | (GFED_regions == 8))
-GFED_regions = GFED_regions.where((GFED_regions ==9) | (np.isnan(GFED_regions)), 5)
-GFED_regions = GFED_regions.where((GFED_regions ==5) | (np.isnan(GFED_regions)), 6)
-GFED_regions = GFED_regions.rename({'lat' : 'latitude', 'lon' : 'longitude'})
-transcom_regions = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/transcom_regions/transcom_regions_360_180.nc').transcom_regions
-transcom_regions = transcom_regions.reindex(latitude=transcom_regions.latitude[::-1])
-transcom_regions = transcom_regions.where(transcom_regions<=11)
-transcom_regions = transcom_regions.where((transcom_regions<5) | (transcom_regions>6) )
-transcom_regions = transcom_regions.where(np.isfinite(transcom_regions), GFED_regions)
-transcom_regions['latitude'] = forest_fraction['latitude']
-transcom_regions['longitude'] = forest_fraction['longitude']
+#%% Load forest fraction
+pixel_area = calculate_pixel_area(forest_fraction, 
+                                  EARTH_RADIUS = 6378.160, 
+                                  resolution=1)
 
-transcom_mask ={"class_7":{"eco_class" : 7, "name": "Eurasia Boreal"},                
-                "class_1":{"eco_class":  1, "name": "NA Boreal"},
-                "class_8":{"eco_class" : 8, "name": "Eurasia Temperate"},
-                "class_11":{"eco_class" : 11, "name": "Europe"},                
-                "class_2":{"eco_class" : 2, "name": "NA Temperate"},
-                "class_4":{"eco_class" : 4, "name": "SA Temperate"},
-                "class_3":{"eco_class" : 3, "name": "SA Tropical"},
-                "class_9":{"eco_class" : 9, "name": "Tropical Asia"},
-                "class_5":{"eco_class" : 5, "name": "Northern Africa"},
-                "class_6":{"eco_class" : 6, "name": "Southern Africa"},
-                "class_10":{"eco_class" : 10, "name": "Australia"}}
-
-#%% Load lateral flux data
-lateral_fluxes_sink = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/NEE_inversion/LSCE_lateral_fluxes/lateralfluxes_2021_v4.1_1d00.nc')[["allcropsink", "biofuelcropsink", 'riversink']]
-lateral_fluxes_source = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/NEE_inversion/LSCE_lateral_fluxes/lateralfluxes_2021_v4.1_1d00.nc')[['allcropsource', "biofuelcropsource", 'lakeriveremis']]
-lateral_fluxes_sink_2010 = lateral_fluxes_sink.sel(time= slice('2009-01-01', '2011-12-31')).mean(dim='time').to_array().sum(dim='variable')
-lateral_fluxes_sink_2020 = lateral_fluxes_sink.sel(time= slice('2019-01-01', '2021-12-31')).mean(dim='time').to_array().sum(dim='variable')
-lateral_fluxes_source_2010 = lateral_fluxes_source.sel(time= slice('2009-01-01', '2011-12-31')).mean(dim='time').to_array().sum(dim='variable')
-lateral_fluxes_source_2020 = lateral_fluxes_source.sel(time= slice('2019-01-01', '2021-12-31')).mean(dim='time').to_array().sum(dim='variable')
-
-#%% Load NEE data
-land_fraction = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/NEE_inversion/inversion_jena/s99oc_v2022_daily/NEE.daily.360.180.2020.nc').LF
-NEE_RECCAP = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/NEE_inversion/GCP/GCP2023_inversions_1x1_version1_1_20240124.nc').land_flux_only_fossil_cement_adjusted
+#%% These should be replaced with your actual age data arrays/matrices for 2010 and 2020
 out = []
-for member_ in NEE_RECCAP.ensemble_member:
-    NEE_2010 =  NEE_RECCAP.sel(time= slice('2009-01-01', '2011-12-31')).isel(ensemble_member= member_).mean(dim='time') * 1e+15
-    if not np.isnan(NEE_2010.values).all():
-        NEE_2010 = NEE_2010 - lateral_fluxes_sink_2010 + lateral_fluxes_source_2010
-        NEE_2010 = NEE_2010.where(forest_fraction>0)
+for member_ in np.arange(20):
+    stand_replaced_class_partition = xr.open_zarr(os.path.join(data_dir,'AgeDiffPartition_1deg')).sel(members=member_).stand_replaced_class_partition.where(forest_fraction >0.2)
+    aging_forest_class_partition = xr.open_zarr(os.path.join(data_dir,'AgeDiffPartition_1deg')).sel(members=member_).aging_forest_class_partition.where(forest_fraction >0.2) 
+    
+    
+    # Initialize a dictionary to hold the total area for each age class
+    total_area_stand_replaced = {}
+    total_area_aging_forest = {}
+    
+    # Iterate over each age class, calculate the total area, and store it in the dictionary
+    for age_class in stand_replaced_class_partition.age_class.values:
+        # Multiply the age fraction by the pixel area and sum over all pixels
+        total_area_stand_replaced[age_class] = (stand_replaced_class_partition.sel(age_class = age_class) * pixel_area * forest_fraction).sum(dim=['longitude', 'latitude']).values / 10**7
+        total_area_aging_forest[age_class] = (aging_forest_class_partition.sel(age_class = age_class) * pixel_area * forest_fraction).sum(dim=['longitude', 'latitude']).values / 10**7
         
-        NEE_2020 =  NEE_RECCAP.sel(time= slice('2019-01-01', '2021-12-31')).isel(ensemble_member= member_).mean(dim='time') * 1e+15
-        NEE_2020 = NEE_2020 - lateral_fluxes_sink_2020 + lateral_fluxes_source_2020
-        NEE_2020 = NEE_2020.where(forest_fraction>0)
-        
-        NEE_diff_2020_2010 = (NEE_2020 - NEE_2010) #*pixel_area / 1e12
-        
-        NEE_region_2020 = {}
-        NEE_region_2010 = {}
-        NEE_region_changes = {}
-        
-        for class_ in list(transcom_mask.keys()):
-            class_values = transcom_mask[class_]['eco_class']
-            class_name = transcom_mask[class_]['name']
-            
-            # Plot the mean as a large diamond
-            NEE_region_2020[class_name] = area_weighted_sum(NEE_2020.where(transcom_regions == class_values), 1)
-            NEE_region_2010[class_name] = area_weighted_sum(NEE_2010.where(transcom_regions == class_values), 1)
-            NEE_region_changes[class_name] = area_weighted_sum(NEE_diff_2020_2010.where(transcom_regions == class_values), 1)
-        NEE_region_changes['global'] =  area_weighted_sum(NEE_diff_2020_2010, 1)
-        NEE_region_2020['global'] =  area_weighted_sum(NEE_2020, 1)
-        NEE_region_2010['global'] =  area_weighted_sum(NEE_2010, 1)
-       
-        df = pd.DataFrame({
-            'Region': list(NEE_region_2020.keys()),
-            'member': member_,            
-            'NEE_region_2020': list(NEE_region_2020.values()),
-            'NEE_region_2010': list(NEE_region_2010.values()),
-            'NEE_region_changes': list(NEE_region_changes.values()),
-        })
-        
-        out.append(df)
-        
+    # Creating a DataFrame
+    df = pd.DataFrame({
+        'member': member_,
+        'age_class': list(total_area_stand_replaced.keys()),
+        'area_stand_replaced': list(total_area_stand_replaced.values()),
+        'area_aging_forest': list(total_area_aging_forest.values()),
+    })
+    
+    # Calculate the total area for each column
+    total_area_stand_replaced = df['area_stand_replaced'].sum()
+    total_area_aging_forest = df['area_aging_forest'].sum()
+    
+    df['percent_area_stand_replaced'] = (df['area_stand_replaced'] / total_area_stand_replaced) * 100
+    df['percent_area_aging_forest'] = (df['area_aging_forest'] / total_area_aging_forest) * 100
+    
+    out.append(df.copy())
+    
 #%% Compute statistics
 out= pd.concat(out)
-median_out = out.groupby("Region").median(numeric_only=True)
-q5_out = out.groupby("Region").quantile(numeric_only=True, q=0.05)
-q95_out = out.groupby("Region").quantile(numeric_only=True, q=0.95)
+median_out = out.groupby("age_class").median(numeric_only=True)
+q5_out = out.groupby("age_class").quantile(numeric_only=True, q=0.05)
+q95_out = out.groupby("age_class").quantile(numeric_only=True, q=0.95)
 
-            

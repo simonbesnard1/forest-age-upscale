@@ -21,37 +21,41 @@ from ageUpscaling.utils.plotting import filter_nan_gaussian_conserving, calculat
 params = {
     # font
     'font.family': 'serif',
-    'font.size': 14,
+    # 'font.serif': 'Times', #'cmr10',
+    'font.size': 16,
     # axes
     'axes.titlesize': 12,
     'axes.labelsize': 12,
     'axes.linewidth': 0.5,
     # ticks
-    'xtick.labelsize': 12,
-    'ytick.labelsize': 12,
+    'xtick.labelsize': 14,
+    'ytick.labelsize': 14,
     'xtick.major.width': 0.3,
     'ytick.major.width': 0.3,
     'xtick.minor.width': 0.3,
     'ytick.minor.width': 0.3,
     # legend
-    'legend.fontsize': 12
+    'legend.fontsize': 14,
+    # tex
+    'text.usetex': True,
 }
 
 mpl.rcParams.update(params)
 
 #%% Specify data and plot directories
-data_dir = '/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-1.0/'
+data_dir = '/home/simon/Documents/science/research_paper/global_age_Cdyn/data/Age_upscale_100m'
 plot_dir = '/home/simon/Documents/science/research_paper/global_age_Cdyn/figs/'
 
 #%% Load partition age difference
+forest_fraction = xr.open_zarr(os.path.join(data_dir,'ForestFraction_1deg')).forest_fraction
 AgeDiff_1deg =  xr.open_zarr(os.path.join(data_dir,'AgeDiff_1deg')).median(dim = 'members')
 growing_forest_diff =  AgeDiff_1deg.aging_forest_diff
 growing_forest_diff = growing_forest_diff.where(growing_forest_diff>0, 10)
-growing_forest_class =  AgeDiff_1deg.aging_forest_class
+growing_forest_class =  AgeDiff_1deg.aging_forest_class.where(forest_fraction>.2)
 growing_forest_class = growing_forest_class.where(growing_forest_class > 0)
-stand_replaced_diff = AgeDiff_1deg.stand_replaced_diff
+stand_replaced_diff = AgeDiff_1deg.stand_replaced_diff.where(forest_fraction>.2)
 stand_replaced_diff = stand_replaced_diff.where(stand_replaced_diff < 0)
-stand_replaced_class = AgeDiff_1deg.stand_replaced_class
+stand_replaced_class = AgeDiff_1deg.stand_replaced_class.where(forest_fraction>.2)
 stand_replaced_class = stand_replaced_class.where(stand_replaced_class >0)
 
 #%% Load lateral flux data
@@ -61,16 +65,16 @@ lateral_fluxes_sink_2020 = lateral_fluxes_sink.sel(time= slice('2019-01-01', '20
 lateral_fluxes_source_2020 = lateral_fluxes_source.sel(time= slice('2019-01-01', '2021-12-31')).mean(dim='time').to_array().sum(dim='variable')
 
 #%% Load NEE data
-forest_fraction = xr.open_zarr(os.path.join(data_dir,'ForestFraction_1deg')).forest_fraction
 land_fraction = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/NEE_inversion/inversion_jena/s99oc_v2022_daily/NEE.daily.360.180.2020.nc').LF
 NEE_RECCAP = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/NEE_inversion/GCP/GCP2023_inversions_1x1_version1_1_20240124.nc').land_flux_only_fossil_cement_adjusted
 NEE_2020 =  NEE_RECCAP.sel(time= slice('2019-01-01', '2021-12-31')).mean(dim='time').median(dim = "ensemble_member") * 1e+15
 NEE_2020 = NEE_2020 - lateral_fluxes_sink_2020 + lateral_fluxes_source_2020
+NEE_2020 = NEE_2020.where(forest_fraction>.2)
 NEE_2020_filtered = filter_nan_gaussian_conserving(NEE_2020, length_km=500)
 NEE_2020_filtered = NEE_2020_filtered.reindex(latitude=NEE_2020_filtered.latitude[::-1])
 NEE_2020_filtered['latitude'] = forest_fraction['latitude']
 NEE_2020_filtered['longitude'] = forest_fraction['longitude']
-NEE_2020_filtered = NEE_2020_filtered.where(forest_fraction>0)
+NEE_2020_filtered = NEE_2020_filtered.where(forest_fraction>0.2)
 
 #%% Load transcom regions
 GFED_regions = xr.open_dataset('/home/simon/Documents/science/research_paper/global_age_Cdyn/data/GFED_regions/GFED_regions_360_180_v1.nc').basis_regions
@@ -99,7 +103,7 @@ transcom_mask ={"class_7":{"eco_class" : 7, "name": "Eurasia Boreal"},
                 "class_10":{"eco_class" : 10, "name": "Australia"}}
 
 #%% Load management type
-management_fraction = xr.open_zarr(os.path.join(data_dir,'ManagementTypeFrac_1deg')).where(forest_fraction >0)
+management_fraction = xr.open_zarr(os.path.join(data_dir,'ManagementTypeFrac_1deg')).where(forest_fraction >0.2)
 agroforestry = management_fraction.agroforestry
 intact_forests = management_fraction.intact_forests
 naturally_regenerated = management_fraction.naturally_regenerated
@@ -135,7 +139,7 @@ AgeDiff_1deg =  xr.open_zarr(os.path.join(data_dir,'AgeDiff_1deg'))
 
 out = []
 for member_ in np.arange(20):
-    stand_replaced_diff_member = AgeDiff_1deg.sel(members= member_).stand_replaced_diff
+    stand_replaced_diff_member = AgeDiff_1deg.sel(members= member_).stand_replaced_diff.where(forest_fraction>.2)
     stand_replaced_diff_member = np.abs(stand_replaced_diff_member.where(stand_replaced_diff_member < 0))
 
     age_stand_replaced_region = {}
@@ -204,8 +208,8 @@ for class_ in list(transcom_mask.keys()):
 ticks = [-0.6, -0.3, 0, 0.025, 0.05]
 
 plt.colorbar(scatter, ax=ax_scatter1, orientation='horizontal',  ticks=ticks,
-             shrink=0.7, aspect=40, pad=0.05, spacing='proportional',
-             label='NEE [PgC year$^{-1}$]')
+             shrink=0.7, aspect=40, pad=0.0, spacing='proportional',
+             label=r'$\mathrm{NEE\ [PgC\ yr^{-1}]}$')
 
 ax_scatter1.set_xticks(np.arange(0,11))
 ax_scatter1.set_ylim(0,300)
@@ -214,7 +218,7 @@ name_list = [details['name'] for details in transcom_mask.values()]
 ax_scatter1.set_ylabel('Age pre-stand-replacement [years]', size=14)
 ax_scatter1.spines['top'].set_visible(False)
 ax_scatter1.spines['right'].set_visible(False)
-ax_scatter1.text(0.05, 1.1, 'c', transform=ax_scatter1.transAxes,
+ax_scatter1.text(0.02, 1.12, '(c)', transform=ax_scatter1.transAxes,
             fontsize=16, fontweight='bold', va='top')
 ax_scatter1.tick_params(labelsize=12)
 ax_scatter1.set_xticklabels(name_list, rotation=90, size=12)
@@ -238,7 +242,7 @@ ax_scatter2.spines['top'].set_visible(False)
 ax_scatter2.spines['right'].set_visible(False)
 ax_scatter2.set_ylabel('Area [billion hectares]', size=12)
 ax_scatter2.legend(frameon=False, fontsize=10, loc='upper right', bbox_to_anchor=(1, 1.1), ncol=2)
-ax_scatter2.text(0.05, 1.1, 'd', transform=ax_scatter2.transAxes, fontsize=16, fontweight='bold', va='top')
+ax_scatter2.text(0.02, 1.12, '(d)', transform=ax_scatter2.transAxes, fontsize=16, fontweight='bold', va='top')
 ax_scatter2.set_ylim(0, .9)
 
 ax_map1 = fig.add_subplot(2, 2, 1, projection=ccrs.Robinson())
@@ -246,8 +250,8 @@ image = growing_forest_class.plot.imshow(ax=ax_map1, cmap='YlGnBu', transform=cc
                            cbar_kwargs=cbar_kwargs)
 ax_map1.coastlines()
 ax_map1.gridlines()
-ax_map1.set_title('Fraction of gradually ageing forests', fontsize=12, pad=12)
-ax_map1.text(0.05, 1.1, 'a', transform=ax_map1.transAxes,
+ax_map1.set_title('Fraction of undisturbed ageing forests', fontsize=16, pad=12)
+ax_map1.text(0.02, 1.12, '(a)', transform=ax_map1.transAxes,
             fontsize=16, fontweight='bold', va='top')
 
 
@@ -256,7 +260,7 @@ image = stand_replaced_class.plot.imshow(ax=ax_map2, cmap='YlGnBu', transform=cc
                             cbar_kwargs=cbar_kwargs)
 ax_map2.coastlines()
 ax_map2.gridlines()
-ax_map2.set_title('Fraction of stand-replaced forests', fontsize=12, pad=12)
-ax_map2.text(0.05, 1.1, 'b', transform=ax_map2.transAxes,
+ax_map2.set_title('Fraction of forests replaced by young stands', fontsize=16, pad=12)
+ax_map2.text(0.02, 1.12, '(b)', transform=ax_map2.transAxes,
             fontsize=16, fontweight='bold', va='top')
 plt.savefig(os.path.join(plot_dir,'fig2.png'), dpi=300)

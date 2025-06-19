@@ -293,7 +293,7 @@ def plot_forest_age_diff(ds, lat_range, lon_range, time1, time2, ax, cmap="bwr_r
     #age_diff_ = age_diff_.where(age_diff_ != 0)
     cmap = plt.cm.bwr_r  # Replace 'viridis' with your colormap
     cmap.set_bad(color='grey')
-    age_diff_.attrs['long_name'] = 'Forest Age [years]'
+    age_diff_.attrs['long_name'] = 'Forest Age Change [years]'
     age_diff_.plot.imshow(ax=ax, cmap=cmap, vmin=vmin, vmax=vmax,
                           cbar_kwargs=dict(orientation='vertical', shrink=0.6, aspect=10, pad=0.05))
 
