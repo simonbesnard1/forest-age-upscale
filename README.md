@@ -59,6 +59,10 @@ or clone the repository locally and install with
 git clone git@git.gfz-potsdam.de:global-land-monitoring/forest-age-upscale.git
 cd forest-age-upscale; pip install -e .
 ```
+## Data access
+
+The data required for the analysis can be accessed from the [Nextcloud folder](https://nextcloud.gfz.de/s/Kx4qyBMFqXtQLDD).
+
 
 ## Contributing
 
