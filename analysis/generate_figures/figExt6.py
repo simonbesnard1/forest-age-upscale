@@ -180,5 +180,5 @@ for j, region_ in enumerate(transcom_mask.keys()):
             fontsize=16, fontweight='bold', va='top')
     #ax.set_ylim(0, 140)
 fig.delaxes(axes[-1])
-plt.savefig('/home/simon/Documents/science/research_paper/global_age_Cdyn/figs/figExt6.png', dpi=300)
+plt.savefig(os.path.join(plot_dir,'figExt6.pdf'), dpi=300)
 

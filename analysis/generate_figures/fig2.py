@@ -248,6 +248,8 @@ ax_scatter2.set_ylim(0, .9)
 ax_map1 = fig.add_subplot(2, 2, 1, projection=ccrs.Robinson())
 image = growing_forest_class.plot.imshow(ax=ax_map1, cmap='YlGnBu', transform=ccrs.PlateCarree(), vmin=0.7,
                            cbar_kwargs=cbar_kwargs)
+image.set_rasterized(True)  # Rasterize just the image, not the colorbar
+
 ax_map1.coastlines()
 ax_map1.gridlines()
 ax_map1.set_title('Fraction of undisturbed ageing forests', fontsize=16, pad=12)
@@ -258,9 +260,11 @@ ax_map1.text(0.02, 1.12, '(a)', transform=ax_map1.transAxes,
 ax_map2 = fig.add_subplot(2, 2, 2, projection=ccrs.Robinson())
 image = stand_replaced_class.plot.imshow(ax=ax_map2, cmap='YlGnBu', transform=ccrs.PlateCarree(),vmax=0.3,
                             cbar_kwargs=cbar_kwargs)
+image.set_rasterized(True)  # Rasterize just the image, not the colorbar
+
 ax_map2.coastlines()
 ax_map2.gridlines()
 ax_map2.set_title('Fraction of forests replaced by young stands', fontsize=16, pad=12)
 ax_map2.text(0.02, 1.12, '(b)', transform=ax_map2.transAxes,
             fontsize=16, fontweight='bold', va='top')
-plt.savefig(os.path.join(plot_dir,'fig2.png'), dpi=300)
+plt.savefig(os.path.join(plot_dir,'fig2.pdf'), dpi=300)

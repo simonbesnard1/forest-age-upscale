@@ -165,7 +165,7 @@ ax[1].spines['right'].set_visible(False)
 ax[1].set_ylabel('Area [billion hectares]', size=12)
 ax[1].legend(frameon=False, fontsize=7.8, loc='upper right')
 ax[1].text(0.01, 1.05, '(b)', transform=ax[1].transAxes, fontsize=16, fontweight='bold', va='top')
-plt.savefig(os.path.join(plot_dir,'fig3.png'), dpi=300)
+plt.savefig(os.path.join(plot_dir,'fig3.pdf'), dpi=300)
 
 #%% Calculate total stats
 total_forest_area = np.array(list(total_area_forest.values()))

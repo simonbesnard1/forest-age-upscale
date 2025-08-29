@@ -343,13 +343,13 @@ for (i, (age_label, age_var)), (row, col) in zip(enumerate(age_classes.items()),
     ax.fill_between(x_range, y_lower, y_upper, color="grey", alpha=0.3, label="95% Jackknife CI")
     
     # Annotate regression statistics
-    ax.text(.05, 0.08, f'R² = {r_value**2:.2f}\nSlope = {slope_full:.2f} gC m$^{{-2}}$ year$^{{-1}}$ per % year$^{{-1}}$\np-value = {p_value_full:.3f}', 
+    ax.text(.05, 0.08, f'R² = {r_value**2:.2f}\nSlope = {slope_full:.2f} gC m$^{{-2}}$ year$^{{-1}}$ per \%$\,$year$^{{-1}}$\np-value = {p_value_full:.3f}', 
             transform=ax.transAxes, fontsize=10,
             bbox=dict(facecolor='white', edgecolor='black'))
     
     # axes labels and formatting
     ax.set_ylabel('Changes in NEE [gC m$^{-2}$ year$^{-1}$]', size=14)
-    ax.set_xlabel('Stand-replacement extent [% year$^{-1}$]', size=14)
+    ax.set_xlabel(r'Stand-replacement extent [\%$\,$year$^{-1}$]', size=14)
     ax.tick_params(labelsize=10)
     ax.spines['top'].set_visible(False) 
     ax.spines['right'].set_visible(False)
@@ -372,4 +372,4 @@ for (i, (age_label, age_var)), (row, col) in zip(enumerate(age_classes.items()),
     ax.text(0.05, 1.05, subplot_labels[i], transform=ax.transAxes,
             fontsize=16, fontweight='bold', va='top')
 # Show plot
-plt.savefig(os.path.join(plot_dir,'figExt8.png'), dpi=300)
+plt.savefig(os.path.join(plot_dir,'figExt8.pdf'), dpi=300)

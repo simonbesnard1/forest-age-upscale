@@ -67,6 +67,8 @@ cbar_kwargs = dict(orientation='horizontal', shrink=0.8, aspect=40, pad=0.05, sp
 
 image = Young_stand_replaced_class.plot.imshow(ax=ax[0,0], transform=ccrs.PlateCarree(), cmap='YlGnBu', vmin=0, vmax=.1,
                            cbar_kwargs=cbar_kwargs)
+image.set_rasterized(True)  # Rasterize just the image, not the colorbar
+
 ax[0,0].coastlines()
 ax[0,0].gridlines()
 ax[0,0].set_title('Fraction of young forests replaced by younger stands \n (1-20 years)')
@@ -75,6 +77,8 @@ ax[0,0].text(0.01, 1.15, '(a)', transform=ax[0,0].transAxes,
 
 image = Intermediate_stand_replaced_class.plot.imshow(ax=ax[0,1], transform=ccrs.PlateCarree(), cmap='YlGnBu', vmin=0, vmax=.1,
                                            cbar_kwargs=cbar_kwargs)
+image.set_rasterized(True)  # Rasterize just the image, not the colorbar
+
 ax[0,1].coastlines()
 ax[0,1].gridlines()
 ax[0,1].set_title('Fraction of maturing forests replaced by younger stands \n (21-80 years)')
@@ -83,6 +87,8 @@ ax[0,1].text(0.01, 1.15, '(b)', transform=ax[0,1].transAxes,
 
 image = Mature_stand_replaced_class.plot.imshow(ax=ax[1,0], transform=ccrs.PlateCarree(), cmap='YlGnBu', vmin=0, vmax=.1,
                            cbar_kwargs=cbar_kwargs)
+image.set_rasterized(True)  # Rasterize just the image, not the colorbar
+
 ax[1,0].coastlines()
 ax[1,0].gridlines()
 ax[1,0].set_title('Fraction of mature forests replaced by younger stands \n (81-200 years)')
@@ -91,9 +97,11 @@ ax[1,0].text(0.01, 1.15, '(c)', transform=ax[1,0].transAxes,
 
 image = OG_stand_replaced_class.plot.imshow(ax=ax[1,1], transform=ccrs.PlateCarree(), cmap='YlGnBu',vmin=0, vmax=.1,
                            cbar_kwargs=cbar_kwargs)
+image.set_rasterized(True)  # Rasterize just the image, not the colorbar
+
 ax[1,1].coastlines()
 ax[1,1].gridlines()
 ax[1,1].set_title('Fraction of old-growth forests replaced by younger stands \n ($>$200 years)')
 ax[1,1].text(0.01, 1.15, '(d)', transform=ax[1,1].transAxes,
             fontsize=16, fontweight='bold', va='top')
-plt.savefig(os.path.join(plot_dir,'figExt3.png'), dpi=300)
+plt.savefig(os.path.join(plot_dir,'figExt3.pdf'), dpi=300)

@@ -359,4 +359,4 @@ ax[0].spines['right'].set_visible(False)
 ax[0].text(0.05, 1.05, '(a)', transform=ax[0].transAxes,
             fontsize=18, fontweight='bold', va='top')
 ax[0].set_title('Total carbon stock in 2050', fontsize=16, fontweight='bold')
-plt.savefig(os.path.join(plot_dir,'figExt9.png'), dpi=300)
+plt.savefig(os.path.join(plot_dir,'figExt9.pdf'), dpi=300)

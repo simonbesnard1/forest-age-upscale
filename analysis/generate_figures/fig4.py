@@ -588,4 +588,4 @@ ax[1, 1].axis('off')
 #         fontsize=16, fontweight='bold', va='top')
 
 # Show plot
-plt.savefig(os.path.join(plot_dir,'fig4.png'), dpi=300)
+plt.savefig(os.path.join(plot_dir,'fig4.pdf'), dpi=300)

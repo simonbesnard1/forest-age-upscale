@@ -88,6 +88,8 @@ cbar_kwargs1 = dict(orientation='vertical', shrink=0.8, aspect=40, pad=0.04, spa
 
 ax_map1 = fig.add_subplot(2, 2, 1, projection=ccrs.Robinson())
 image1 = average_age.plot.imshow(ax=ax_map1, transform=ccrs.PlateCarree(), cmap='gist_earth_r', cbar_kwargs=cbar_kwargs1)
+
+image1.set_rasterized(True)  # Rasterize just the image, not the colorbar
 ax_map1.coastlines()
 ax_map1.gridlines()
 ax_map1.set_title('Average forest age 2010-2020', fontweight='bold', fontsize=16)
@@ -129,6 +131,7 @@ ax_map2 = fig.add_subplot(2, 2, 3, projection=ccrs.Robinson())
 cbar_kwargs2 = {'shrink': 0.8, 'aspect': 40, 'pad': 0.04, 'ticks': [-30, -20, -10, 0], 'label': 'Age difference [years]'}
 
 image2 = age_difference.plot.imshow(ax=ax_map2, transform=ccrs.PlateCarree(), cmap='afmhot', vmin=-30, vmax=0, cbar_kwargs=cbar_kwargs2)
+image2.set_rasterized(True)  # Rasterize just the image, not the colorbar
 
 cbar2 = image2.colorbar
 cbar2.set_ticks([-30, -20, -10, 0])
@@ -138,4 +141,4 @@ ax_map2.coastlines()
 ax_map2.gridlines()
 ax_map2.set_title('Anomaly difference map \n relative to the expected 10-year aging', fontweight='bold', fontsize=16)
 ax_map2.text(0.05, 1.05, '(c)', transform=ax_map2.transAxes, fontsize=16, fontweight='bold', va='top')
-plt.savefig(os.path.join(plot_dir, 'fig1.png'), dpi=300)
+plt.savefig(os.path.join(plot_dir, 'fig1.pdf'), dpi=300)
