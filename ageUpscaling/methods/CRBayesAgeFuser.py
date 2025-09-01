@@ -9,12 +9,12 @@ class CRBayesAgeFuser:
     Bayesian fusion of ML ages with a Chapman–Richards (CR) growth likelihood in PyMC.
 
     - Prior:   t ~ TruncatedNormal(mu=hat_t, sigma=sigma_ml, lower=0, upper=tmax)
-    - Likelihood: B_obs ~ Normal(mu=B_CR(t; Bmax,k,m), sigma=sigma_B_eff)
+    - Likelihood: B_obs ~ Normal(mu=B_CR(t; A,k,b), sigma=sigma_B_eff)
       where sigma_B_eff^2 = sigma_B_meas^2 + g(t)^T Σθ g(t)
-            g(t) = ∂B/∂(Bmax,k,m) sensitivities (delta method)
+            g(t) = ∂B/∂(A,k,b) sensitivities (delta method)
 
     Supports:
-      • Diagonal CR-parameter uncertainty via per-parameter stds (sd_Bmax, sd_k, sd_m)
+      • Diagonal CR-parameter uncertainty via per-parameter stds (sd_A, sd_k, sd_b)
       • OR a full per-pixel covariance Sigma_theta of shape (N,3,3)
       • Soft TSD lower bound via a one-sided quadratic potential
       • Hard upper bound tmax (can be scalar or per-pixel)
@@ -32,23 +32,23 @@ class CRBayesAgeFuser:
         self,
         hat_t: np.ndarray,                 # (N,)
         B_obs: np.ndarray,                 # (N,)
-        Bmax: np.ndarray, k: np.ndarray, m: np.ndarray,  # (N,)
+        A: np.ndarray, k: np.ndarray, b: np.ndarray,  # (N,)
         sigma_ml: np.ndarray,              # (N,)
         sigma_B_meas: np.ndarray,          # (N,)
         TSD: np.ndarray | float,           # (N,) or scalar
         tmax: np.ndarray | float,          # (N,) or scalar
         sigma_TSD: np.ndarray | float = 8.0,      # (N,) or scalar
-        sd_Bmax: Optional[np.ndarray] = None,     # (N,)
+        sd_A: Optional[np.ndarray] = None,     # (N,)
         sd_k: Optional[np.ndarray] = None,        # (N,)
-        sd_m: Optional[np.ndarray] = None,        # (N,)
+        sd_b: Optional[np.ndarray] = None,        # (N,)
         Sigma_theta: Optional[np.ndarray] = None, # (N,3,3) if provided overrides sd_*
         floors: dict = None,               # floors for variances and params
     ):
         self.hat_t  = np.asarray(hat_t,  float).reshape(-1)
         self.B_obs  = np.asarray(B_obs,  float).reshape(-1)
-        self.Bmax   = np.asarray(Bmax,   float).reshape(-1)
+        self.A   = np.asarray(A,   float).reshape(-1)
         self.k      = np.asarray(k,      float).reshape(-1)
-        self.m      = np.asarray(m,      float).reshape(-1)
+        self.b      = np.asarray(b,      float).reshape(-1)
         self.sigma_ml    = np.asarray(sigma_ml,    float).reshape(-1)
         self.sigma_B_meas= np.asarray(sigma_B_meas,float).reshape(-1)
 
@@ -66,19 +66,19 @@ class CRBayesAgeFuser:
             self.Sigma_theta = Sigma_theta
         else:
             # Diagonal stds variant
-            assert (sd_Bmax is not None) and (sd_k is not None) and (sd_m is not None), \
-                "Provide either Sigma_theta (N,3,3) OR per-param stds sd_Bmax, sd_k, sd_m"
-            self.sd_Bmax = np.asarray(sd_Bmax, float).reshape(-1)
+            assert (sd_A is not None) and (sd_k is not None) and (sd_b is not None), \
+                "Provide either Sigma_theta (N,3,3) OR per-param stds sd_A, sd_k, sd_b"
+            self.sd_A = np.asarray(sd_A, float).reshape(-1)
             self.sd_k    = np.asarray(sd_k,    float).reshape(-1)
-            self.sd_m    = np.asarray(sd_m,    float).reshape(-1)
+            self.sd_b    = np.asarray(sd_b,    float).reshape(-1)
 
         # Floors
         self.floors = {
             "sigma_ml": 1.0,
             "sigma_B_meas": 1.0,
-            "sd_Bmax": 1e-3,
+            "sd_A": 1e-3,
             "sd_k":    1e-5,
-            "sd_m":    1e-3,
+            "sd_b":    1e-3,
             "sigma_TSD": 1e-6
         }
         if floors:
@@ -112,34 +112,44 @@ class CRBayesAgeFuser:
         self.sigma_TSD    = np.clip(self.sigma_TSD,    self.floors["sigma_TSD"],    np.inf)
 
         if self.Sigma_theta is None:
-            self.sd_Bmax  = np.clip(self.sd_Bmax, self.floors["sd_Bmax"], np.inf)
+            self.sd_A  = np.clip(self.sd_A, self.floors["sd_A"], np.inf)
             self.sd_k     = np.clip(self.sd_k,    self.floors["sd_k"],    np.inf)
-            self.sd_m     = np.clip(self.sd_m,    self.floors["sd_m"],    np.inf)
+            self.sd_b     = np.clip(self.sd_b,    self.floors["sd_b"],    np.inf)
 
         # keep CR params in sane numeric support (no hard science here, just guards)
-        self.Bmax = np.clip(self.Bmax, 1e-6, np.inf)
+        self.A    = np.clip(self.A, 1e-6, np.inf)
         self.k    = np.clip(self.k,    1e-6, 0.5)
-        self.m    = np.clip(self.m,    0.2,  8.0)
+        self.b    = np.clip(self.b,    0.2,  8.0)
 
         # bounds for t
         self.tmax = np.clip(self.tmax, 1.0, np.inf)
         self.hat_t = np.clip(self.hat_t, 0.0, self.tmax)
 
     # ---------- CR pieces (pytensor) ----------
+    @staticmethod
+    def B_CR_pt(t, A, b, k, m=0.67):
+        p = 1.0 / (1.0 - m)
+        u = pt.clip(1.0 - b * pt.exp(-k * t), 1e-12, 1 - 1e-12)
+        return A * u**p
 
     @staticmethod
-    def B_CR_pt(t, Bmax, k, m):
-        A = pt.clip(1.0 - pt.exp(-k * t), 1e-12, 1 - 1e-12)
-        return Bmax * A**m
-
-    @staticmethod
-    def CR_sensitivities_pt(t, Bmax, k, m):
-        # ∂B/∂(Bmax,k,m)
-        A = pt.clip(1.0 - pt.exp(-k * t), 1e-12, 1 - 1e-12)
-        d_dBmax = A**m
-        d_dk    = Bmax * m * A**(m-1) * (t * pt.exp(-k * t))
-        d_dm    = Bmax * A**m * pt.log(A)
-        return pt.stack([d_dBmax, d_dk, d_dm], axis=-1)
+    def CR_sensitivities_pt(t, A, b, k, m=0.67):
+        """
+        g = [∂y/∂A, ∂y/∂b, ∂y/∂k, ∂y/∂m] for canonical CR.
+        If m is fixed, ignore the last column.
+        """
+        p = 1.0 / (1.0 - m)
+        u = pt.clip(1.0 - b * pt.exp(-k * t), 1e-12, 1-1e-12)
+        y = A * u**p
+    
+        # derivatives
+        dy_dA = u**p
+        dy_db = -A * p * u**(p-1.0) * pt.exp(-k*t)
+        dy_dk =  A * p * u**(p-1.0) * (b * t * pt.exp(-k*t))
+        # because p = (1-m)^(-1): dp/dm = 1/(1-m)^2
+        dy_dm = y * pt.log(u) * (1.0 / (1.0 - m)**2)
+    
+        return pt.stack([dy_dA, dy_db, dy_dk, dy_dm], axis=-1)
 
     # ---------- model build ----------
 
@@ -152,9 +162,9 @@ class CRBayesAgeFuser:
             # constant data containers for fast updates later
             d_hat_t  = pm.Data("hat_t",  self.hat_t)
             d_B_obs  = pm.Data("B_obs",  self.B_obs)
-            d_Bmax   = pm.Data("Bmax",   self.Bmax)
+            d_A      = pm.Data("A",   self.A)
             d_k      = pm.Data("k",      self.k)
-            d_m      = pm.Data("m",      self.m)
+            d_b      = pm.Data("b",      self.b)
             d_sigML  = pm.Data("sigma_ml",     self.sigma_ml)
             d_sigB   = pm.Data("sigma_B_meas", self.sigma_B_meas)
             d_TSD    = pm.Data("TSD",    self.TSD)
@@ -163,9 +173,9 @@ class CRBayesAgeFuser:
 
             # Optional parameter uncertainty
             if self.Sigma_theta is None:
-                d_sdB = pm.Data("sd_Bmax", self.sd_Bmax)
+                d_sdA = pm.Data("sd_A", self.sd_A)
                 d_sdk = pm.Data("sd_k",    self.sd_k)
-                d_sdm = pm.Data("sd_m",    self.sd_m)
+                d_sdb = pm.Data("sd_b",    self.sd_b)
             else:
                 d_Sigma = pm.Data("Sigma_theta", self.Sigma_theta)
 
@@ -181,15 +191,15 @@ class CRBayesAgeFuser:
             pm.Potential("soft_tsd", -0.5 * pt.sum((resid_tsd / d_sTSD)**2))
 
             # CR likelihood
-            B_pred = self.B_CR_pt(t, d_Bmax, d_k, d_m)
+            B_pred = self.B_CR_pt(t, d_A, d_b,  d_k)
 
             if self.Sigma_theta is None:
-                g = self.CR_sensitivities_pt(t, d_Bmax, d_k, d_m)
-                sigma_param2 = (g[..., 0]**2) * (d_sdB**2) \
-                             + (g[..., 1]**2) * (d_sdk**2) \
-                             + (g[..., 2]**2) * (d_sdm**2)
+                g = self.CR_sensitivities_pt(t, d_A, d_b, d_k)
+                sigma_param2 = (g[..., 0]**2) * (d_sdA**2) \
+                             + (g[..., 1]**2) * (d_sdb**2) \
+                             + (g[..., 2]**2) * (d_sdk**2)
             else:
-                g = self.CR_sensitivities_pt(t, d_Bmax, d_k, d_m)
+                g = self.CR_sensitivities_pt(t, d_A, d_b, d_k)
                 sigma_param2 = pt.sum(pt.matmul(g, d_Sigma) * g, axis=-1)
 
             sigma_B_eff = pt.sqrt(pt.clip(d_sigB**2 + sigma_param2, 1e-6, 1e12))
@@ -230,15 +240,15 @@ class CRBayesAgeFuser:
         B_obs: np.ndarray,
         sigma_ml: np.ndarray,
         sigma_B_meas: np.ndarray,
-        Bmax: Optional[np.ndarray] = None,
+        A: Optional[np.ndarray] = None,
         k: Optional[np.ndarray] = None,
-        m: Optional[np.ndarray] = None,
+        b: Optional[np.ndarray] = None,
         TSD: Optional[np.ndarray | float] = None,
         tmax: Optional[np.ndarray | float] = None,
         sigma_TSD: Optional[np.ndarray | float] = None,
-        sd_Bmax: Optional[np.ndarray] = None,
+        sd_A: Optional[np.ndarray] = None,
         sd_k: Optional[np.ndarray] = None,
-        sd_m: Optional[np.ndarray] = None,
+        sd_b: Optional[np.ndarray] = None,
         Sigma_theta: Optional[np.ndarray] = None,
     ):
         """
@@ -252,15 +262,15 @@ class CRBayesAgeFuser:
         B_obs  = np.asarray(B_obs,  float).reshape(-1);   assert B_obs.size == N
         sigma_ml = np.clip(np.asarray(sigma_ml, float).reshape(-1), self.floors["sigma_ml"], np.inf); assert sigma_ml.size == N
         sigma_B_meas = np.clip(np.asarray(sigma_B_meas, float).reshape(-1), self.floors["sigma_B_meas"], np.inf); assert sigma_B_meas.size == N
-
+      
         self.model["hat_t"].set_value(hat_t)
         self.model["B_obs"].set_value(B_obs)
         self.model["sigma_ml"].set_value(sigma_ml)
         self.model["sigma_B_meas"].set_value(sigma_B_meas)
 
-        if Bmax is not None: self.model["Bmax"].set_value(np.asarray(Bmax, float).reshape(-1))
+        if A is not None: self.model["A"].set_value(np.asarray(A, float).reshape(-1))
         if k    is not None: self.model["k"].set_value(np.asarray(k, float).reshape(-1))
-        if m    is not None: self.model["m"].set_value(np.asarray(m, float).reshape(-1))
+        if b    is not None: self.model["b"].set_value(np.asarray(b, float).reshape(-1))
 
         if TSD is not None:       self.model["TSD"].set_value(self._as_len(self._to_array(TSD), N))
         if tmax is not None:      self.model["tmax"].set_value(self._as_len(self._to_array(tmax), N))
@@ -271,9 +281,9 @@ class CRBayesAgeFuser:
             assert Sigma_theta.shape == (N,3,3)
             self.model["Sigma_theta"].set_value(Sigma_theta)
         else:
-            if sd_Bmax is not None: self.model["sd_Bmax"].set_value(np.clip(np.asarray(sd_Bmax,float).reshape(-1), self.floors["sd_Bmax"], np.inf))
+            if sd_A is not None: self.model["sd_A"].set_value(np.clip(np.asarray(sd_A,float).reshape(-1), self.floors["sd_A"], np.inf))
             if sd_k    is not None: self.model["sd_k"].set_value(np.clip(np.asarray(sd_k,float).reshape(-1),    self.floors["sd_k"],    np.inf))
-            if sd_m    is not None: self.model["sd_m"].set_value(np.clip(np.asarray(sd_m,float).reshape(-1),    self.floors["sd_m"],    np.inf))
+            if sd_b    is not None: self.model["sd_b"].set_value(np.clip(np.asarray(sd_b,float).reshape(-1),    self.floors["sd_b"],    np.inf))
 
     # ---------- convenience: run full pipeline once ----------
 
@@ -285,9 +295,9 @@ class CRBayesAgeFuser:
         Convenience one-shot: build model, run MAP, return (t_MAP, fuser).
         Usage:
             t_map, fuser = CRBayesAgeFuser.run_map(
-                hat_t=..., B_obs=..., Bmax=..., k=..., m=...,
+                hat_t=..., B_obs=..., A=..., k=..., b=...,
                 sigma_ml=..., sigma_B_meas=..., TSD=..., tmax=...,
-                sd_Bmax=..., sd_k=..., sd_m=...,  # or Sigma_theta=...
+                sd_A=..., sd_k=..., sd_b=...,  # or Sigma_theta=...
             )
         """
         fuser = cls(*args, **kwargs).build()
