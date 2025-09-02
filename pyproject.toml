@@ -1,0 +1,137 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools>=64",
+    "wheel",
+    "setuptools-scm>=8"
+]
+
+[project]
+name = "ageUpscaling"
+dynamic = ["version"]
+description = "A toolbox for upscaling forest age from NFI data"
+readme = "README.md"
+authors = [
+    { name = "Simon Besnard", email = "besnard@gfz.de" }
+]
+license = { file = "LICENSE" }
+keywords = ["geospatial", "Forest Age"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)"
+]
+requires-python = ">=3.10"
+dependencies = [
+    "xarray",
+    "zarr",
+    "rioxarray",
+    "netCDF4",
+    "dask",
+    "scikit-learn",
+    "Boruta",
+    "numpy",
+    "optuna",
+    "optuna",
+    "PyYAML",
+    "matplotlib",
+    "bottleneck",
+    "rasterio",
+    "xgboost",
+    "torch",
+    "shap",
+    'tqdm',
+    "dask_jobqueue",
+    "cartopy",
+    "shapely",
+    "geopandas",
+    "scipy",
+    "sklearn-genetic-opt",
+    "statsmodels",
+    "pymc"
+]
+
+[project.urls]
+homepage = "https://github.com/simonbesnard1/forest-age-upscale"
+source = "https://github.com/simonbesnard1/forest-age-upscale"
+tracker = "https://github.com/simonbesnard1/forest-age-upscale/issues"
+
+[project.optional-dependencies]
+accel = [
+    "bottleneck",
+    "numbagg",
+    "flox",
+    "opt_einsum",
+    "numba",
+    "cython"
+]
+dev = [
+    "hypothesis",
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "pytest-env",
+    "pytest-xdist",
+    "pytest-timeout",
+    "ruff",
+    "ageUpscaling[complete]",
+    "black",
+    "isort"
+]
+io = [
+    "boto3",
+    "netCDF4",
+    "h5netcdf",
+    'pydap; python_version<"3.10"',
+    "zarr",
+    "fsspec",
+    "cftime",
+    "pooch",
+    "rasterio",
+    "pyproj"
+]
+viz = [
+    "cartopy",
+    "matplotlib",
+    "seaborn",
+    "nc-time-axis",
+    "plotly",
+    "holoviews"
+]
+debug = [
+    "rich",
+    "loguru"
+]
+
+full = [
+    "ageUpscaling[accel,io,viz,debug]"
+]
+
+[tool.mypy]
+enable_error_code = ["ignore-without-code", "redundant-self", "redundant-expr"]
+exclude = [
+  'build',
+]
+files = "ageUpscaling"
+show_error_context = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.ruff]
+extend-exclude = [
+  "doc",
+  "_typed_ops.pyi",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["ageUpscaling/tests*", "ageUpscaling/tests/*", "ageUpscaling/tests/**/*", "scripts*"]
+
+[tool.setuptools_scm]
+fallback_version = "9999"
+

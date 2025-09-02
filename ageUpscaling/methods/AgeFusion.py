@@ -37,22 +37,34 @@ class AgeFusion:
             corrected[valid] = t_map
         return corrected
 
-    def fuse(self, ML_pred_age_end, ML_pred_age_start, LTSD, biomass, cr_params, cr_errors, ml_std, biomass_std, TSD, tmax):
+    def fuse(self, ML_pred_age_start, ML_pred_age_end, LTSD,
+             biomass, cr_params, cr_errors,
+             ml_std_end, ml_std_start, biomass_std, TSD, tmax):
         """Fuse LTSD and ML ages with CR correction."""
-        # 1. Correct ML ages (end year)
+        
+        years_span = int(self.config["end_year"]) - int(self.config["start_year"])
+
+        # --- Enforce TSD lower bound on ML predictions before correction
+        ML_pred_age_end = np.maximum(ML_pred_age_end, TSD)
+        ML_pred_age_start = np.maximum(ML_pred_age_start, TSD)
+    
+        # --- Correct ML ages at end year
         ML_pred_age_end_corr = self.correct_ml_age(
             ML_pred_age_end, biomass, cr_params, cr_errors,
-            ml_std, biomass_std, TSD, tmax
+            ml_std_end, biomass_std, TSD, tmax
         )
-
-        # 2. Start year: back-project unless LTSD overrides
-        years_span = int(self.config["end_year"]) - int(self.config["start_year"])
+    
+        # --- Back-project start year
         ML_pred_age_start_corr = ML_pred_age_end_corr - years_span
         too_young = ML_pred_age_start_corr < 1
         ML_pred_age_start_corr[too_young] = ML_pred_age_start[too_young]
-
-        # 3. Apply LTSD overrides
-        fused_end = np.where(LTSD > 0, LTSD, ML_pred_age_end_corr)
-        fused_start = np.where(LTSD > 0, LTSD - years_span, ML_pred_age_start_corr)
-
+    
+        # --- Fuse with LTSD (takes priority where available)
+        fused_end = np.where(np.isfinite(LTSD), LTSD, ML_pred_age_end_corr)
+        fused_start = np.where(np.isfinite(LTSD), LTSD - years_span, ML_pred_age_start_corr)
+    
+        # --- Final hard clip: enforce TSD and tmax
+        fused_end = np.clip(fused_end, TSD, tmax)
+        fused_start = np.clip(fused_start, 1, tmax)
+    
         return fused_start, fused_end
