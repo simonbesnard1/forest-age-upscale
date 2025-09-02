@@ -17,7 +17,6 @@ The accompanying paper is:
 ## Table of contents
 - [What’s inside](#whats-inside)
 - [Install](#install)
-- [Quick start](#quick-start)
 - [Using GAMI data](#using-gami-data)
 - [Reproducing paper figures](#reproducing-paper-figures)
 - [Repository layout](#repository-layout)
@@ -32,7 +31,7 @@ The accompanying paper is:
 - **Upscaling pipeline** (`ageUpscaling/`): core modules for loading data, applying transformations, training models, and generating upscaled forest-age cubes.
 - **Analysis** (`analysis/`): scripts to reproduce the figures and tables in the paper.
 
-The package is tightly linked to the **GAMI v* dataset** — a global 100 m forest-age ensemble for 2010 and 2020 with quantified uncertainty.
+The package is tightly linked to the **GAMI dataset** — a global 100 m forest-age ensemble for 2010 and 2020 with quantified uncertainty.
 
 ---
 
@@ -62,7 +61,7 @@ pip install -e .
 ```python
 import xarray as xr
 
-ds = xr.open_dataset("/path/to/GAMI_v2.0/age_2010_2020_100m.nc")
+ds = xr.open_dataset("/path/to/GAMI_v2.1/GAMIv2-1_2010-2020_100m.nc")
 print(ds)
 ```
 ---
