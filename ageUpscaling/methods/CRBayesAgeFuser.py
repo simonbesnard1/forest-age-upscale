@@ -126,6 +126,7 @@ class CRBayesAgeFuser:
         self.hat_t = np.clip(self.hat_t, 0.0, self.tmax)
 
     # ---------- CR pieces (pytensor) ----------
+    
     @staticmethod
     def B_CR_pt(t, A, b, k, m=0.67):
         p = 1.0 / (1.0 - m)
@@ -156,7 +157,7 @@ class CRBayesAgeFuser:
     def build(self) -> "CRBayesAgeFuser":
         """Construct the PyMC model; call once per tile/member (reuse with update_data)."""
         N = self.hat_t.size
-        t_init = np.clip(self.hat_t, 0.0, self.tmax)
+        t_init = np.clip(self.hat_t, 1.0, self.tmax)
 
         with pm.Model() as self.model:
             # constant data containers for fast updates later

@@ -47,6 +47,8 @@ from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 from ageUpscaling.methods.RandomForest import RandomForest
 from ageUpscaling.methods.feature_selection import FeatureSelection
+from ageUpscaling.methods.CRBayesAgeFuser import CRBayesAgeFuser
+from ageUpscaling.methods.AgeFusion import AgeFusion
 
 class UpscaleAge(ABC):
     """A class for upscaling forest age ML models.
@@ -115,13 +117,14 @@ class UpscaleAge(ABC):
         self.clim_cube  = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync_feature)
         self.canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=self.sync_feature)
         self.LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=self.sync_feature)
+        self.CRparams_cube = xr.open_zarr(self.DataConfig['CRparams_cube'], synchronizer=self.sync_feature)
                 
         self.upscaling_config['sync_file_path'] = os.path.abspath(f"{study_dir}/cube_out_sync_{self.task_id}.zarrsync") 
         self.upscaling_config['output_writer_params']['dims']['latitude']  = self.agb_cube.latitude.values
         self.upscaling_config['output_writer_params']['dims']['longitude'] = self.agb_cube.longitude.values
         self.upscaling_config['output_writer_params']['dims']['members'] =  self.upscaling_config['num_members']
         self.tmp_folder = os.path.join(self.upscaling_config['tmp_dir'], 'AgeUpscaling/')
-        
+        self.cr_fuser = CRBayesAgeFuser()
         self.pred_cube = DataCube(cube_config = self.upscaling_config)
         self.pred_cube.init_variable(self.upscaling_config['cube_variables'], 
                                      njobs= len(self.upscaling_config['cube_variables'].keys()))
@@ -214,19 +217,16 @@ class UpscaleAge(ABC):
                     'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
     
         subset_LastTimeSinceDist_cube = self.LastTimeSinceDist_cube.sel(time = self.DataConfig['end_year']).sel(buffer_IN)
-        subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=0)
+        subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=1)
         
         if not np.isnan(subset_LastTimeSinceDist_cube.to_array().values).all():
                             
             subset_clim_cube = self.clim_cube.sel(buffer_IN)[[x for x in self.DataConfig['features'] if "WorlClim" in x]].astype('float16')
             subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_LastTimeSinceDist_cube).sel(IN)
+            subset_CRparams_cube = self.CRparams_cube.sel(buffer_IN).astype('float16')
+            subset_CRparams_cube = interpolate_worlClim(source_ds = subset_CRparams_cube, target_ds = subset_LastTimeSinceDist_cube).sel(IN)
             subset_LastTimeSinceDist = subset_LastTimeSinceDist_cube.sel(IN).to_array().values.reshape(-1)      
-            subset_canopyHeight_cube = self.canopyHeight_cube.sel(IN).sel(time = ['2000-01-01', '2020-01-01'])
-            date_to_replace = pd.to_datetime('2000-01-01')
-            new_date = pd.to_datetime('2010-01-01')
-            time_index = subset_canopyHeight_cube.indexes['time']
-            replace_index = time_index.get_loc(date_to_replace)
-            subset_canopyHeight_cube['time'].values[replace_index] = new_date    
+            subset_canopyHeight_cube = self.canopyHeight_cube.sel(IN).sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
             subset_canopyHeight_cube = subset_canopyHeight_cube.rename({list(set(list(subset_canopyHeight_cube.variables.keys())) - set(subset_canopyHeight_cube.coords))[0] : [x for x in self.DataConfig['features']  if "canopy_height" in x][0]}).astype('float16')
             subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0)
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_canopyHeight_cube.time.values}, axis=list(subset_canopyHeight_cube.dims).index('time'))
@@ -241,11 +241,13 @@ class UpscaleAge(ABC):
                     mask_intact_forest[polygon_mask==False] = False
             mask_intact_forest = mask_intact_forest.reshape(-1)
             
+            ML_pred_age_end_members = []
+            ML_pred_age_start_members = []
             for run_ in np.arange(self.upscaling_config['num_members']):
             
                 subset_agb_cube        = self.agb_cube.sel(IN).sel(members=run_).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
                 subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
-                
+                subset_agb_std_cube    = subset_agb_cube['aboveground_biomass_std'].to_dataset()
                 subset_features_cube      = xr.merge([subset_agb_cube, subset_clim_cube, subset_canopyHeight_cube])
                                       
                 with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = "Classifier", id_ = run_), 'rb') as f:
@@ -320,41 +322,66 @@ class UpscaleAge(ABC):
                         pred_reg= best_regressor.predict(dpred)
                     
                     pred_reg[pred_reg>=self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0] -1
-                    pred_reg[pred_reg<0] = 0
+                    pred_reg[pred_reg<1] = 1
                     ML_pred_age[mask] = np.round(pred_reg).astype("int16")
                     ML_pred_age[ML_pred_class==1] = self.DataConfig['max_forest_age'][0]
                     ML_pred_age   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
                     ML_pred_age_end = ML_pred_age[:, :, 1, :].reshape(-1)
                     ML_pred_age_end[~mask_intact_forest] = self.DataConfig['max_forest_age'][0] 
                     ML_pred_age_start = ML_pred_age[:, :, 0, :].reshape(-1)
+                    ML_pred_age_end_members.append(ML_pred_age_end)
+                    ML_pred_age_start_members.append(ML_pred_age_start)
                     
+                ML_pred_age_end_members = np.stack(ML_pred_age_end_members, axis=0)
+                ML_pred_age_start_members = np.stack(ML_pred_age_start_members, axis=0)
+                sigma_ml_end = np.nanstd(ML_pred_age_end_members, axis=0)
+                sigma_ml_start = np.nanstd(ML_pred_age_start_members, axis=0)
+                
+                for run_ in range(self.upscaling_config['num_members']):
+                    ML_pred_age_end = ML_pred_age_end_members[run_, :]
+                    ML_pred_age_start = ML_pred_age_start_members[run_, :]
+                
+                    # --- CR-based bias correction ---
+                    cr_params = {
+                        "A": subset_CRparams_cube.A.values.reshape(-1),
+                        "b": subset_CRparams_cube.b.values.reshape(-1),
+                        "k": subset_CRparams_cube.k.values.reshape(-1)
+                    }
+                    cr_errors = {
+                        "A": subset_CRparams_cube.A_error.values.reshape(-1),
+                        "b": subset_CRparams_cube.b_error.values.reshape(-1),
+                        "k": subset_CRparams_cube.k_error.values.reshape(-1)
+                    }
+                
+                    TSD = np.repeat(20, len(ML_pred_age_end))
+                    tmax = np.repeat(301, len(ML_pred_age_end))
+                
+                    fusion = AgeFusion(cr_fuser=self.cr_fuser, config={
+                        "start_year": int(self.DataConfig['start_year'].split('-')[0]),
+                        "end_year": int(self.DataConfig['end_year'].split('-')[0]),
+                        "sigma_TSD": 5.0
+                    })
+                
+                    corrected_pred_age_start, corrected_pred_age_end = fusion.fuse(
+                        ML_pred_age_start, ML_pred_age_end,
+                        subset_LastTimeSinceDist.reshape(-1),
+                        subset_agb_cube.values.reshape(-1),
+                        cr_params, cr_errors,
+                        sigma_ml_end, sigma_ml_start, subset_agb_std_cube.values.reshape(-1),
+                        TSD, tmax
+                    )
+
                     # Initialize with NaN values directly
-                    fused_pred_age_end = np.full(len(ML_pred_age_end), np.nan)
-                    
-                    # Stand replacement occured and age ML is higher than Hansen Loss year
-                    mask_Change1 = np.logical_and(subset_LastTimeSinceDist <= 19, ML_pred_age_end > subset_LastTimeSinceDist)
-                    fused_pred_age_end[mask_Change1] = subset_LastTimeSinceDist[mask_Change1]
-                    
-                    # Stand replacement occured and age ML is lower or equal than Hansen Loss year
-                    mask_Change2 = np.logical_and(subset_LastTimeSinceDist <= 19, ML_pred_age_end <= subset_LastTimeSinceDist)
-                    fused_pred_age_end[mask_Change2] = ML_pred_age_end[mask_Change2]
-                    
-                    # Afforestation occured and age ML is higher than Hansen Loss year
-                    mask_Change1 = np.logical_and(subset_LastTimeSinceDist == 20, ML_pred_age_end > subset_LastTimeSinceDist)
-                    fused_pred_age_end[mask_Change1] = 20
-                    
-                    # Afforestation occured and age ML is lower or equal than Hansen Loss year
-                    mask_Change3 = np.logical_and(subset_LastTimeSinceDist == 20, ML_pred_age_end <= subset_LastTimeSinceDist)
-                    fused_pred_age_end[mask_Change3] = ML_pred_age_end[mask_Change3]
+                    fused_pred_age_end = np.full(len(corrected_pred_age_end), np.nan)
                     
                     # Forest has been stable since 2000 or planted before 2000 and age ML is higher than 20
-                    mask_intact1 = (subset_LastTimeSinceDist > 20)
-                    fused_pred_age_end[mask_intact1] = ML_pred_age_end[mask_intact1]
+                    mask_intact1 = (subset_LastTimeSinceDist == 50)
+                    fused_pred_age_end[mask_intact1] = corrected_pred_age_end[mask_intact1]
                     
                     # Backward fusion for the start year
                     fused_pred_age_start = fused_pred_age_end - (int(self.DataConfig['end_year'].split('-')[0]) -  int(self.DataConfig['start_year'].split('-')[0]))
-                    mask_Change1 = (fused_pred_age_start <0)
-                    fused_pred_age_start[mask_Change1] = ML_pred_age_start[mask_Change1]
+                    mask_Change1 = (fused_pred_age_start <1)
+                    fused_pred_age_start[mask_Change1] = corrected_pred_age_start[mask_Change1]
                     fused_pred_age_start[fused_pred_age_end == self.DataConfig['max_forest_age'][0]] = self.DataConfig['max_forest_age'][0]
                     
                     # Mask nan consistenlty across years
