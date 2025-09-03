@@ -1,25 +1,27 @@
 import numpy as np
+from ageUpscaling.methods.CRBayesAgeFuser import CRBayesAgeFuser
 
 class AgeFusion:
-    def __init__(self, cr_fuser, config):
+    def __init__(self, config):
         """
         Parameters
         ----------
-        cr_fuser : CRBayesAgeFuser-like object
-            Provides .run_map() for CR bias correction.
         config : dict
             Holds settings like TSD, max_age, sigma_TSD.
         """
-        self.cr_fuser = cr_fuser
         self.config = config
 
     def correct_ml_age(self, ml_age, biomass, cr_params, cr_errors, ml_std, biomass_std, TSD, tmax):
         """Bias correct ML ages using CR priors."""
-        valid = np.isfinite(ml_age) & np.isfinite(biomass)
+        valid = np.isfinite(ml_age) & np.isfinite(biomass) & \
+                np.isfinite(cr_params["A"]) & np.isfinite(cr_params["b"]) & np.isfinite(cr_params["k"]) & \
+                np.isfinite(ml_std) & np.isfinite(biomass_std) & \
+                np.isfinite(cr_errors["A"]) & np.isfinite(cr_errors["b"]) & np.isfinite(cr_errors["k"])
+        
         corrected = np.full_like(ml_age, np.nan, dtype=float)
 
         if valid.any():
-            t_map, _ = self.cr_fuser.run_map(
+            t_map, _ = CRBayesAgeFuser.run_map(
                 hat_t=ml_age[valid],
                 B_obs=biomass[valid],
                 A=cr_params["A"][valid],
@@ -38,8 +40,8 @@ class AgeFusion:
         return corrected
 
     def fuse(self, ML_pred_age_start, ML_pred_age_end, LTSD,
-             biomass, cr_params, cr_errors,
-             ml_std_end, ml_std_start, biomass_std, TSD, tmax):
+             biomass_start, biomass_end, cr_params, cr_errors,
+             ml_std_end, ml_std_start, biomass_std_end, biomass_std_start, TSD, tmax):
         """Fuse LTSD and ML ages with CR correction."""
         
         years_span = int(self.config["end_year"]) - int(self.config["start_year"])
@@ -50,21 +52,24 @@ class AgeFusion:
     
         # --- Correct ML ages at end year
         ML_pred_age_end_corr = self.correct_ml_age(
-            ML_pred_age_end, biomass, cr_params, cr_errors,
-            ml_std_end, biomass_std, TSD, tmax
+            ML_pred_age_end, biomass_end, cr_params, cr_errors,
+            ml_std_end, biomass_std_end, TSD, tmax
+        )
+        fused_end = np.where(LTSD < 50, LTSD, ML_pred_age_end_corr)
+        
+        # --- Correct ML ages at start year
+        ML_pred_age_start_corr = self.correct_ml_age(
+            ML_pred_age_start, biomass_start, cr_params, cr_errors,
+            ml_std_start, biomass_std_start, TSD, tmax
         )
     
         # --- Back-project start year
-        ML_pred_age_start_corr = ML_pred_age_end_corr - years_span
-        too_young = ML_pred_age_start_corr < 1
-        ML_pred_age_start_corr[too_young] = ML_pred_age_start[too_young]
-    
-        # --- Fuse with LTSD (takes priority where available)
-        fused_end = np.where(np.isfinite(LTSD), LTSD, ML_pred_age_end_corr)
-        fused_start = np.where(np.isfinite(LTSD), LTSD - years_span, ML_pred_age_start_corr)
-    
+        fused_start = fused_end - years_span
+        too_young = ML_pred_age_start < 1
+        fused_start[too_young] = ML_pred_age_start_corr[too_young]
+        
         # --- Final hard clip: enforce TSD and tmax
-        fused_end = np.clip(fused_end, TSD, tmax)
+        fused_end = np.clip(fused_end, 1, tmax)
         fused_start = np.clip(fused_start, 1, tmax)
     
         return fused_start, fused_end
