@@ -12,7 +12,6 @@ import geopandas as gpd
 import xgboost as xgb
 
 from ageUpscaling.transformers.spatial import interpolate_worlClim
-from ageUpscaling.methods.CRBayesAgeFuser import CRBayesAgeFuser
 from ageUpscaling.methods.AgeFusion import AgeFusion
 
 study_dir = '/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-3.0'
@@ -24,24 +23,18 @@ with open('/home/simon/hpc_home/projects/forest-age-upscale/config_files/upscali
     upscaling_config =  yml.safe_load(f)
 
 LastTimeSinceDist_cube = xr.open_zarr('/home/simon/hpc_home/projects/forest-age-upscale/data/cubes/LandsatDisturbanceTime_100m')
-agb_cube = xr.open_zarr('/home/simon/hpc_home/projects/forest-age-upscale/data/cubes/ESACCI_BIOMASS_100m_v5_members')
+agb_cube = xr.open_zarr('/home/simon/hpc_home/projects/forest-age-upscale/data/cubes/ESACCI_BIOMASS_100m_v6_members/')
 clim_cube = xr.open_zarr('/home/simon/hpc_home/projects/forest-age-upscale/data/cubes/WorlClim_1km')
 canopyHeight_cube = xr.open_zarr('/home/simon/hpc_home/projects/forest-age-upscale/data/cubes/canopyHeight_potapov_100m')
 CRparams_cube = xr.open_zarr('/home/simon/hpc_home/projects/forest-age-upscale/data/cubes/CR_growth_curve_params_1km')
-agb_std_cube = xr.open_zarr('/home/simon/hpc_home/projects/forest-age-upscale/data/cubes/ESACCI_BIOMASS_100m_v5')
+agb_std_cube = xr.open_zarr('/home/simon/hpc_home/projects/forest-age-upscale/data/cubes/ESACCI_BIOMASS_100m_v6')
 
 intact_forest = gpd.read_file('/home/simon/hpc_home/projects/forest-age-upscale/data/shapefiles/IFL_2020_v2.zip')
 intact_tropical_forest = intact_forest[intact_forest['IFL_ID'].str.contains('|'.join(['SAM', 'SEA', 'AFR']))]
 
 algorithm = "XGBoost"
-# bounding box for France
-gdf = gpd.read_file("/home/simon/Downloads/boreal_tiles_v004_model_ready.gpkg")
-gdf_wgs84 = gdf.to_crs(epsg=4326)
-gdf_selected = gdf_wgs84[gdf_wgs84["tile_num"] == 37522]
-lat_min, lat_max = gdf_selected.bounds['miny'].values[0], gdf_selected.bounds['maxy'].values[0]
-lon_min, lon_max = gdf_selected.bounds['minx'].values[0], gdf_selected.bounds['maxx'].values[0]
-IN = {'latitude': slice(lat_max, lat_min, None),
-      'longitude': slice(lon_min, lon_max, None)}
+IN = {'latitude': slice(-2.995391, -3.040608, None),
+      'longitude': slice(-54.993889, -54.948911, None)}
 
 lat_start, lat_stop = IN['latitude'].start, IN['latitude'].stop
 lon_start, lon_stop = IN['longitude'].start, IN['longitude'].stop
