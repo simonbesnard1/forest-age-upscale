@@ -33,8 +33,7 @@ intact_forest = gpd.read_file('/home/simon/hpc_home/projects/forest-age-upscale/
 intact_tropical_forest = intact_forest[intact_forest['IFL_ID'].str.contains('|'.join(['SAM', 'SEA', 'AFR']))]
 
 algorithm = "XGBoost"
-IN = {'latitude': slice(-2.995391, -3.040608, None),
-      'longitude': slice(-54.993889, -54.948911, None)}
+IN = {'latitude': slice(75.77733333333333, 72.22266666666667, None), 'longitude': slice(83.11155555555558, 86.66622222222225, None)}
 
 lat_start, lat_stop = IN['latitude'].start, IN['latitude'].stop
 lon_start, lon_stop = IN['longitude'].start, IN['longitude'].stop
@@ -143,8 +142,16 @@ for run_ in np.arange(upscaling_config['num_members']):
         ML_pred_age_end = ML_pred_age[:, :, 1, :].reshape(-1)
         ML_pred_age_end[~mask_intact_forest] = DataConfig['max_forest_age'][0] 
         ML_pred_age_start = ML_pred_age[:, :, 0, :].reshape(-1)
-        ML_pred_age_end_members.append(ML_pred_age_end)
-        ML_pred_age_start_members.append(ML_pred_age_start)
+        
+    else:
+        # nothing to predict here -> just NaN arrays with correct shape
+        ML_pred_age_start = np.full(
+            len(subset_features_cube.latitude) * len(subset_features_cube.longitude),
+            np.nan, dtype="float32"
+        )
+        ML_pred_age_end = np.full_like(ML_pred_age_start, np.nan)
+    ML_pred_age_end_members.append(ML_pred_age_end)
+    ML_pred_age_start_members.append(ML_pred_age_start)
         
 ML_pred_age_end_members = np.stack(ML_pred_age_end_members, axis=0)
 ML_pred_age_start_members = np.stack(ML_pred_age_start_members, axis=0)
