@@ -26,14 +26,14 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "xarray",
+    "xarray==2023.10.11",
     "zarr==2.10.3",
     "rioxarray",
     "netCDF4",
     "dask",
     "scikit-learn",
     "Boruta",
-    "numpy=1.26.4",
+    "numpy==1.26.4",
     "optuna",
     "optuna",
     "PyYAML",
