@@ -112,12 +112,12 @@ class UpscaleAge(ABC):
             shutil.rmtree(sync_file_features)            
         self.sync_feature = zarr.ProcessSynchronizer(sync_file_features)
         
-        self.agb_cube   = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=self.sync_feature)
+        self.agb_cube_members   = xr.open_zarr(self.DataConfig['agb_cube_members'], synchronizer=self.sync_feature)
         self.clim_cube  = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync_feature)
         self.canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=self.sync_feature)
         self.LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=self.sync_feature)
         self.CRparams_cube = xr.open_zarr(self.DataConfig['CRparams_cube'], synchronizer=self.sync_feature)
-        self.agb_std_cube = xr.open_zarr(self.DataConfig['agb_std_cube'], synchronizer=self.sync_feature)
+        self.agb_cube = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=self.sync_feature)
                         
         self.upscaling_config['sync_file_path'] = os.path.abspath(f"{study_dir}/cube_out_sync_{self.task_id}.zarrsync") 
         self.upscaling_config['output_writer_params']['dims']['latitude']  = self.agb_cube.latitude.values
@@ -229,9 +229,8 @@ class UpscaleAge(ABC):
             subset_canopyHeight_cube = subset_canopyHeight_cube.rename({list(set(list(subset_canopyHeight_cube.variables.keys())) - set(subset_canopyHeight_cube.coords))[0] : [x for x in self.DataConfig['features']  if "canopy_height" in x][0]}).astype('float16')
             subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0)
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_canopyHeight_cube.time.values}, axis=list(subset_canopyHeight_cube.dims).index('time'))
-            subset_agb_std_cube    = self.agb_std_cube.sel(IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
-            subset_agb_std_cube    = subset_agb_std_cube[self.DataConfig['agb_var_cube'] + '_std']
-
+            subset_agb_cube    = self.agb_cube.sel(IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
+            
             mask_intact_forest = ~np.zeros((subset_canopyHeight_cube.sizes['latitude'], subset_canopyHeight_cube.sizes['longitude']), dtype=bool)
             for _, row in self.intact_tropical_forest.iterrows():
                 polygon = row.geometry
@@ -246,11 +245,11 @@ class UpscaleAge(ABC):
             ML_pred_age_start_members = []
             for run_ in np.arange(self.upscaling_config['num_members']):
             
-                subset_agb_cube        = self.agb_cube.sel(IN).sel(members=run_).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
-                subset_agb_cube        = subset_agb_cube[self.DataConfig['agb_var_cube']].to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
-                subset_agb_std_cube    = subset_agb_cube['aboveground_biomass_std'].to_dataset()
-                subset_features_cube      = xr.merge([subset_agb_cube, subset_clim_cube, subset_canopyHeight_cube])
-                subset_features_cube   = subset_features_cube.where(subset_LastTimeSinceDist==50)
+                subset_agb_cube_member  = self.agb_cube_members.sel(IN).sel(members=run_).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
+                subset_agb_cube_member  = subset_agb_cube_member[self.DataConfig['agb_var_cube']].to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
+                
+                subset_features_cube     = xr.merge([subset_agb_cube_member, subset_clim_cube, subset_canopyHeight_cube])
+                subset_features_cube     = subset_features_cube.where(subset_LastTimeSinceDist==50)
                                       
                 with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = "Classifier", id_ = run_), 'rb') as f:
                     classifier_config = pickle.load(f)
@@ -338,16 +337,18 @@ class UpscaleAge(ABC):
             ML_pred_age_start_members = np.stack(ML_pred_age_start_members, axis=0)
             sigma_ml_end = np.nanstd(ML_pred_age_end_members, axis=0)
             sigma_ml_start = np.nanstd(ML_pred_age_start_members, axis=0)
-            sigma_B_meas_start = subset_agb_std_cube.sel(time = self.DataConfig['start_year']).values.reshape(-1)
-            sigma_B_meas_end = subset_agb_std_cube.sel(time = self.DataConfig['end_year']).values.reshape(-1)
+            
+            
+            sigma_B_meas_start = subset_agb_cube[self.DataConfig['agb_var_cube'] + '_std'].sel(time = self.DataConfig['start_year']).values.reshape(-1)
+            sigma_B_meas_end   = subset_agb_cube[self.DataConfig['agb_var_cube'] + '_std'].sel(time = self.DataConfig['end_year']).values.reshape(-1)
+            
+            mean_B_meas_start  = subset_agb_cube[self.DataConfig['agb_var_cube']].sel(time = self.DataConfig['start_year']).to_array().values.reshape(-1)
+            mean_B_meas_end    = subset_agb_cube[self.DataConfig['agb_var_cube']].sel(time = self.DataConfig['end_year']).to_array().values.reshape(-1)            
             
             for run_ in range(self.upscaling_config['num_members']):
                 ML_pred_age_end = ML_pred_age_end_members[run_, :]
                 ML_pred_age_start = ML_pred_age_start_members[run_, :]                
-                subset_agb_cube   = self.agb_cube.sel(IN).sel(members=run_).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
-                biomass_start     = subset_agb_cube.sel(time = self.DataConfig['start_year']).to_array().values.reshape(-1)
-                biomass_end       = subset_agb_cube.sel(time = self.DataConfig['end_year']).to_array().values.reshape(-1)
-
+                
                 # --- CR-based bias correction ---
                 cr_params = {
                     "A": subset_CRparams_cube.A.values.reshape(-1),
@@ -372,7 +373,7 @@ class UpscaleAge(ABC):
                 corrected_pred_age_start, corrected_pred_age_end = fusion.fuse(
                     ML_pred_age_start = ML_pred_age_start, ML_pred_age_end = ML_pred_age_end,
                     LTSD = subset_LastTimeSinceDist.values.reshape(-1),
-                    biomass_start = biomass_start, biomass_end = biomass_end,
+                    biomass_start = mean_B_meas_start, biomass_end = mean_B_meas_end,
                     cr_params = cr_params, cr_errors = cr_errors,
                     ml_std_end = sigma_ml_end, ml_std_start = sigma_ml_start, 
                     biomass_std_end = sigma_B_meas_end, biomass_std_start = sigma_B_meas_start, 
