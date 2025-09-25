@@ -26,7 +26,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "xarray==2023.10.11",
+    "xarray==2023.10.1",
     "zarr==2.10.3",
     "rioxarray",
     "netCDF4",
