@@ -349,8 +349,8 @@ class UpscaleAge(ABC):
             sigma_B_meas_start = subset_agb_cube[self.DataConfig['agb_var_cube'] + '_std'].sel(time = self.DataConfig['start_year']).values.reshape(-1)
             sigma_B_meas_end   = subset_agb_cube[self.DataConfig['agb_var_cube'] + '_std'].sel(time = self.DataConfig['end_year']).values.reshape(-1)
             
-            mean_B_meas_start  = subset_agb_cube[self.DataConfig['agb_var_cube']].sel(time = self.DataConfig['start_year']).to_array().values.reshape(-1)
-            mean_B_meas_end    = subset_agb_cube[self.DataConfig['agb_var_cube']].sel(time = self.DataConfig['end_year']).to_array().values.reshape(-1)            
+            mean_B_meas_start  = subset_agb_cube[self.DataConfig['agb_var_cube']].sel(time = self.DataConfig['start_year']).values.reshape(-1)
+            mean_B_meas_end    = subset_agb_cube[self.DataConfig['agb_var_cube']].sel(time = self.DataConfig['end_year']).values.reshape(-1)            
             
             for run_ in range(self.upscaling_config['num_members']):
                 ML_pred_age_end = ML_pred_age_end_members[run_, :]
