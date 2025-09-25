@@ -40,7 +40,7 @@ dependencies = [
     "matplotlib",
     "bottleneck",
     "rasterio",
-    "xgboost",
+    "xgboost==1.7.2",
     "torch",
     "shap",
     'tqdm',
