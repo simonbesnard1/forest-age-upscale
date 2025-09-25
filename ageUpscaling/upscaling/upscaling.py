@@ -371,12 +371,12 @@ class UpscaleAge(ABC):
                 TSD = np.repeat(20, len(ML_pred_age_end))
                 tmax = np.repeat(301, len(ML_pred_age_end))
             
-                fusion = AgeFusion(cr_fuser=self.cr_fuser, config={
+                fusion = AgeFusion(config={
                     "start_year": int(self.DataConfig['start_year'].split('-')[0]),
                     "end_year": int(self.DataConfig['end_year'].split('-')[0]),
                     "sigma_TSD": 5.0
                 })
-            
+
                 corrected_pred_age_start, corrected_pred_age_end = fusion.fuse(
                     ML_pred_age_start = ML_pred_age_start, ML_pred_age_end = ML_pred_age_end,
                     LTSD = subset_LastTimeSinceDist.values.reshape(-1),
@@ -385,8 +385,8 @@ class UpscaleAge(ABC):
                     ml_std_end = sigma_ml_end, ml_std_start = sigma_ml_start, 
                     biomass_std_end = sigma_B_meas_end, biomass_std_start = sigma_B_meas_start, 
                     TSD = TSD, tmax = tmax
-                )
-
+                )    
+            
                 # Reshape arrays
                 fused_pred_age_start = corrected_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
                 fused_pred_age_end = corrected_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
