@@ -284,6 +284,7 @@ class UpscaleAge(ABC):
                 ML_pred_age = np.zeros(X_upscale_flattened.shape[0]) * np.nan
                 
                 mask = (np.all(np.isfinite(X_upscale_flattened), axis=1)) 
+                print(X_upscale_flattened[mask].shape[0])
     
                 if (X_upscale_flattened[mask].shape[0]>0):
                     index_mapping_class = [all_features.index(feature) for feature in features_classifier]
@@ -337,7 +338,6 @@ class UpscaleAge(ABC):
             ML_pred_age_start_members = np.stack(ML_pred_age_start_members, axis=0)
             sigma_ml_end = np.nanstd(ML_pred_age_end_members, axis=0)
             sigma_ml_start = np.nanstd(ML_pred_age_start_members, axis=0)
-            
             
             sigma_B_meas_start = subset_agb_cube[self.DataConfig['agb_var_cube'] + '_std'].sel(time = self.DataConfig['start_year']).values.reshape(-1)
             sigma_B_meas_end   = subset_agb_cube[self.DataConfig['agb_var_cube'] + '_std'].sel(time = self.DataConfig['end_year']).values.reshape(-1)
