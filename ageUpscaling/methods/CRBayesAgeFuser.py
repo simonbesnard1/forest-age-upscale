@@ -1,8 +1,21 @@
 from __future__ import annotations
+
+# --- imports ---
 import numpy as np
 import pymc as pm
+import pytensor
 import pytensor.tensor as pt
 from typing import Optional, Tuple
+
+# --- choose backend early ---
+try:
+    from pytensor.link.numba.dispatch import numba_available
+    if numba_available:
+        pytensor.config.mode = "NUMBA"
+    else:
+        pytensor.config.mode = "FAST_RUN"  # fallback if numba missing
+except Exception:
+    pytensor.config.mode = "FAST_RUN"
 
 class CRBayesAgeFuser:
     """
