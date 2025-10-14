@@ -2,13 +2,11 @@ from __future__ import annotations
 
 # --- imports ---
 import numpy as np
-import pymc as pm
 import pytensor
+pytensor.config.mode = "NUMBA"
 import pytensor.tensor as pt
 from typing import Optional, Tuple
-
-# --- choose backend early ---
-pytensor.config.mode = "NUMBA"
+import pymc as pm
 
 class CRBayesAgeFuser:
     """
