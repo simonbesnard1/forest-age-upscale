@@ -8,14 +8,7 @@ import pytensor.tensor as pt
 from typing import Optional, Tuple
 
 # --- choose backend early ---
-try:
-    from pytensor.link.numba.dispatch import numba_available
-    if numba_available:
-        pytensor.config.mode = "NUMBA"
-    else:
-        pytensor.config.mode = "FAST_RUN"  # fallback if numba missing
-except Exception:
-    pytensor.config.mode = "FAST_RUN"
+pytensor.config.mode = "NUMBA"
 
 class CRBayesAgeFuser:
     """
@@ -142,26 +135,45 @@ class CRBayesAgeFuser:
     
     @staticmethod
     def B_CR_pt(t, A, b, k, m=0.67):
-        p = 1.0 / (1.0 - m)
-        u = pt.clip(1.0 - b * pt.exp(-k * t), 1e-12, 1 - 1e-12)
-        return A * u**p
+        # floatX-safe scalars
+        fx = np.dtype(pytensor.config.floatX)
+        one = np.array(1.0, dtype=fx)
+        eps = np.array(1e-7, dtype=fx)
+        m   = pt.as_tensor_variable(np.array(m, dtype=fx))
+    
+        p = one / (one - m)
+        u = one - b * pt.exp(-k * t)
+        u = pt.clip(u, eps, one - eps)  # protects pow and logpdfs downstream
+        return A * pt.pow(u, p)
+
 
     @staticmethod
     def CR_sensitivities_pt(t, A, b, k, m=0.67):
         """
-        g = [∂y/∂A, ∂y/∂b, ∂y/∂k, ∂y/∂m] for canonical CR.
-        If m is fixed, ignore the last column.
+        Returns [..., 4] array with columns [∂y/∂A, ∂y/∂b, ∂y/∂k, ∂y/∂m],
+        where y = A * (1 - b*exp(-k t))^(1/(1-m)).
+        If m is fixed, you can ignore the last column.
         """
-        p = 1.0 / (1.0 - m)
-        u = pt.clip(1.0 - b * pt.exp(-k * t), 1e-12, 1-1e-12)
-        y = A * u**p
+        fx  = np.dtype(pytensor.config.floatX)
+        one = pt.as_tensor_variable(np.array(1.0, dtype=fx))
+        eps = pt.as_tensor_variable(np.array(1e-7, dtype=fx))
+        m   = pt.as_tensor_variable(np.array(m, dtype=fx)) if not hasattr(m, "owner") else m
     
-        # derivatives
-        dy_dA = u**p
-        dy_db = -A * p * u**(p-1.0) * pt.exp(-k*t)
-        dy_dk =  A * p * u**(p-1.0) * (b * t * pt.exp(-k*t))
-        # because p = (1-m)^(-1): dp/dm = 1/(1-m)^2
-        dy_dm = y * pt.log(u) * (1.0 / (1.0 - m)**2)
+        t = pt.as_tensor_variable(t)
+        A = pt.as_tensor_variable(A)
+        b = pt.as_tensor_variable(b)
+        k = pt.as_tensor_variable(k)
+    
+        p = one / (one - m)
+        u = one - b * pt.exp(-k * t)
+        u = pt.clip(u, eps, one - eps)
+    
+        # y and sensitivities
+        y      = A * pt.pow(u, p)
+        dy_dA  = pt.pow(u, p)
+        dy_db  = -A * p * pt.pow(u, p - one) * pt.exp(-k * t)
+        dy_dk  =  A * p * pt.pow(u, p - one) * (b * t * pt.exp(-k * t))
+        dy_dm  =  y * pt.log(u) * pt.pow(one / (one - m), 2)  # = y*log(u)/(1-m)^2
     
         return pt.stack([dy_dA, dy_db, dy_dk, dy_dm], axis=-1)
 
@@ -171,58 +183,65 @@ class CRBayesAgeFuser:
         """Construct the PyMC model; call once per tile/member (reuse with update_data)."""
         N = self.hat_t.size
         t_init = np.clip(self.hat_t, 1.0, self.tmax)
-
+    
+        fx_eps = np.array(1e-6, dtype=np.dtype(pytensor.config.floatX))
+    
         with pm.Model() as self.model:
-            # constant data containers for fast updates later
-            d_hat_t  = pm.Data("hat_t",  self.hat_t)
-            d_B_obs  = pm.Data("B_obs",  self.B_obs)
-            d_A      = pm.Data("A",   self.A)
-            d_k      = pm.Data("k",      self.k)
-            d_b      = pm.Data("b",      self.b)
-            d_sigML  = pm.Data("sigma_ml",     self.sigma_ml)
-            d_sigB   = pm.Data("sigma_B_meas", self.sigma_B_meas)
-            d_TSD    = pm.Data("TSD",    self.TSD)
-            d_tmax   = pm.Data("tmax",   self.tmax)
-            d_sTSD   = pm.Data("sigma_TSD", self.sigma_TSD)
-
-            # Optional parameter uncertainty
+            d_hat_t = pm.Data("hat_t", self.hat_t) 
+            d_B_obs = pm.Data("B_obs", self.B_obs) 
+            d_A = pm.Data("A", self.A) 
+            d_k = pm.Data("k", self.k) 
+            d_b = pm.Data("b", self.b) 
+            d_sigML = pm.Data("sigma_ml", self.sigma_ml) 
+            d_sigB = pm.Data("sigma_B_meas", self.sigma_B_meas) 
+            d_TSD = pm.Data("TSD", self.TSD) 
+            d_tmax = pm.Data("tmax", self.tmax) 
+            d_sTSD = pm.Data("sigma_TSD", self.sigma_TSD)
+             
             if self.Sigma_theta is None:
                 d_sdA = pm.Data("sd_A", self.sd_A)
-                d_sdk = pm.Data("sd_k",    self.sd_k)
-                d_sdb = pm.Data("sd_b",    self.sd_b)
+                d_sdk = pm.Data("sd_k", self.sd_k)
+                d_sdb = pm.Data("sd_b", self.sd_b)
             else:
-                d_Sigma = pm.Data("Sigma_theta", self.Sigma_theta)
-
+                d_Sigma = pm.Data("Sigma_theta", self.Sigma_theta)  # shape (3,3)
+        
             # Latent age per pixel (prior = ML)
             t = pm.TruncatedNormal(
-                "t", mu=d_hat_t, sigma=d_sigML, lower=0.0, upper=d_tmax,
+                "t",
+                mu=d_hat_t, sigma=d_sigML,
+                lower=0.0, upper=d_tmax,
                 initval=t_init, shape=N
             )
-
+    
             # Soft TSD potential (one-sided quadratic)
-            under = pt.lt(t, d_TSD)
-            resid_tsd = (d_TSD - t) * under
-            pm.Potential("soft_tsd", -0.5 * pt.sum((resid_tsd / d_sTSD)**2))
-
-            # CR likelihood
-            B_pred = self.B_CR_pt(t, d_A, d_b,  d_k)
-
+            under = pt.lt(t, d_TSD)                              # boolean mask
+            resid = (d_TSD - t) * under                          # zero if t>=TSD
+            pm.Potential("soft_tsd", -0.5 * pt.sum((resid / d_sTSD) ** 2))
+    
+            # CR prediction
+            B_pred = self.B_CR_pt(t, d_A, d_b, d_k)
+    
+            # Parameter-uncertainty propagation
+            g = self.CR_sensitivities_pt(t, d_A, d_b, d_k)       # [..., 4]
+            g3 = g[..., :3]                                      # keep [A,b,k]
+    
             if self.Sigma_theta is None:
-                g = self.CR_sensitivities_pt(t, d_A, d_b, d_k)
-                sigma_param2 = (g[..., 0]**2) * (d_sdA**2) \
-                             + (g[..., 1]**2) * (d_sdb**2) \
-                             + (g[..., 2]**2) * (d_sdk**2)
+                sigma_param2 = (g3[..., 0] ** 2) * (d_sdA ** 2) \
+                             + (g3[..., 1] ** 2) * (d_sdb ** 2) \
+                             + (g3[..., 2] ** 2) * (d_sdk ** 2)
             else:
-                g = self.CR_sensitivities_pt(t, d_A, d_b, d_k)
-                sigma_param2 = pt.sum(pt.matmul(g, d_Sigma) * g, axis=-1)
-
-            sigma_B_eff = pt.sqrt(pt.clip(d_sigB**2 + sigma_param2, 1e-6, 1e12))
+                # g Σ g^T -> variance per pixel
+                sigma_param2 = pt.sum(pt.matmul(g3, d_Sigma) * g3, axis=-1)
+    
+            # Effective obs std
+            sigma_B_eff = pt.sqrt(pt.clip(d_sigB ** 2 + sigma_param2, fx_eps, 1e12))
+    
             pm.Normal("obs_like", mu=B_pred, sigma=sigma_B_eff, observed=d_B_obs)
-
-            # keep handles
+    
             self.vars = dict(t=t)
-
+    
         return self
+
 
     # ---------- inference helpers ----------
 

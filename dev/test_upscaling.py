@@ -33,7 +33,8 @@ intact_forest = gpd.read_file('/home/simon/hpc_home/projects/forest-age-upscale/
 intact_tropical_forest = intact_forest[intact_forest['IFL_ID'].str.contains('|'.join(['SAM', 'SEA', 'AFR']))]
 
 algorithm = "XGBoost"
-IN = {'latitude': slice(75.77733333333333, 72.22266666666667, None), 'longitude': slice(83.11155555555558, 86.66622222222225, None)}
+#IN = {'latitude': slice(75.77733333333333, 72.22266666666667, None), 'longitude': slice(83.11155555555558, 86.66622222222225, None)}
+IN = {'longitude': slice(10.416508, 10.487892 , None) , 'latitude': slice(51.101666, 51.056723 , None) }
 
 lat_start, lat_stop = IN['latitude'].start, IN['latitude'].stop
 lon_start, lon_stop = IN['longitude'].start, IN['longitude'].stop
@@ -155,8 +156,8 @@ for run_ in np.arange(upscaling_config['num_members']):
         
 ML_pred_age_end_members = np.stack(ML_pred_age_end_members, axis=0)
 ML_pred_age_start_members = np.stack(ML_pred_age_start_members, axis=0)
-sigma_ml_end = np.nanstd(ML_pred_age_end_members, axis=0)
-sigma_ml_start = np.nanstd(ML_pred_age_start_members, axis=0)
+sigma_ml_end = np.nanstd(ML_pred_age_end_members, axis=0, ddof=0)
+sigma_ml_start = np.nanstd(ML_pred_age_start_members, axis=0, ddof=0)
 sigma_B_meas_start = subset_agb_std_cube.sel(time = DataConfig['start_year']).values.reshape(-1)
 sigma_B_meas_end = subset_agb_std_cube.sel(time = DataConfig['end_year']).values.reshape(-1)
 
