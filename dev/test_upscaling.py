@@ -199,25 +199,159 @@ for run_ in range(upscaling_config['num_members']):
         TSD = TSD, tmax = tmax
     )
     
-    # Reshape arrays
-    fused_pred_age_start = corrected_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
-    fused_pred_age_end = corrected_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
+    # # Reshape arrays
+    # fused_pred_age_start = corrected_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
+    # fused_pred_age_end = corrected_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
     
-    # Create xarray dataset for each year
-    ML_pred_age_start = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_start, 
-                                                coords={"latitude": subset_features_cube.latitude, 
-                                                        "longitude": subset_features_cube.longitude,
-                                                        "time": [pd.to_datetime(DataConfig['start_year'])],                                                          
-                                                        'members': [run_]}, 
-                                                dims=["latitude", "longitude", "time", "members"])})
+    # # Create xarray dataset for each year
+    # ML_pred_age_start = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_start, 
+    #                                             coords={"latitude": subset_features_cube.latitude, 
+    #                                                     "longitude": subset_features_cube.longitude,
+    #                                                     "time": [pd.to_datetime(DataConfig['start_year'])],                                                          
+    #                                                     'members': [run_]}, 
+    #                                             dims=["latitude", "longitude", "time", "members"])})
     
-    ML_pred_age_end = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_end, 
-                                                coords={"latitude": subset_features_cube.latitude, 
-                                                        "longitude": subset_features_cube.longitude,
-                                                        "time": [pd.to_datetime(DataConfig['end_year'])],                                                          
-                                                        'members': [run_]}, 
-                                                dims=["latitude", "longitude", "time", "members"])})
+    # ML_pred_age_end = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_end, 
+    #                                             coords={"latitude": subset_features_cube.latitude, 
+    #                                                     "longitude": subset_features_cube.longitude,
+    #                                                     "time": [pd.to_datetime(DataConfig['end_year'])],                                                          
+    #                                                     'members': [run_]}, 
+    #                                             dims=["latitude", "longitude", "time", "members"])})
                   
-    # Concatenate with the time dimensions and append the model member
-    ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('members', 'latitude', 'longitude', 'time')
-        
+    # # Concatenate with the time dimensions and append the model member
+    # ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('members', 'latitude', 'longitude', 'time')
+
+
+#%% Plot bias correction
+import numpy as np
+import matplotlib.pyplot as plt
+
+def cr_forward(t, A, b, k, m=1/3, eps=1e-9):
+    """B_CR(t) = A * (1 - b * exp(-k t))^(1/(1-m))."""
+    p = 1.0 / (1.0 - m)
+    u = 1.0 - b * np.exp(-k * t)
+    u = np.clip(u, eps, 1.0 - eps)
+    return A * (u ** p)
+
+def cr_sensitivities(t, A, b, k, m=1/3, eps=1e-9):
+    """
+    Return [dB/dA, dB/db, dB/dk] for fixed m (vectorized over t).
+    Used for the delta-method uncertainty on B(t).
+    """
+    p = 1.0 / (1.0 - m)
+    u = 1.0 - b * np.exp(-k * t)
+    u = np.clip(u, eps, 1.0 - eps)
+    u_pow_p      = u ** p
+    u_pow_p_m1   = u ** (p - 1.0)
+    dB_dA = u_pow_p
+    dB_db = -A * p * u_pow_p_m1 * np.exp(-k * t)
+    dB_dk =  A * p * u_pow_p_m1 * (b * t * np.exp(-k * t))
+    return np.vstack([dB_dA, dB_db, dB_dk])  # shape (3, len(t))
+
+def cr_sigma_B_delta(t, A, b, k, sd_A, sd_b, sd_k, m=1/3):
+    """
+    Delta-method var(B(t)) ≈ g^T Σ g with diagonal Σ = diag(sd_A^2, sd_b^2, sd_k^2).
+    Returns 1σ at each t.
+    """
+    G = cr_sensitivities(t, A, b, k, m)                 # (3, T)
+    s2 = (G[0]**2) * (sd_A**2) + (G[1]**2) * (sd_b**2) + (G[2]**2) * (sd_k**2)
+    return np.sqrt(np.maximum(s2, 0.0))
+
+def plot_age_pixel_diagnostic(
+    A, b, k, sd_A, sd_b, sd_k,
+    t_prior, t_post, B_obs, sigma_B,
+    m=1/3,
+    tmin=0.0, tmax=None,
+    lat=None, lon=None,
+    units="MgC ha$^{-1}$",
+    ax=None
+):
+    """
+    Pretty diagnostic for one pixel.
+
+    Parameters
+    ----------
+    A,b,k, sd_* : floats
+        CR parameters and their std errors (diagonal) for this pixel.
+    t_prior, t_post : floats
+        ML prior age and posterior/MAP age (years).
+    B_obs, sigma_B : floats
+        Observed biomass (same units as A) and its 1σ.
+    m : float
+        Fixed CR shape parameter (default 1/3).
+    tmin, tmax : floats
+        Plot range in years (tmax defaults to 1.2*max(t_prior, t_post) or 120 if both small).
+    lat, lon : floats
+        Optional location for the title.
+    units : str
+        Y-axis label units.
+    ax : matplotlib axis
+        If None, creates a new figure.
+    """
+    # choose sensible t-range
+    mxt = np.nanmax([t_prior if np.isfinite(t_prior) else 0.0,
+                     t_post  if np.isfinite(t_post)  else 0.0, 50.0])
+    if tmax is None:
+        tmax = max(120.0, 1.2 * mxt)
+    T = np.linspace(max(0.0, tmin), tmax, 400)
+
+    # CR curve and its 1σ ribbon from parameter uncertainty
+    B_curve = cr_forward(T, A, b, k, m)
+    B_sig   = cr_sigma_B_delta(T, A, b, k, sd_A, sd_b, sd_k, m)
+
+    # implied biomasses at prior/post ages
+    B_prior = cr_forward(t_prior, A, b, k, m) if np.isfinite(t_prior) else np.nan
+    B_post  = cr_forward(t_post,  A, b, k, m) if np.isfinite(t_post)  else np.nan
+
+    # plotting
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 5.5))
+
+    # CR curve ±1σ ribbon
+    ax.plot(T, B_curve, lw=2.2, label="Chapman–Richards B(t)")
+    ax.fill_between(T, B_curve - B_sig, B_curve + B_sig, alpha=0.18, linewidth=0, label="CR param ±1σ")
+
+    # prior & posterior verticals
+    if np.isfinite(t_prior):
+        ax.axvline(t_prior, ls="--", lw=1.8, color="tab:blue", alpha=0.75, label=f"ML age (t) = {t_prior:.1f}")
+        ax.scatter([t_prior], [B_prior], s=60, marker="s", color="tab:green", zorder=3,
+                   label=f"B(t) = {B_prior:.1f}")
+    if np.isfinite(t_post):
+        ax.axvline(t_post, ls="--", lw=2.2, color="tab:blue", alpha=0.9, dashes=(3,2),
+                   label=f"Posterior age (MAP) = {t_post:.1f}")
+        ax.scatter([t_post], [B_post], s=70, marker="D", color="tab:red", zorder=3,
+                   label=f"B(MAP) = {B_post:.1f}")
+
+    # observed biomass with error bar
+    if np.isfinite(B_obs) and np.isfinite(sigma_B):
+        ax.errorbar([0.02*(tmax - tmin) + tmin], [B_obs], yerr=[sigma_B], fmt='o', ms=6,
+                    color="tab:orange", ecolor="tab:orange", elinewidth=2, capsize=4,
+                    label="Observed biomass ±σ")
+
+    # cosmetics
+    loc_txt = f" ({lat:.1f}N, {lon:.1f}E)" if (lat is not None and lon is not None) else ""
+    ax.set_title(f"Pixel{loc_txt}", pad=10)
+    ax.set_xlabel("Age (years)")
+    ax.set_ylabel(f"Aboveground biomass (same units as Bmax/B_obs)\n[{units}]")
+    ax.set_xlim(tmin, tmax)
+    ymin = 0.0
+    ymax = max(np.nanmax(B_curve + B_sig) * 1.05, (B_obs + sigma_B)*1.1 if np.isfinite(B_obs) else 0.0)
+    ax.set_ylim(ymin, ymax)
+    ax.legend(loc="best", frameon=True)
+    ax.grid(alpha=0.25)
+
+    return ax
+
+# one pixel's values (units already matched: e.g., both in Mg C ha-1)
+ax = plot_age_pixel_diagnostic(
+    A=cr_params['A'][10], b=cr_params['b'][1], k=cr_params['k'][10],
+    sd_A=cr_errors['A'][10], sd_b=cr_errors['b'][1], sd_k=cr_errors['k'][10],
+    t_prior=ML_pred_age_start[10], t_post=corrected_pred_age_start[10],
+    B_obs=biomass_start[10], sigma_B=sigma_B_meas_start[10],
+    m=0.67,
+    lat=45.1, lon=2.3,
+    units="Mg C ha$^{-1}$"
+)
+plt.show()
+
+
