@@ -16,6 +16,7 @@ class AgeFusion:
         self.config = dict(config) if config is not None else {}
         self.sigma_TSD_default = float(self.config.get("sigma_TSD", 5.0))
         self.m_fixed = float(self.config.get("m_fixed", 0.67))
+        self.units_scale = float(self.config.get("units_scale", 0.47))  # <<
 
     def _build_corrector(self, cr_params, cr_errors):
         """Instantiate the numba-based corrector for this tile."""
@@ -42,11 +43,16 @@ class AgeFusion:
         Inputs must already be in consistent units (e.g., if A is carbon,
         pass biomass scaled to carbon).
         """
-        # flatten to 1D
+        # flatten
         ml_age      = np.asarray(ml_age).reshape(-1)
-        biomass     = np.asarray(biomass).reshape(-1)
         ml_std      = np.asarray(ml_std).reshape(-1)
-        biomass_std = np.asarray(biomass_std).reshape(-1)
+        TSD         = np.asarray(TSD).reshape(-1)
+        tmax        = np.asarray(tmax).reshape(-1)
+
+        # convert biomass -> carbon (mean & std)
+        biomass       = (np.asarray(biomass).reshape(-1) * self.units_scale).astype(np.float32)
+        biomass_std = (np.asarray(biomass_std).reshape(-1) * self.units_scale).astype(np.float32)
+
         A = np.asarray(cr_params["A"]).reshape(-1)
         b = np.asarray(cr_params["b"]).reshape(-1)
         k = np.asarray(cr_params["k"]).reshape(-1)
