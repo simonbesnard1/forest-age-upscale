@@ -78,7 +78,7 @@ class AgeFusion:
         # Build corrector on-the-fly for this tile
         corrector = AgeBiasCorrector(A=A[valid], b=b[valid], k=k[valid],
                                      sd_A=sd_A[valid], sd_b=sd_b[valid], sd_k=sd_k[valid],
-                                     m_fixed=self.m_fixed, sigma_TSD=self.sigma_TSD_default)
+                                     m_fixed=self.m_fixed)
 
         # Precompute static sigma_param² at t = hat_t
         sigma_param2 = corrector.precompute_sigma_param2(hat_t=ml_age[valid].astype(np.float32))

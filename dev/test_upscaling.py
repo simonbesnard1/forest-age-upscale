@@ -33,8 +33,8 @@ intact_forest = gpd.read_file('/home/simon/hpc_home/projects/forest-age-upscale/
 intact_tropical_forest = intact_forest[intact_forest['IFL_ID'].str.contains('|'.join(['SAM', 'SEA', 'AFR']))]
 
 algorithm = "XGBoost"
-#IN = {'latitude': slice(75.77733333333333, 72.22266666666667, None), 'longitude': slice(83.11155555555558, 86.66622222222225, None)}
-IN = {'longitude': slice(10.416508, 10.487892 , None) , 'latitude': slice(51.101666, 51.056723 , None) }
+#IN = {'longitude': slice(10.416508, 10.487892 , None) , 'latitude': slice(51.101666, 51.056723 , None) }
+IN = {'latitude': slice(-2.91, -3.118, None) , 'longitude': slice(-55.07 , -54.8714,  None) }
 
 lat_start, lat_stop = IN['latitude'].start, IN['latitude'].stop
 lon_start, lon_stop = IN['longitude'].start, IN['longitude'].stop
@@ -186,7 +186,7 @@ for run_ in range(upscaling_config['num_members']):
     fusion = AgeFusion(config={
         "start_year": int(DataConfig['start_year'].split('-')[0]),
         "end_year": int(DataConfig['end_year'].split('-')[0]),
-        "sigma_TSD": 5.0
+        "sigma_TSD": 10.0
     })
 
     corrected_pred_age_start, corrected_pred_age_end = fusion.fuse(
@@ -199,27 +199,27 @@ for run_ in range(upscaling_config['num_members']):
         TSD = TSD, tmax = tmax
     )
     
-    # # Reshape arrays
-    # fused_pred_age_start = corrected_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
-    # fused_pred_age_end = corrected_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
+    # Reshape arrays
+    fused_pred_age_start = corrected_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
+    fused_pred_age_end = corrected_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
     
-    # # Create xarray dataset for each year
-    # ML_pred_age_start = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_start, 
-    #                                             coords={"latitude": subset_features_cube.latitude, 
-    #                                                     "longitude": subset_features_cube.longitude,
-    #                                                     "time": [pd.to_datetime(DataConfig['start_year'])],                                                          
-    #                                                     'members': [run_]}, 
-    #                                             dims=["latitude", "longitude", "time", "members"])})
+    # Create xarray dataset for each year
+    ML_pred_age_start = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_start, 
+                                                coords={"latitude": subset_features_cube.latitude, 
+                                                        "longitude": subset_features_cube.longitude,
+                                                        "time": [pd.to_datetime(DataConfig['start_year'])],                                                          
+                                                        'members': [run_]}, 
+                                                dims=["latitude", "longitude", "time", "members"])})
     
-    # ML_pred_age_end = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_end, 
-    #                                             coords={"latitude": subset_features_cube.latitude, 
-    #                                                     "longitude": subset_features_cube.longitude,
-    #                                                     "time": [pd.to_datetime(DataConfig['end_year'])],                                                          
-    #                                                     'members': [run_]}, 
-    #                                             dims=["latitude", "longitude", "time", "members"])})
+    ML_pred_age_end = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_end, 
+                                                coords={"latitude": subset_features_cube.latitude, 
+                                                        "longitude": subset_features_cube.longitude,
+                                                        "time": [pd.to_datetime(DataConfig['end_year'])],                                                          
+                                                        'members': [run_]}, 
+                                                dims=["latitude", "longitude", "time", "members"])})
                   
-    # # Concatenate with the time dimensions and append the model member
-    # ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('members', 'latitude', 'longitude', 'time')
+    # Concatenate with the time dimensions and append the model member
+    ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('members', 'latitude', 'longitude', 'time')
 
 
 #%% Plot bias correction
@@ -401,7 +401,7 @@ def plot_bias_correction_diagnostics(
     ax_main.set_ylabel('Biomass (Mg/ha)', fontsize=12, fontweight='bold')
     ax_main.set_xlim(t_range)
     ax_main.grid(alpha=0.3, linestyle='--')
-    ax_main.legend(loc='best', fontsize=9, framealpha=0.95)
+    ax_main.legend(loc='lower right', fontsize=9, framealpha=0.95)
     
     # ============================================================
     # AGE DISTRIBUTION PLOT (right panel)
@@ -658,7 +658,7 @@ sigma_B_meas = sigma_B_meas_start * 0.47
 t_corrected = corrected_pred_age_start
 
 # Single pixel detailed view
-idx = 1  # interesting pixel
+idx = 10000  # interesting pixel
 fig, axes = plot_bias_correction_diagnostics(
     idx=idx,
     hat_t=hat_t, 
@@ -671,7 +671,7 @@ fig, axes = plot_bias_correction_diagnostics(
     sd_A=sd_A, sd_b=sd_b, sd_k=sd_k,
     TSD=TSD, 
     tmax=tmax,
-    sigma_TSD=5.0
+    sigma_TSD=10.0
 )
 plt.savefig(f'/home/simon/Desktop/pixel_{idx}_diagnostic.png', dpi=300, bbox_inches='tight')    
 
