@@ -657,7 +657,7 @@ sigma_B_meas = sigma_B_meas_start * 0.47
 t_corrected = corrected_pred_age_start
 
 # Single pixel detailed view
-idx = 10000  # interesting pixel
+idx = 3400  # interesting pixel
 fig, axes = plot_bias_correction_diagnostics(
     idx=idx,
     hat_t=hat_t, 
