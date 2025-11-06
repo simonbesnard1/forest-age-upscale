@@ -33,8 +33,8 @@ intact_forest = gpd.read_file('/home/simon/hpc_home/projects/forest-age-upscale/
 intact_tropical_forest = intact_forest[intact_forest['IFL_ID'].str.contains('|'.join(['SAM', 'SEA', 'AFR']))]
 
 algorithm = "XGBoost"
-#IN = {'longitude': slice(10.416508, 10.487892 , None) , 'latitude': slice(51.101666, 51.056723 , None) }
-IN = {'latitude': slice(-2.91, -3.118, None) , 'longitude': slice(-55.07 , -54.8714,  None) }
+IN = {'longitude': slice(10.416508, 10.487892 , None) , 'latitude': slice(51.101666, 51.056723 , None) }
+#IN = {'latitude': slice(-2.91, -3.118, None) , 'longitude': slice(-55.07 , -54.8714,  None) }
 
 lat_start, lat_stop = IN['latitude'].start, IN['latitude'].stop
 lon_start, lon_stop = IN['longitude'].start, IN['longitude'].stop
@@ -185,8 +185,7 @@ for run_ in range(upscaling_config['num_members']):
     
     fusion = AgeFusion(config={
         "start_year": int(DataConfig['start_year'].split('-')[0]),
-        "end_year": int(DataConfig['end_year'].split('-')[0]),
-        "sigma_TSD": 10.0
+        "end_year": int(DataConfig['end_year'].split('-')[0])
     })
 
     corrected_pred_age_start, corrected_pred_age_end = fusion.fuse(

@@ -5,30 +5,33 @@ from ageUpscaling.methods.CRBayesAgeFuser import AgeBiasCorrector
 class AgeFusion:
     def __init__(self, config):
         """
-        Parameters
-        ----------
-        config : dict
-            Holds settings like:
-              - start_year, end_year (ints or str convertible)
-              - sigma_TSD (float), default used by AgeBiasCorrector if per-pixel not provided
-              - m_fixed (float, defaults to 1/3 inside corrector if omitted)
+        config keys (optional):
+          - start_year, end_year
+          - sigma_TSD: float (default 5.0)
+          - m_fixed: float (default 0.67)
+          - units_scale: float (biomass -> carbon), default 0.47
+          - old_growth_value: int sentinel for old growth in ML_pred_age_start (default 300)
         """
         self.config = dict(config) if config is not None else {}
         self.sigma_TSD_default = float(self.config.get("sigma_TSD", 5.0))
         self.m_fixed = float(self.config.get("m_fixed", 0.67))
-        self.units_scale = float(self.config.get("units_scale", 0.47))  # <<
+        self.units_scale = float(self.config.get("units_scale", 0.47))
+        self.old_growth_value = int(self.config.get("old_growth_value", 300))
+
+    @staticmethod
+    def _as1d(a):
+        return np.asarray(a).reshape(-1)
 
     def _build_corrector(self, cr_params, cr_errors):
         """Instantiate the numba-based corrector for this tile."""
         return AgeBiasCorrector(
-            A=cr_params["A"].astype(np.float32).reshape(-1),
-            b=cr_params["b"].astype(np.float32).reshape(-1),
-            k=cr_params["k"].astype(np.float32).reshape(-1),
-            sd_A=cr_errors["A"].astype(np.float32).reshape(-1),
-            sd_b=cr_errors["b"].astype(np.float32).reshape(-1),
-            sd_k=cr_errors["k"].astype(np.float32).reshape(-1),
-            m_fixed=self.m_fixed,
-            sigma_TSD=self.sigma_TSD_default,
+            A=self._as1d(cr_params["A"]).astype(np.float32),
+            b=self._as1d(cr_params["b"]).astype(np.float32),
+            k=self._as1d(cr_params["k"]).astype(np.float32),
+            sd_A=self._as1d(cr_errors["A"]).astype(np.float32),
+            sd_b=self._as1d(cr_errors["b"]).astype(np.float32),
+            sd_k=self._as1d(cr_errors["k"]).astype(np.float32),
+            m_fixed=self.m_fixed
         )
 
     def correct_ml_age(
@@ -40,32 +43,27 @@ class AgeFusion:
     ):
         """
         Bias-correct ML ages using CR likelihood (Numba Newton MAP).
-        Inputs must already be in consistent units (e.g., if A is carbon,
-        pass biomass scaled to carbon).
+        All inputs must be consistent with CR 'A' units (biomass converted to carbon here).
         """
-        # flatten
-        ml_age      = np.asarray(ml_age).reshape(-1)
-        ml_std      = np.asarray(ml_std).reshape(-1)
-        TSD         = np.asarray(TSD).reshape(-1)
-        tmax        = np.asarray(tmax).reshape(-1)
+        ml_age  = self._as1d(ml_age)
+        ml_std  = self._as1d(ml_std)
+        TSD     = self._as1d(TSD)
+        tmax    = self._as1d(tmax)
 
-        # convert biomass -> carbon (mean & std)
-        biomass       = (np.asarray(biomass).reshape(-1) * self.units_scale).astype(np.float32)
-        biomass_std = (np.asarray(biomass_std).reshape(-1) * self.units_scale).astype(np.float32)
+        # biomass -> carbon (mean & std)
+        biomass     = (self._as1d(biomass)     * self.units_scale).astype(np.float32)
+        biomass_std = (self._as1d(biomass_std) * self.units_scale).astype(np.float32)
 
-        A = np.asarray(cr_params["A"]).reshape(-1)
-        b = np.asarray(cr_params["b"]).reshape(-1)
-        k = np.asarray(cr_params["k"]).reshape(-1)
-        sd_A = np.asarray(cr_errors["A"]).reshape(-1)
-        sd_b = np.asarray(cr_errors["b"]).reshape(-1)
-        sd_k = np.asarray(cr_errors["k"]).reshape(-1)
-        TSD  = np.asarray(TSD).reshape(-1)
-        tmax = np.asarray(tmax).reshape(-1)
+        A    = self._as1d(cr_params["A"])
+        b    = self._as1d(cr_params["b"])
+        k    = self._as1d(cr_params["k"])
+        sd_A = self._as1d(cr_errors["A"])
+        sd_b = self._as1d(cr_errors["b"])
+        sd_k = self._as1d(cr_errors["k"])
 
-        # validity mask
         valid = (
-            np.isfinite(ml_age) & np.isfinite(biomass) &
-            np.isfinite(ml_std) & np.isfinite(biomass_std) &
+            np.isfinite(ml_age) & np.isfinite(ml_std) &
+            np.isfinite(biomass) & np.isfinite(biomass_std) &
             np.isfinite(A) & np.isfinite(b) & np.isfinite(k) &
             np.isfinite(sd_A) & np.isfinite(sd_b) & np.isfinite(sd_k) &
             np.isfinite(TSD) & np.isfinite(tmax)
@@ -75,15 +73,16 @@ class AgeFusion:
         if not valid.any():
             return corrected
 
-        # Build corrector on-the-fly for this tile
-        corrector = AgeBiasCorrector(A=A[valid], b=b[valid], k=k[valid],
-                                     sd_A=sd_A[valid], sd_b=sd_b[valid], sd_k=sd_k[valid],
-                                     m_fixed=self.m_fixed)
+        corrector = self._build_corrector(
+            {"A": A[valid], "b": b[valid], "k": k[valid]},
+            {"A": sd_A[valid], "b": sd_b[valid], "k": sd_k[valid]},
+        )
 
-        # Precompute static sigma_param² at t = hat_t
-        sigma_param2 = corrector.precompute_sigma_param2(hat_t=ml_age[valid].astype(np.float32))
+        # Precompute sigma_param² at t = hat_t
+        sigma_param2 = corrector.precompute_sigma_param2(
+            hat_t=ml_age[valid].astype(np.float32)
+        )
 
-        # Run fast Newton MAP
         t_map = corrector.correct(
             hat_t=ml_age[valid].astype(np.float32),
             B_obs=biomass[valid].astype(np.float32),
@@ -108,50 +107,63 @@ class AgeFusion:
         TSD, tmax
     ):
         """
-        Fuse LTSD rule with ML ages and CR-based bias correction.
+        Fuse Landsat LTSD with ML ages and CR-based bias correction.
 
-        Notes
-        -----
-        - We correct end and start years independently (each with its own
-          biomass and sigma), then enforce temporal consistency with the
-          back-projection rule.
-        - Pixels with LTSD < 50 are forced to LTSD (your rule), otherwise use corrected ML.
-        - Final hard clip enforces [1, tmax].
+        Semantics:
+          - LTSD < 50  => disturbance detected within Landsat era: trust LTSD (use it directly for end year).
+          - LTSD == 50 => no disturbance detected since 2000: use corrected ML for end year.
+          - Back-project start from fused_end; if it underflows (<1), fallback to corrected start ML.
+          - Old-growth sentinel applied before clipping; final clip to [1, tmax].
         """
-        years_span = int(self.config["end_year"]) - int(self.config["start_year"])
-
-        # Enforce lower bound before correction to avoid pathological priors
-        ML_pred_age_end   = np.maximum(np.asarray(ML_pred_age_end),   np.asarray(TSD))
-        ML_pred_age_start = np.maximum(np.asarray(ML_pred_age_start), np.asarray(TSD))
-
-        # --- Correct ML ages at end year
+        start_year = int(self.config["start_year"])
+        end_year   = int(self.config["end_year"])
+        years_span = end_year - start_year
+        
+        # --- Inputs to 1D
+        ML_pred_age_end   = np.maximum(self._as1d(ML_pred_age_end),   self._as1d(TSD))
+        ML_pred_age_start = np.maximum(self._as1d(ML_pred_age_start), self._as1d(TSD))
+        LTSD = self._as1d(LTSD)
+        TSD  = self._as1d(TSD)
+        tmax = self._as1d(tmax)
+        
+        # --- Correct ML ages (end)
         ML_pred_age_end_corr = self.correct_ml_age(
             ML_pred_age_end, biomass_end, cr_params, cr_errors,
             ml_std_end, biomass_std_end, TSD, tmax
         )
-        # If LTSD encodes "forest stable since 2000" as 50 -> take LTSD, else corrected
-        fused_end = np.where(np.asarray(LTSD) < 50, np.asarray(LTSD, dtype=float), ML_pred_age_end_corr)
-
-        # --- Correct ML ages at start year
+        
+        # LTSD semantics: <50 => disturbance detected -> trust LTSD; 50 => no detection -> use corrected ML
+        use_ltsd_mask = np.isfinite(LTSD) & (LTSD < 50)
+        fused_end = np.where(use_ltsd_mask, LTSD.astype(float), ML_pred_age_end_corr)
+        
+        # --- Correct ML ages (start)
         ML_pred_age_start_corr = self.correct_ml_age(
             ML_pred_age_start, biomass_start, cr_params, cr_errors,
             ml_std_start, biomass_std_start, TSD, tmax
         )
-
-        # --- Back-project start year from fused_end
-        fused_start = fused_end - years_span
-
-        # Where the back-projection goes < 1, fallback to the corrected start ML
-        too_young = (np.asarray(ML_pred_age_start) < 1)
-        fused_start[too_young] = ML_pred_age_start_corr[too_young]
-
-        # --- Final hard clip: enforce [1, tmax] everywhere
-        fused_end   = np.clip(fused_end,   1, np.asarray(tmax))
-        fused_start = np.clip(fused_start, 1, np.asarray(tmax))
         
-        old_growth = (np.asarray(ML_pred_age_start) == 300)
-        fused_start[old_growth] = 300
-        fused_end[old_growth] = 300
+        # --- Back-project start from fused_end
+        fused_start = fused_end - years_span
+        
+        # Replace only where back-projection underflows
+        too_young = (fused_start < 1) & np.isfinite(ML_pred_age_start_corr)
+        fused_start[too_young] = ML_pred_age_start_corr[too_young]
+        
+        # --- Old-growth sentinel before clipping (so it survives)
+        og = (ML_pred_age_start == self.old_growth_value)
+        fused_start[og] = float(self.old_growth_value)
+        fused_end[og]   = float(self.old_growth_value)
+        
+        # --- Build single baseline mask from fused_end (your policy)
+        base_nan = ~np.isfinite(fused_end)
+        
+        # --- Clip to physical bounds
+        fused_end   = np.clip(fused_end,   1, tmax)
+        fused_start = np.clip(fused_start, 1, tmax)
+        
+        # --- Enforce shared mask: if end is NaN, both are NaN
+        fused_end[base_nan]   = np.nan
+        fused_start[base_nan] = np.nan
         
         return fused_start, fused_end
 
