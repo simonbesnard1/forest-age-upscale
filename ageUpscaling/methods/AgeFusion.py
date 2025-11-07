@@ -7,13 +7,11 @@ class AgeFusion:
         """
         config keys (optional):
           - start_year, end_year
-          - sigma_TSD: float (default 5.0)
           - m_fixed: float (default 0.67)
           - units_scale: float (biomass -> carbon), default 0.47
           - old_growth_value: int sentinel for old growth in ML_pred_age_start (default 300)
         """
         self.config = dict(config) if config is not None else {}
-        self.sigma_TSD_default = float(self.config.get("sigma_TSD", 5.0))
         self.m_fixed = float(self.config.get("m_fixed", 0.67))
         self.units_scale = float(self.config.get("units_scale", 0.47))
         self.old_growth_value = int(self.config.get("old_growth_value", 300))
@@ -119,49 +117,69 @@ class AgeFusion:
         end_year   = int(self.config["end_year"])
         years_span = end_year - start_year
         
-        # --- Inputs to 1D
+        # --- Flatten inputs
         ML_pred_age_end   = np.maximum(self._as1d(ML_pred_age_end),   self._as1d(TSD))
         ML_pred_age_start = np.maximum(self._as1d(ML_pred_age_start), self._as1d(TSD))
         LTSD = self._as1d(LTSD)
         TSD  = self._as1d(TSD)
         tmax = self._as1d(tmax)
         
-        # --- Correct ML ages (end)
+        # ===============================================================
+        # 1. Correct ML ages (end)
+        # ===============================================================
         ML_pred_age_end_corr = self.correct_ml_age(
             ML_pred_age_end, biomass_end, cr_params, cr_errors,
             ml_std_end, biomass_std_end, TSD, tmax
         )
         
+        # --- Fallback: if correction failed (NaN) but ML prediction was valid, keep ML
+        missing_corr = np.isnan(ML_pred_age_end_corr) & np.isfinite(ML_pred_age_end)
+        if np.any(missing_corr):
+            ML_pred_age_end_corr[missing_corr] = ML_pred_age_end[missing_corr]
+        
         # LTSD semantics: <50 => disturbance detected -> trust LTSD; 50 => no detection -> use corrected ML
         use_ltsd_mask = np.isfinite(LTSD) & (LTSD < 50)
         fused_end = np.where(use_ltsd_mask, LTSD.astype(float), ML_pred_age_end_corr)
         
-        # --- Correct ML ages (start)
+        
+        # ===============================================================
+        # 2. Correct ML ages (start)
+        # ===============================================================
         ML_pred_age_start_corr = self.correct_ml_age(
             ML_pred_age_start, biomass_start, cr_params, cr_errors,
             ml_std_start, biomass_std_start, TSD, tmax
         )
         
-        # --- Back-project start from fused_end
+        # --- Fallback for start too
+        missing_corr_start = np.isnan(ML_pred_age_start_corr) & np.isfinite(ML_pred_age_start)
+        if np.any(missing_corr_start):
+            ML_pred_age_start_corr[missing_corr_start] = ML_pred_age_start[missing_corr_start]
+        
+        
+        # ===============================================================
+        # 3. Back-project start from fused_end
+        # ===============================================================
         fused_start = fused_end - years_span
         
         # Replace only where back-projection underflows
-        too_young = (fused_start < 1) & np.isfinite(ML_pred_age_start_corr)
+        too_young = (fused_start < 1)
         fused_start[too_young] = ML_pred_age_start_corr[too_young]
         
-        # --- Old-growth sentinel before clipping (so it survives)
+        
+        # ===============================================================
+        # 4. Old-growth sentinel before clipping (so it survives)
+        # ===============================================================
         og = (ML_pred_age_start == self.old_growth_value)
         fused_start[og] = float(self.old_growth_value)
         fused_end[og]   = float(self.old_growth_value)
         
-        # --- Build single baseline mask from fused_end (your policy)
-        base_nan = ~np.isfinite(fused_end)
         
-        # --- Clip to physical bounds
+        # ===============================================================
+        # 5. Shared mask and clipping
+        # ===============================================================
+        base_nan = ~np.isfinite(fused_end)
         fused_end   = np.clip(fused_end,   1, tmax)
         fused_start = np.clip(fused_start, 1, tmax)
-        
-        # --- Enforce shared mask: if end is NaN, both are NaN
         fused_end[base_nan]   = np.nan
         fused_start[base_nan] = np.nan
         

@@ -368,13 +368,12 @@ class UpscaleAge(ABC):
                     "k": subset_CRparams_cube.k_error.values.reshape(-1)
                 }
             
-                TSD = np.repeat(20, len(ML_pred_age_end))
+                TSD = np.repeat(1, len(ML_pred_age_end))
                 tmax = np.repeat(301, len(ML_pred_age_end))
             
                 fusion = AgeFusion(config={
                     "start_year": int(self.DataConfig['start_year'].split('-')[0]),
-                    "end_year": int(self.DataConfig['end_year'].split('-')[0]),
-                    "sigma_TSD": 5.0
+                    "end_year": int(self.DataConfig['end_year'].split('-')[0])
                 })
 
                 corrected_pred_age_start, corrected_pred_age_end = fusion.fuse(
