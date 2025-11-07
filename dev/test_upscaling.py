@@ -34,8 +34,8 @@ intact_tropical_forest = intact_forest[intact_forest['IFL_ID'].str.contains('|'.
 
 algorithm = "XGBoost"
 IN = {'longitude': slice(10.416508, 10.487892 , None) , 'latitude': slice(51.101666, 51.056723 , None) }
-#IN = {'latitude': slice(-2.91, -3.118, None) , 'longitude': slice(-55.07 , -54.8714,  None) }
-IN = {'latitude': slice(38.1, 37.68222222222223, None) , 'longitude': slice(14.25111111111111 , 15,  None) }
+IN = {'latitude': slice(-2.91, -3.118, None) , 'longitude': slice(-55.07 , -54.8714,  None) }
+#IN = {'latitude': slice(38.1, 37.68222222222223, None) , 'longitude': slice(14.25111111111111 , 15,  None) }
 
 
 lat_start, lat_stop = IN['latitude'].start, IN['latitude'].stop
@@ -77,7 +77,7 @@ for run_ in np.arange(upscaling_config['num_members']):
     subset_agb_cube        = subset_agb_cube[DataConfig['agb_var_cube']].to_dataset(name= [x for x in DataConfig['features']  if "agb" in x][0])
     
     subset_features_cube   = xr.merge([subset_agb_cube, subset_clim_cube, subset_canopyHeight_cube])
-    subset_features_cube   = subset_features_cube.where(subset_LastTimeSinceDist==50) 
+    #subset_features_cube   = subset_features_cube.where(subset_LastTimeSinceDist==50) 
                           
     with open(study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = "Classifier", id_ = run_), 'rb') as f:
         classifier_config = pickle.load(f)
@@ -183,7 +183,7 @@ for run_ in range(upscaling_config['num_members']):
     }
 
     TSD = np.repeat(1, len(ML_pred_age_end))
-    tmax = np.repeat(301, len(ML_pred_age_end))
+    tmax = np.repeat(300, len(ML_pred_age_end))
     
     fusion = AgeFusion(config={
         "start_year": int(DataConfig['start_year'].split('-')[0]),
@@ -659,7 +659,7 @@ sigma_B_meas = sigma_B_meas_start * 0.47
 t_corrected = corrected_pred_age_start
 
 # Single pixel detailed view
-idx = 2400  # interesting pixel
+idx = 1000  # interesting pixel
 fig, axes = plot_bias_correction_diagnostics(
     idx=idx,
     hat_t=hat_t, 

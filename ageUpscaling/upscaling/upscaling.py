@@ -249,7 +249,6 @@ class UpscaleAge(ABC):
                 subset_agb_cube_member  = subset_agb_cube_member[self.DataConfig['agb_var_cube']].to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
                 
                 subset_features_cube     = xr.merge([subset_agb_cube_member, subset_clim_cube, subset_canopyHeight_cube])
-                subset_features_cube     = subset_features_cube.where(subset_LastTimeSinceDist==50)
                                       
                 with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = "Classifier", id_ = run_), 'rb') as f:
                     classifier_config = pickle.load(f)

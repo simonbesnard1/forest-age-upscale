@@ -169,9 +169,16 @@ class AgeFusion:
         # ===============================================================
         # 4. Old-growth sentinel before clipping (so it survives)
         # ===============================================================
-        og = (ML_pred_age_start == self.old_growth_value)
+        # Old-growth definition:
+        #   - No disturbance detected in Landsat era: LTSD == 50
+        #   - ML end-year age exceeds threshold: ML_pred_age_end >= old_growth_value
+        og = (LTSD == 50) & np.isfinite(ML_pred_age_end) & (
+            ML_pred_age_end >= self.old_growth_value
+        )
+        
         fused_start[og] = float(self.old_growth_value)
         fused_end[og]   = float(self.old_growth_value)
+
         
         
         # ===============================================================
