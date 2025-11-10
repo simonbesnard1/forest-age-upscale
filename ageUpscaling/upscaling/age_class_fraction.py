@@ -273,7 +273,9 @@ class AgeFraction(ABC):
                     ]
                 
                     # check if all of them exist
-                    if not all(f.exists() for f in expected_tifs):
+                    need_build = not all(f.exists() for f in expected_tifs)
+                    input_files = []
+                    if need_build:
     
                         iter_ = 0
                         for chunck in chunk_dict:
