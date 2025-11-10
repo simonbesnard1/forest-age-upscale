@@ -260,6 +260,7 @@ class AgeFraction(ABC):
                               for lat, lon in product(range(len(LatChunks)), range(len(LonChunks)))]
     
                 out_dir = f'{self.tmp_folder}/{member_}/{var_}/{class_}/'
+
                 os.makedirs(out_dir, exist_ok=True)
     
                 ds_ = []
@@ -270,6 +271,7 @@ class AgeFraction(ABC):
                         Path(out_dir) / f"{var_}_{class_}_{resolution_}deg_{year_}.tif"
                         for resolution_ in self.config_file['target_resolution']
                     ]
+                    print(expected_tifs)
                 
                     # check if all of them exist
                     if not all(f.exists() for f in expected_tifs):
