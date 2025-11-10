@@ -271,7 +271,6 @@ class AgeFraction(ABC):
                         Path(out_dir) / f"{var_}_{class_}_{resolution_}deg_{year_}.tif"
                         for resolution_ in self.config_file['target_resolution']
                     ]
-                    print(expected_tifs)
                 
                     # check if all of them exist
                     if not all(f.exists() for f in expected_tifs):
@@ -310,10 +309,8 @@ class AgeFraction(ABC):
         
                         subprocess.run(gdalbuildvrt_command, check=True)
     
-                    for resolution_ in self.config_file['target_resolution']:
-                        tif_filename = out_dir / f"{var_}_{class_}_{year_}.vrt"
-
-                        if not tif_filename.exists(): 
+                    for resolution_, out_path in zip(self.config_file['target_resolution'], expected_tifs):
+                        if not out_path.exists():
 
                             gdalwarp_command = [
                                 'gdalwarp',
