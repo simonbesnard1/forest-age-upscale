@@ -24,6 +24,7 @@ age_fraction.AgeClassCalc(task_id=0)
 age_fraction.ParallelResampling(n_jobs=20)
 """
 import os
+from pathlib import Path
 import shutil
 from itertools import product
 from abc import ABC
@@ -263,59 +264,73 @@ class AgeFraction(ABC):
     
                 ds_ = []
                 for year_ in data_class.time.values:
-                    iter_ = 0
-                    for chunck in chunk_dict:
-                        chunck.update({'time': year_})
-                        data_chunk = data_class.sel(chunck)
-                        data_chunk = data_chunk.where(np.isfinite(data_chunk), -9999).astype('int16')
+
+                    # build a list of expected files for this year
+                    expected_tifs = [
+                        Path(out_dir) / f"{var_}_{class_}_{resolution_}deg_{year_}.tif"
+                        for resolution_ in self.config_file['target_resolution']
+                    ]
+                
+                    # check if all of them exist
+                    if not all(f.exists() for f in expected_tifs):
     
-                        data_chunk.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
-                        data_chunk.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
-                        data_chunk = data_chunk.rio.write_crs("epsg:4326", inplace=True)
-                        data_chunk.attrs["_FillValue"] = -9999
-                        data_chunk.rio.to_raster(raster_path=out_dir + f'{var_}_{iter_}.tif',
-                                                  driver="COG", BIGTIFF='YES', compress=None, dtype="int16")
-    
-                        gdalwarp_command = [
-                            'gdal_translate',
-                            '-a_nodata', '-9999',
-                            out_dir + f'{var_}_{iter_}.tif',
-                            out_dir + f'{var_}_{iter_}_nodata.tif'
-                        ]
-                        subprocess.run(gdalwarp_command, check=True)
-                        os.remove(out_dir + f'{var_}_{iter_}.tif')
-    
-                        iter_ += 1
-    
-                    input_files = glob.glob(os.path.join(out_dir, '*_nodata.tif'))
-                    vrt_filename = out_dir + f'/{var_}_{class_}.vrt'
-    
-                    gdalbuildvrt_command = [
-                        'gdalbuildvrt',
-                        vrt_filename
-                    ] + input_files
-    
-                    subprocess.run(gdalbuildvrt_command, check=True)
+                        iter_ = 0
+                        for chunck in chunk_dict:
+                            chunck.update({'time': year_})
+                            data_chunk = data_class.sel(chunck)
+                            data_chunk = data_chunk.where(np.isfinite(data_chunk), -9999).astype('int16')
+        
+                            data_chunk.latitude.attrs = {'standard_name': 'latitude', 'units': 'degrees_north', 'crs': 'EPSG:4326'}
+                            data_chunk.longitude.attrs = {'standard_name': 'longitude', 'units': 'degrees_east', 'crs': 'EPSG:4326'}
+                            data_chunk = data_chunk.rio.write_crs("epsg:4326", inplace=True)
+                            data_chunk.attrs["_FillValue"] = -9999
+                            data_chunk.rio.to_raster(raster_path=out_dir + f'{var_}_{iter_}.tif',
+                                                      driver="COG", BIGTIFF='YES', compress=None, dtype="int16")
+        
+                            gdalwarp_command = [
+                                'gdal_translate',
+                                '-a_nodata', '-9999',
+                                out_dir + f'{var_}_{iter_}.tif',
+                                out_dir + f'{var_}_{iter_}_nodata.tif'
+                            ]
+                            subprocess.run(gdalwarp_command, check=True)
+                            os.remove(out_dir + f'{var_}_{iter_}.tif')
+        
+                            iter_ += 1
+        
+                        input_files = glob.glob(os.path.join(out_dir, '*_nodata.tif'))
+                        vrt_filename = out_dir + f'/{var_}_{class_}.vrt'
+        
+                        gdalbuildvrt_command = [
+                            'gdalbuildvrt',
+                            vrt_filename
+                        ] + input_files
+        
+                        subprocess.run(gdalbuildvrt_command, check=True)
     
                     for resolution_ in self.config_file['target_resolution']:
-                        gdalwarp_command = [
-                            'gdalwarp',
-                            '-srcnodata', '-9999',
-                            '-dstnodata', '-9999',
-                            '-tr', str(resolution_), str(resolution_),
-                            '-t_srs', 'EPSG:4326',
-                            '-of', 'Gtiff',
-                            '-te', '-180', '-90', '180', '90',
-                            '-r', 'average',
-                            '-ot', 'Float32',
-                            '-co', 'COMPRESS=LZW',
-                            '-co', 'BIGTIFF=YES',
-                            '-overwrite',
-                            vrt_filename,
-                            out_dir + f'{var_}_{class_}_{resolution_}deg_{year_}.tif'
-                        ]
-                        subprocess.run(gdalwarp_command, check=True)
-    
+                        tif_filename = out_dir / f"{var_}_{class_}_{year_}.vrt"
+
+                        if not tif_filename.exists(): 
+
+                            gdalwarp_command = [
+                                'gdalwarp',
+                                '-srcnodata', '-9999',
+                                '-dstnodata', '-9999',
+                                '-tr', str(resolution_), str(resolution_),
+                                '-t_srs', 'EPSG:4326',
+                                '-of', 'Gtiff',
+                                '-te', '-180', '-90', '180', '90',
+                                '-r', 'average',
+                                '-ot', 'Float32',
+                                '-co', 'COMPRESS=LZW',
+                                '-co', 'BIGTIFF=YES',
+                                '-overwrite',
+                                vrt_filename,
+                                out_dir + f'{var_}_{class_}_{resolution_}deg_{year_}.tif'
+                            ]
+                            subprocess.run(gdalwarp_command, check=True)
+        
                         da_ = rio.open_rasterio(out_dir + f'{var_}_{class_}_{resolution_}deg_{year_}.tif')
                         da_ = da_.rename({'x': 'longitude', 'y': 'latitude', 'band': 'time'}).to_dataset(name=var_)
                         da_['time'] = [year_]
