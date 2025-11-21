@@ -375,7 +375,7 @@ class UpscaleAge(ABC):
                     "end_year": int(self.DataConfig['end_year'].split('-')[0])
                 })
 
-                corrected_pred_age_start, corrected_pred_age_end = fusion.fuse(
+                corrected_pred_age_start, corrected_pred_age_end, _ = fusion.fuse(
                     ML_pred_age_start = ML_pred_age_start, ML_pred_age_end = ML_pred_age_end,
                     LTSD = subset_LastTimeSinceDist.values.reshape(-1),
                     biomass_start = mean_B_meas_start, biomass_end = mean_B_meas_end,
