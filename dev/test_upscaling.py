@@ -37,6 +37,17 @@ IN = {'longitude': slice(10.416508, 10.487892 , None) , 'latitude': slice(51.101
 IN = {'latitude': slice(-2.91, -3.118, None) , 'longitude': slice(-55.07 , -54.8714,  None) }
 #IN = {'latitude': slice(38.1, 37.68222222222223, None) , 'longitude': slice(14.25111111111111 , 15,  None) }
 
+IN = gpd.read_file('/home/simon/Documents/science/GFZ/projects/foreststrucflux/data/geojson/FR-Hes.geojson')
+b = IN.bounds.iloc[0]
+
+lon_min, lat_min, lon_max, lat_max = b["minx"], b["miny"], b["maxx"], b["maxy"]
+
+# Build slices (descending latitude is very common!)
+IN = {
+    "latitude": slice(lat_max, lat_min, None),
+    "longitude": slice(lon_min, lon_max, None)
+}
+
 
 lat_start, lat_stop = IN['latitude'].start, IN['latitude'].stop
 lon_start, lon_stop = IN['longitude'].start, IN['longitude'].stop
@@ -190,7 +201,7 @@ for run_ in range(upscaling_config['num_members']):
         "end_year": int(DataConfig['end_year'].split('-')[0])
     })
 
-    corrected_pred_age_start, corrected_pred_age_end = fusion.fuse(
+    corrected_pred_age_start, corrected_pred_age_end, R_severity = fusion.fuse(
         ML_pred_age_start = ML_pred_age_start, ML_pred_age_end = ML_pred_age_end,
         LTSD = subset_LastTimeSinceDist.values.reshape(-1),
         biomass_start = biomass_start, biomass_end = biomass_end,
@@ -203,7 +214,7 @@ for run_ in range(upscaling_config['num_members']):
     # Reshape arrays
     fused_pred_age_start = corrected_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
     fused_pred_age_end = corrected_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
-    
+        
     # Create xarray dataset for each year
     ML_pred_age_start = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_start, 
                                                 coords={"latitude": subset_features_cube.latitude, 
@@ -218,7 +229,8 @@ for run_ in range(upscaling_config['num_members']):
                                                         "time": [pd.to_datetime(DataConfig['end_year'])],                                                          
                                                         'members': [run_]}, 
                                                 dims=["latitude", "longitude", "time", "members"])})
-                  
+
+              
     # Concatenate with the time dimensions and append the model member
     ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('members', 'latitude', 'longitude', 'time')
 
@@ -633,8 +645,8 @@ def plot_correction_summary(
     return fig
 
 # Generate synthetic data
-hat_t = ML_pred_age_start
-sigma_ml = sigma_ml_start
+hat_t = ML_pred_age_end
+sigma_ml = sigma_ml_end
 
 A = cr_params['A']
 b = cr_params['b']
@@ -652,14 +664,14 @@ def cr_forward(t, A, b, k, m):
     return A * (u ** p)
     
 B_true = cr_forward(hat_t, A, b, k, m_fixed)
-B_obs = biomass_start * 0.47
-sigma_B_meas = sigma_B_meas_start * 0.47
+B_obs = biomass_end * 0.47
+sigma_B_meas = sigma_B_meas_end * 0.47
 
 # Simulate corrections (in real use, call corrector.correct())
-t_corrected = corrected_pred_age_start
+t_corrected = corrected_pred_age_end
 
 # Single pixel detailed view
-idx = 1000  # interesting pixel
+idx = 1500  # interesting pixel
 fig, axes = plot_bias_correction_diagnostics(
     idx=idx,
     hat_t=hat_t, 

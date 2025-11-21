@@ -143,6 +143,7 @@ def _newton_solver_tspace(
         # Init from inverse-CR & ML blend within bounds
         t_cr = _cr_inverse(B_target, A[i], b[i], k[i], m)
         ti = 0.5 * (hat_t[i] + t_cr)
+        
         if ti < TSD[i] + 1e-3:
             ti = TSD[i] + 1e-3
         if ti > tmax[i]:
@@ -354,8 +355,8 @@ class AgeBiasCorrector:
         self,
         A, b, k, sd_A, sd_b, sd_k,
         m_fixed=0.67,
-        robust_delta_frac=0.10,
-        sigma_eff_floor_frac=0.05,
+        robust_delta_frac=0.05,
+        sigma_eff_floor_frac=0.15,
         bound_fallback_eps=0.5,   # <= this near TSD → revert to ML
     ):
         self.A    = A.astype(np.float32).reshape(-1)
