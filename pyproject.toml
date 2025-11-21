@@ -36,7 +36,6 @@ dependencies = [
     "Boruta",
     "numpy==1.26.4",
     "optuna",
-    "optuna",
     "PyYAML",
     "matplotlib",
     "bottleneck",

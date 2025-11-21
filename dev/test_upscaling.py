@@ -37,7 +37,7 @@ IN = {'longitude': slice(10.416508, 10.487892 , None) , 'latitude': slice(51.101
 IN = {'latitude': slice(-2.91, -3.118, None) , 'longitude': slice(-55.07 , -54.8714,  None) }
 #IN = {'latitude': slice(38.1, 37.68222222222223, None) , 'longitude': slice(14.25111111111111 , 15,  None) }
 
-IN = gpd.read_file('/home/simon/Documents/science/GFZ/projects/foreststrucflux/data/geojson/FR-Hes.geojson')
+IN = gpd.read_file('/home/simon/Documents/science/GFZ/projects/foreststrucflux/data/geojson/FI-Ken.geojson')
 b = IN.bounds.iloc[0]
 
 lon_min, lat_min, lon_max, lat_max = b["minx"], b["miny"], b["maxx"], b["maxy"]
