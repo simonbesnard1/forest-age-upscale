@@ -167,6 +167,11 @@ class AgeFusion:
         missing_corr = np.isnan(fused_end) & np.isfinite(ML_pred_age_end)
         if np.any(missing_corr):
             fused_end[missing_corr] = ML_pred_age_end[missing_corr]
+        
+        # NEW: If LTSD < 50 but ML is NaN ⇒ keep severity-adjusted LTSD
+        missing_ml = use_ltsd_mask & np.isnan(ML_pred_age_end)
+        if np.any(missing_ml):
+            fused_end[missing_ml] = fused_end_init[missing_ml]        
 
         # ===============================================================
         # 2. Correct ML ages (start)

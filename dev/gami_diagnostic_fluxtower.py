@@ -40,10 +40,10 @@ mpl.rcParams.update(params)
 # -------------------------------------------------------------------
 # Paths & settings
 # -------------------------------------------------------------------
-GAMI_ZARR = "/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-3.0/AgeUpscale_100m"
+GAMI_ZARR = "/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XGBoost/version-3.1/AgeUpscale_100m"
 ABG_ZARR = "/home/simon/hpc_home/projects/forest-age-upscale/data/cubes/ESACCI_BIOMASS_100m_v6"
 ROI_GEOJSON_GLOB = "/home/simon/Documents/science/GFZ/projects/foreststrucflux/data/geojson/*.geojson"
-OUT_DIR = "/home/simon/Documents/science/GFZ/projects/foreststrucflux/figures/gami_rois"
+OUT_DIR = "/home/simon/Documents/science/GFZ/projects/foreststrucflux/figures/gami_rois/v3-1/"
 
 # name of the variable in the GAMI dataset (change if needed)
 VAR_NAME = "forest_age"  # or e.g. "age_2010", "age", etc.
@@ -219,7 +219,7 @@ for roi_path in roi_files:
     abg_2020 = abg_2020.rename("biomass_2020")
 
     # plot 4-panel figure
-    out_file = Path(OUT_DIR) / f"gamiv2_{VAR_NAME}_{roi_name}_growth_biomass.png"
+    out_file = Path(OUT_DIR) / f"gamiv3-1_{VAR_NAME}_{roi_name}_growth_biomass.png"
     title = f"{roi_name} – Age, growth and biomass"
     plot_map_hist_growth_biomass(ds_roi_age, growth_da, abg_2020, VAR_NAME, title, out_file)
 
