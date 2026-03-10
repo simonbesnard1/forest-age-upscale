@@ -24,7 +24,6 @@ age_fraction.AgeClassCalc(task_id=0)
 age_fraction.ParallelResampling(n_jobs=20)
 """
 import os
-from pathlib import Path
 import shutil
 from itertools import product
 from abc import ABC
@@ -116,10 +115,10 @@ class AgeFraction(ABC):
                 age_range = age_labels[i]
                 lower_limit, upper_limit = map(int, age_range.split('-'))
                 if lower_limit == 0:
-                    age_class_mask = (subset_age_cube >= lower_limit) & (subset_age_cube < upper_limit+1)
+                    age_class_mask = (subset_age_cube >= lower_limit) & (subset_age_cube <= upper_limit)
                 else:
-                    age_class_mask = (subset_age_cube > lower_limit) & (subset_age_cube < upper_limit +1)
-                    
+                    age_class_mask = (subset_age_cube > lower_limit) & (subset_age_cube <= upper_limit)
+                                    
                 age_class_mask = age_class_mask.where(np.isfinite(subset_age_cube))
                 age_class_mask = age_class_mask.where(np.isfinite(age_class_mask), -9999)        
                 

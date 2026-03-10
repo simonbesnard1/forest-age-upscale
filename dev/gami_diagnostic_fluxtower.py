@@ -9,7 +9,6 @@ import xarray as xr
 import geopandas as gpd
 import matplotlib.pyplot as plt
 from pathlib import Path
-from sklearn.linear_model import LinearRegression
 import glob
 import matplotlib as mpl
 params = {
@@ -44,6 +43,8 @@ GAMI_ZARR = "/home/simon/hpc_group/scratch/besnard/upscaling/Age_upscale_100m/XG
 ABG_ZARR = "/home/simon/hpc_home/projects/forest-age-upscale/data/cubes/ESACCI_BIOMASS_100m_v6"
 ROI_GEOJSON_GLOB = "/home/simon/Documents/science/GFZ/projects/foreststrucflux/data/geojson/*.geojson"
 OUT_DIR = "/home/simon/Documents/science/GFZ/projects/foreststrucflux/figures/gami_rois/v3-1/"
+ABG_saatchi_TIFF = "/home/simon/hpc_home/projects/forest-age-upscale/data/global_product/0d00083_annual/biomass_saatchi2020/global_agb_100m_combined_mosaic_2020_cog.tif"
+
 
 # name of the variable in the GAMI dataset (change if needed)
 VAR_NAME = "forest_age"  # or e.g. "age_2010", "age", etc.
@@ -86,7 +87,7 @@ def subset_abg_to_roi(ds_abg: xr.Dataset, roi_gdf: gpd.GeoDataFrame) -> xr.Datas
         {lon_name: slice(minx, maxx),
          lat_name: slice(maxy, miny)}
     )   
-    return ds_bbox * 0.47
+    return ds_bbox.where(ds_bbox >0) * 0.47
 
 
 def compute_growth_slope(ds_abg_roi: xr.Dataset) -> xr.DataArray:
@@ -195,6 +196,9 @@ def plot_map_hist_growth_biomass(
 
 ds_age = load_gami(GAMI_ZARR)
 ds_abg = xr.open_zarr(ABG_ZARR)
+ds_abg_saatchi = xr.open_dataset(ABG_saatchi_TIFF)
+ds_abg_saatchi = ds_abg_saatchi.rename({"x": "longitude", "y": "latitude", "band": "time"})
+ds_abg_saatchi = ds_abg_saatchi.assign_coords(time=[np.datetime64("2020-01-01")])
 
 roi_files = glob.glob(ROI_GEOJSON_GLOB)
 
@@ -210,18 +214,25 @@ for roi_path in roi_files:
 
     # subset biomass cube
     ds_abg_roi = subset_abg_to_roi(ds_abg, gdf)
-
+    
+    # subset biomass cube
+    ds_abg_saatchi_roi = subset_abg_to_roi(ds_abg_saatchi, gdf)
+    ds_abg_saatchi_roi= ds_abg_saatchi_roi.transpose("latitude", "longitude", "time") 
+    
     # compute biomass growth slope
     growth_da = compute_growth_slope(ds_abg_roi)
 
     # biomass at 2020-01-01
-    abg_2020 = ds_abg_roi["aboveground_biomass"].sel(time="2020-01-01")
-    abg_2020 = abg_2020.rename("biomass_2020")
+    abg_2020 = ds_abg_saatchi_roi["band_data"].sel(time="2020-01-01")
+    abg_2020 = abg_2020.rename("biomass_2020") / 10
 
     # plot 4-panel figure
     out_file = Path(OUT_DIR) / f"gamiv3-1_{VAR_NAME}_{roi_name}_growth_biomass.png"
     title = f"{roi_name} – Age, growth and biomass"
-    plot_map_hist_growth_biomass(ds_roi_age, growth_da, abg_2020, VAR_NAME, title, out_file)
+    try:
+        plot_map_hist_growth_biomass(ds_roi_age, growth_da, abg_2020, VAR_NAME, title, out_file)
+    except:
+        continue
 
     print(f"  -> saved {out_file}")
 
