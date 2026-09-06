@@ -42,12 +42,13 @@ from sklearn.model_selection import train_test_split
 import xgboost as xgb
 
 from ageUpscaling.core.cube import DataCube
-from ageUpscaling.transformers.spatial import interpolate_worlClim
+from ageUpscaling.transformers.spatial import interpolate_worlClim, block_mean_regrid
 from ageUpscaling.methods.MLP import MLPmethod
 from ageUpscaling.methods.xgboost import XGBoost
 from ageUpscaling.methods.RandomForest import RandomForest
 from ageUpscaling.methods.feature_selection import FeatureSelection
-from ageUpscaling.methods.AgeFusion import AgeFusion
+from ageUpscaling.methods.AgeFusion import AgeFusion, reproject_ltsd_to_year
+from ageUpscaling.methods.extrapolation_index import ExtrapolationIndex
 
 class UpscaleAge(ABC):
     """A class for upscaling forest age ML models.
@@ -112,13 +113,33 @@ class UpscaleAge(ABC):
             shutil.rmtree(sync_file_features)            
         self.sync_feature = zarr.ProcessSynchronizer(sync_file_features)
         
-        self.agb_cube_members   = xr.open_zarr(self.DataConfig['agb_cube_members'], synchronizer=self.sync_feature)
         self.clim_cube  = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync_feature)
-        self.canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'], synchronizer=self.sync_feature)
         self.LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=self.sync_feature)
         self.CRparams_cube = xr.open_zarr(self.DataConfig['CRparams_cube'], synchronizer=self.sync_feature)
-        self.agb_cube = xr.open_zarr(self.DataConfig['agb_cube'], synchronizer=self.sync_feature)
-                        
+        # agb_cube and canopyHeight_cube are read directly from the remote
+        # GFZ object store (see data_config yaml): plain HTTP fetches, so
+        # the local zarr.ProcessSynchronizer (a file-lock for a shared
+        # local store) doesn't apply and is omitted here.
+        self.agb_cube = xr.open_zarr(self.DataConfig['agb_cube'])
+        self.canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'])
+
+        # AGB ensemble members are no longer read from a separately
+        # precomputed cube: they're drawn on the fly per prediction chunk
+        # from agb_cube's own mean/std (see _predict_func), removing what
+        # used to be two sequential steps (precompute member perturbations,
+        # then predict per member) down to one. The seed is derived
+        # per-chunk (see _member_rng) so results stay reproducible across
+        # reruns of the same chunk.
+        self.member_random_seed = int(self.DataConfig.get('member_random_seed', 42))
+
+        # Pixel-based model extrapolation index (see ExtrapolationIndex):
+        # fit lazily on first use in _predict_func, not here, since
+        # __init__ also runs for model_training() where no trained model
+        # exists yet to fit it from. Cached afterwards so it's fit once
+        # per process, not once per chunk.
+        self.extrapolation_index = None
+        self.extrapolation_index_features = None
+
         self.upscaling_config['sync_file_path'] = os.path.abspath(f"{study_dir}/cube_out_sync_{self.task_id}.zarrsync") 
         self.upscaling_config['output_writer_params']['dims']['latitude']  = self.agb_cube.latitude.values
         self.upscaling_config['output_writer_params']['dims']['longitude'] = self.agb_cube.longitude.values
@@ -197,9 +218,71 @@ class UpscaleAge(ABC):
             version = f"{major}.{minor}"
         
         return f"{base_dir}/{exp_name}/{algorithm}/version-{version}"
-    
+
+    def _member_rngs(self, IN) -> list:
+        """Deterministic, independent RNG streams for on-the-fly AGB member perturbation.
+
+        Seeded from `member_random_seed` plus this chunk's spatial bounds,
+        so re-running the same chunk reproduces the same members, while
+        different chunks and different members within a chunk get
+        statistically independent draws (via `SeedSequence.spawn`).
+
+        Parameters
+        ----------
+        IN : dict
+            The chunk's subsetting dictionary (same as passed to `_predict_func`).
+
+        Returns
+        -------
+        list of np.random.Generator
+            One independent generator per ensemble member.
+        """
+        lat0 = float(IN['latitude'].start)
+        lon0 = float(IN['longitude'].start)
+        seed_seq = np.random.SeedSequence([
+            self.member_random_seed,
+            int(round(lat0 * 1e6)) & 0xFFFFFFFF,
+            int(round(lon0 * 1e6)) & 0xFFFFFFFF,
+        ])
+        return [np.random.default_rng(s) for s in seed_seq.spawn(self.upscaling_config['num_members'])]
+
+    def _ensure_extrapolation_index(self) -> None:
+        """Fit the pixel-based extrapolation index once, on first use.
+
+        Uses the member-0 regressor as a stable reference for feature
+        importance weighting: a single, fixed reference rather than a
+        per-member fit, so all 20 members' pixels are scored against the
+        same feature-space notion of "novel relative to training data"
+        rather than 20 slightly different ones tied to each member's own
+        (independently feature-selected) model.
+        """
+        if self.extrapolation_index is not None:
+            return
+
+        with open(self.study_dir + "/save_model/best_Regressor_run0.pickle", 'rb') as f:
+            regressor_config = pickle.load(f)
+        reference_model = regressor_config['best_model']
+        reference_features = regressor_config['selected_features']
+
+        training_ds = xr.open_dataset(self.DataConfig['training_dataset'])
+        X_train = training_ds[reference_features].to_array().transpose(
+            'cluster', 'sample', 'variable'
+        ).values.reshape(-1, len(reference_features))
+        X_train = X_train[np.all(np.isfinite(X_train), axis=1)]
+
+        ei = ExtrapolationIndex()
+        feature_weights = None
+        if self.algorithm == "XGBoost":
+            rng = np.random.default_rng(0)
+            sample_idx = rng.choice(len(X_train), size=min(2000, len(X_train)), replace=False)
+            feature_weights = ei.compute_feature_weights(reference_model, X_train[sample_idx], reference_features)
+        ei.fit(X_train, feature_weights=feature_weights)
+
+        self.extrapolation_index = ei
+        self.extrapolation_index_features = reference_features
+
     @dask.delayed
-    def _predict_func(self, 
+    def _predict_func(self,
                       IN) -> None:
         """Predict forest age using the trained ML models.
 
@@ -224,13 +307,47 @@ class UpscaleAge(ABC):
             subset_clim_cube = interpolate_worlClim(source_ds = subset_clim_cube, target_ds = subset_LastTimeSinceDist_cube).sel(IN)
             subset_CRparams_cube = self.CRparams_cube.sel(buffer_IN).astype('float16')
             subset_CRparams_cube = interpolate_worlClim(source_ds = subset_CRparams_cube, target_ds = subset_LastTimeSinceDist_cube).sel(IN)
-            subset_LastTimeSinceDist = subset_LastTimeSinceDist_cube.sel(IN).to_array()         
-            subset_canopyHeight_cube = self.canopyHeight_cube.sel(IN).sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
-            subset_canopyHeight_cube = subset_canopyHeight_cube.rename({list(set(list(subset_canopyHeight_cube.variables.keys())) - set(subset_canopyHeight_cube.coords))[0] : [x for x in self.DataConfig['features']  if "canopy_height" in x][0]}).astype('float16')
-            subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube >0)
+            subset_LastTimeSinceDist = subset_LastTimeSinceDist_cube.sel(IN).to_array()
+            LTSD_anchor_flat = subset_LastTimeSinceDist.values.reshape(-1)
+            anchor_year = int(self.DataConfig['end_year'].split('-')[0])
+            all_years = sorted({
+                pd.to_datetime(t).year
+                for t in self.upscaling_config['output_writer_params']['dims']['time']
+            })
+            LTSD_by_year = {anchor_year: LTSD_anchor_flat}
+            for year in all_years:
+                if year == anchor_year:
+                    continue
+                LTSD_by_year[year] = reproject_ltsd_to_year(
+                    LTSD_anchor_flat, target_year=year, anchor_year=anchor_year
+                )
+
+            # Canopy height comes from the remote 30m Potapov store (see
+            # data_config yaml): block-mean aggregate onto the prediction
+            # grid rather than point-interpolate, since every native pixel
+            # should contribute to the target cell it falls inside.
+            canopy_feature_name = [x for x in self.DataConfig['features'] if "canopy_height" in x][0]
+            canopy_times = self.upscaling_config['output_writer_params']['dims']['time']
+            canopy_regridded = [
+                block_mean_regrid(self.canopyHeight_cube['canopy_height'].sel(time=t), subset_LastTimeSinceDist_cube)
+                .sel(IN)
+                .expand_dims({'time': [pd.to_datetime(t)]})
+                for t in canopy_times
+            ]
+            subset_canopyHeight_cube = xr.concat(canopy_regridded, dim='time').astype('float16').to_dataset(name=canopy_feature_name)
+            subset_canopyHeight_cube = subset_canopyHeight_cube.where(subset_canopyHeight_cube > 0)
+
             subset_clim_cube = subset_clim_cube.expand_dims({'time': subset_canopyHeight_cube.time.values}, axis=list(subset_canopyHeight_cube.dims).index('time'))
             subset_agb_cube    = self.agb_cube.sel(IN).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
-            
+
+            agb_var = self.DataConfig['agb_var_cube']
+            agb_feature_name = [x for x in self.DataConfig['features'] if "agb" in x][0]
+            mean_agb_da = subset_agb_cube[agb_var]
+            mean_agb_vals = mean_agb_da.values
+            std_agb_vals = subset_agb_cube[agb_var + '_std'].values
+            member_rngs = self._member_rngs(IN)
+            self._ensure_extrapolation_index()
+
             mask_intact_forest = ~np.zeros((subset_canopyHeight_cube.sizes['latitude'], subset_canopyHeight_cube.sizes['longitude']), dtype=bool)
             for _, row in self.intact_tropical_forest.iterrows():
                 polygon = row.geometry
@@ -241,15 +358,20 @@ class UpscaleAge(ABC):
                     mask_intact_forest[polygon_mask==False] = False
             mask_intact_forest = mask_intact_forest.reshape(-1)
             
-            ML_pred_age_end_members = []
-            ML_pred_age_start_members = []
+            ML_pred_age_members = {year: [] for year in all_years}
+            ML_pred_class_proba_members = {year: [] for year in all_years}
+            ML_extrapolation_index_members = {year: [] for year in all_years}
             for run_ in np.arange(self.upscaling_config['num_members']):
-            
-                subset_agb_cube_member  = self.agb_cube_members.sel(IN).sel(members=run_).astype('float16').sel(time = self.upscaling_config['output_writer_params']['dims']['time'])
-                subset_agb_cube_member  = subset_agb_cube_member[self.DataConfig['agb_var_cube']].to_dataset(name= [x for x in self.DataConfig['features']  if "agb" in x][0])
-                
+
+                noise = member_rngs[run_].standard_normal(mean_agb_vals.shape)
+                perturbed_agb_vals = np.clip(mean_agb_vals + std_agb_vals * noise, 0, None).astype('float16')
+                subset_agb_cube_member = xr.DataArray(
+                    perturbed_agb_vals, coords=mean_agb_da.coords, dims=mean_agb_da.dims
+                ).to_dataset(name=agb_feature_name)
+
                 subset_features_cube     = xr.merge([subset_agb_cube_member, subset_clim_cube, subset_canopyHeight_cube])
-                                      
+                year_of_time_index = [pd.Timestamp(t).year for t in subset_features_cube.time.values]
+
                 with open(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = "Classifier", id_ = run_), 'rb') as f:
                     classifier_config = pickle.load(f)
                 best_classifier = classifier_config['best_model']
@@ -278,36 +400,59 @@ class UpscaleAge(ABC):
                     X_upscale_flattened.append(data)
                     
                 X_upscale_flattened = da.array(X_upscale_flattened).transpose().compute()
-                
+
+                X_ei = da.array(
+                    [subset_features_cube[v].data.flatten() for v in self.extrapolation_index_features]
+                ).transpose().compute()
+
+                ei_scores = self.extrapolation_index.score(X_ei).reshape(
+                    len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1
+                )
+
                 ML_pred_class = np.zeros(X_upscale_flattened.shape[0]) * np.nan
+                ML_pred_class_proba = np.zeros(X_upscale_flattened.shape[0]) * np.nan
                 ML_pred_age = np.zeros(X_upscale_flattened.shape[0]) * np.nan
-                
-                mask = (np.all(np.isfinite(X_upscale_flattened), axis=1)) 
-                
+
+                mask = (np.all(np.isfinite(X_upscale_flattened), axis=1))
+
                 if (X_upscale_flattened[mask].shape[0]>0):
                     index_mapping_class = [all_features.index(feature) for feature in features_classifier]
                     index_mapping_reg = [all_features.index(feature) for feature in features_regressor]
-                    
+
                     if self.algorithm == "XGBoost":
                         dpred =  xgb.DMatrix(X_upscale_flattened[mask][:, index_mapping_class])
-                        pred_class = (best_classifier.predict(dpred) > 0.5).astype('int16')
-                    
+                        pred_class_proba = best_classifier.predict(dpred)
+                        pred_class = (pred_class_proba > 0.5).astype('int16')
+
                     elif self.algorithm == "MLP":
                         dpred =  X_upscale_flattened[mask][:, index_mapping_class]
                         dpred = np.stack([self.norm(dpred[:, features_classifier.index(var_name)], norm_stats_classifier[var_name]) for var_name in features_classifier], axis=1)
                         pred_class = best_classifier.predict(dpred)
-                        
+                        if hasattr(best_classifier, "predict_proba"):
+                            pred_class_proba = best_classifier.predict_proba(dpred)[:, 1]
+                        else:
+                            pred_class_proba = pred_class.astype('float32')
+
                     elif self.algorithm == "AutoML":
                         dpred =  X_upscale_flattened[mask][:, index_mapping_class]
-                        dpred = pd.DataFrame(dpred, columns = features_classifier)                         
+                        dpred = pd.DataFrame(dpred, columns = features_classifier)
                         pred_class = best_classifier.predict(dpred).values
-                    
+                        if hasattr(best_classifier, "predict_proba"):
+                            pred_class_proba = best_classifier.predict_proba(dpred).values[:, 1]
+                        else:
+                            pred_class_proba = pred_class.astype('float32')
+
                     else:
                         dpred =  X_upscale_flattened[mask][:, index_mapping_class]
                         pred_class = best_classifier.predict(dpred)
-                        
+                        if hasattr(best_classifier, "predict_proba"):
+                            pred_class_proba = best_classifier.predict_proba(dpred)[:, 1]
+                        else:
+                            pred_class_proba = pred_class.astype('float32')
+
                     ML_pred_class[mask] = pred_class
-                    
+                    ML_pred_class_proba[mask] = pred_class_proba
+
                     if self.algorithm == "XGBoost":
                         dpred =  xgb.DMatrix(X_upscale_flattened[mask][:, index_mapping_reg])
                         pred_reg= best_regressor.predict(dpred)
@@ -326,92 +471,100 @@ class UpscaleAge(ABC):
                     ML_pred_age[mask] = np.round(pred_reg).astype("int16")
                     ML_pred_age[ML_pred_class==1] = self.DataConfig['max_forest_age'][0]
                     ML_pred_age   = ML_pred_age.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1)
-                    ML_pred_age_end = ML_pred_age[:, :, 1, :].reshape(-1)
-                    ML_pred_age_end[~mask_intact_forest] = self.DataConfig['max_forest_age'][0] 
-                    ML_pred_age_start = ML_pred_age[:, :, 0, :].reshape(-1)
-                    
+                    ML_pred_class_proba_reshaped = ML_pred_class_proba.reshape(
+                        len(subset_features_cube.latitude), len(subset_features_cube.longitude), len(subset_features_cube.time), 1
+                    )
+
+                    for i, year in enumerate(year_of_time_index):
+                        age_i = ML_pred_age[:, :, i, :].reshape(-1)
+                        if year == anchor_year:
+                            age_i[~mask_intact_forest] = self.DataConfig['max_forest_age'][0]
+                        ML_pred_age_members[year].append(age_i)
+                        ML_pred_class_proba_members[year].append(ML_pred_class_proba_reshaped[:, :, i, :].reshape(-1))
+                        ML_extrapolation_index_members[year].append(ei_scores[:, :, i, :].reshape(-1))
+
                 else:
                     # nothing to predict here -> just NaN arrays with correct shape
-                    ML_pred_age_start = np.full(
-                        len(subset_features_cube.latitude) * len(subset_features_cube.longitude),
-                        np.nan, dtype="float32"
-                    )
-                    ML_pred_age_end = np.full_like(ML_pred_age_start, np.nan)
-                ML_pred_age_end_members.append(ML_pred_age_end)
-                ML_pred_age_start_members.append(ML_pred_age_start)
-                    
-            ML_pred_age_end_members = np.stack(ML_pred_age_end_members, axis=0)
-            ML_pred_age_start_members = np.stack(ML_pred_age_start_members, axis=0)
-            sigma_ml_end = np.nanstd(ML_pred_age_end_members, axis=0)
-            sigma_ml_start = np.nanstd(ML_pred_age_start_members, axis=0)
-            
-            sigma_B_meas_start = subset_agb_cube[self.DataConfig['agb_var_cube'] + '_std'].sel(time = self.DataConfig['start_year']).values.reshape(-1)
-            sigma_B_meas_end   = subset_agb_cube[self.DataConfig['agb_var_cube'] + '_std'].sel(time = self.DataConfig['end_year']).values.reshape(-1)
-            
-            mean_B_meas_start  = subset_agb_cube[self.DataConfig['agb_var_cube']].sel(time = self.DataConfig['start_year']).values.reshape(-1)
-            mean_B_meas_end    = subset_agb_cube[self.DataConfig['agb_var_cube']].sel(time = self.DataConfig['end_year']).values.reshape(-1)            
-            
+                    n_px = len(subset_features_cube.latitude) * len(subset_features_cube.longitude)
+                    for year in year_of_time_index:
+                        ML_pred_age_members[year].append(np.full(n_px, np.nan, dtype="float32"))
+                        ML_pred_class_proba_members[year].append(np.full(n_px, np.nan, dtype="float32"))
+                        ML_extrapolation_index_members[year].append(np.full(n_px, np.nan, dtype="float32"))
+
+            ML_pred_age_members = {y: np.stack(v, axis=0) for y, v in ML_pred_age_members.items()}
+            ML_pred_class_proba_members = {y: np.stack(v, axis=0) for y, v in ML_pred_class_proba_members.items()}
+            ML_extrapolation_index_members = {y: np.stack(v, axis=0) for y, v in ML_extrapolation_index_members.items()}
+            sigma_ml_by_year = {y: np.nanstd(v, axis=0) for y, v in ML_pred_age_members.items()}
+
+            sigma_B_meas_by_year = {}
+            mean_B_meas_by_year = {}
+            for year in all_years:
+                year_ts = pd.Timestamp(f"{year}-01-01")
+                sigma_B_meas_by_year[year] = subset_agb_cube[self.DataConfig['agb_var_cube'] + '_std'].sel(time=year_ts).values.reshape(-1)
+                mean_B_meas_by_year[year]  = subset_agb_cube[self.DataConfig['agb_var_cube']].sel(time=year_ts).values.reshape(-1)
+
+            # --- CR-based bias correction (static across years/members) ---
+            cr_params = {
+                "A": subset_CRparams_cube.A.values.reshape(-1),
+                "b": subset_CRparams_cube.b.values.reshape(-1),
+                "k": subset_CRparams_cube.k.values.reshape(-1)
+            }
+            cr_errors = {
+                "A": subset_CRparams_cube.A_error.values.reshape(-1),
+                "b": subset_CRparams_cube.b_error.values.reshape(-1),
+                "k": subset_CRparams_cube.k_error.values.reshape(-1)
+            }
+            n_px = len(LTSD_anchor_flat)
+            TSD = np.repeat(1, n_px)
+            tmax = np.repeat(301, n_px)
+
             for run_ in range(self.upscaling_config['num_members']):
-                ML_pred_age_end = ML_pred_age_end_members[run_, :]
-                ML_pred_age_start = ML_pred_age_start_members[run_, :]                
-                
-                # --- CR-based bias correction ---
-                cr_params = {
-                    "A": subset_CRparams_cube.A.values.reshape(-1),
-                    "b": subset_CRparams_cube.b.values.reshape(-1),
-                    "k": subset_CRparams_cube.k.values.reshape(-1)
-                }
-                cr_errors = {
-                    "A": subset_CRparams_cube.A_error.values.reshape(-1),
-                    "b": subset_CRparams_cube.b_error.values.reshape(-1),
-                    "k": subset_CRparams_cube.k_error.values.reshape(-1)
-                }
-            
-                TSD = np.repeat(1, len(ML_pred_age_end))
-                tmax = np.repeat(301, len(ML_pred_age_end))
-            
+                ML_pred_age_by_year = {y: ML_pred_age_members[y][run_, :] for y in all_years}
+                ML_pred_class_proba_by_year = {y: ML_pred_class_proba_members[y][run_, :] for y in all_years}
+                ML_extrapolation_index_by_year = {y: ML_extrapolation_index_members[y][run_, :] for y in all_years}
+
                 fusion = AgeFusion(config={
                     "start_year": int(self.DataConfig['start_year'].split('-')[0]),
                     "end_year": int(self.DataConfig['end_year'].split('-')[0])
                 })
 
-                corrected_pred_age_start, corrected_pred_age_end, _ = fusion.fuse(
-                    ML_pred_age_start = ML_pred_age_start, ML_pred_age_end = ML_pred_age_end,
-                    LTSD = subset_LastTimeSinceDist.values.reshape(-1),
-                    biomass_start = mean_B_meas_start, biomass_end = mean_B_meas_end,
-                    cr_params = cr_params, cr_errors = cr_errors,
-                    ml_std_end = sigma_ml_end, ml_std_start = sigma_ml_start, 
-                    biomass_std_end = sigma_B_meas_end, biomass_std_start = sigma_B_meas_start, 
-                    TSD = TSD, tmax = tmax
-                )    
-            
-                # Reshape arrays
-                fused_pred_age_start = corrected_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
-                fused_pred_age_end = corrected_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
-                
-                # Reshape arrays
-                fused_pred_age_start = fused_pred_age_start.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
-                fused_pred_age_end = fused_pred_age_end.reshape(len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1) 
-                
-                # Create xarray dataset for each year
-                ML_pred_age_start = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_start, 
-                                                            coords={"latitude": subset_features_cube.latitude, 
-                                                                    "longitude": subset_features_cube.longitude,
-                                                                    "time": [pd.to_datetime(self.DataConfig['start_year'])],                                                          
-                                                                    'members': [run_]}, 
-                                                            dims=["latitude", "longitude", "time", "members"])})
-                
-                ML_pred_age_end = xr.Dataset({"forest_age":xr.DataArray(fused_pred_age_end, 
-                                                            coords={"latitude": subset_features_cube.latitude, 
-                                                                    "longitude": subset_features_cube.longitude,
-                                                                    "time": [pd.to_datetime(self.DataConfig['end_year'])],                                                          
-                                                                    'members': [run_]}, 
-                                                            dims=["latitude", "longitude", "time", "members"])})
-                              
-                # Concatenate with the time dimensions and append the model member
-                ds = xr.concat([ML_pred_age_start, ML_pred_age_end], dim= 'time').transpose('members', 'latitude', 'longitude', 'time')
-                
-                self.pred_cube.CubeWriter(ds, n_workers=1)                
+                age_by_year, provenance_by_year, extrapolation_by_year = fusion.fuse_multi_year(
+                    anchor_year=anchor_year,
+                    ML_pred_age_by_year=ML_pred_age_by_year,
+                    LTSD_by_year=LTSD_by_year,
+                    biomass_by_year=mean_B_meas_by_year,
+                    biomass_std_by_year=sigma_B_meas_by_year,
+                    ml_std_by_year=sigma_ml_by_year,
+                    cr_params=cr_params, cr_errors=cr_errors,
+                    TSD=TSD, tmax=tmax,
+                    ml_old_growth_proba_by_year=ML_pred_class_proba_by_year,
+                    ml_extrapolation_index_by_year=ML_extrapolation_index_by_year,
+                )
+
+                out_shape = (len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1)
+
+                def _to_da(arr, year, dtype):
+                    return xr.DataArray(
+                        arr.reshape(out_shape).astype(dtype),
+                        coords={"latitude": subset_features_cube.latitude,
+                                "longitude": subset_features_cube.longitude,
+                                "time": [pd.Timestamp(f"{year}-01-01")],
+                                'members': [run_]},
+                        dims=["latitude", "longitude", "time", "members"])
+
+                ds_by_year = [
+                    xr.Dataset({
+                        "forest_age": _to_da(age_by_year[year], year, "float32"),
+                        "forest_age_provenance": _to_da(provenance_by_year[year], year, "int8"),
+                        "forest_age_extrapolation": _to_da(extrapolation_by_year[year], year, "float32"),
+                    })
+                    for year in all_years
+                ]
+
+                # Concatenate across years and append the model member
+                ds = xr.concat(ds_by_year, dim='time').transpose('members', 'latitude', 'longitude', 'time')
+
+                self.pred_cube.CubeWriter(ds, n_workers=1)
                 
     def model_tuning(self,
                      run_: int=1,
@@ -705,25 +858,5 @@ class UpscaleAge(ABC):
             The normalized array of values.
         """
         
-        return (x - norm_stats['mean']) / norm_stats['std'] 
-    
-    def denorm_target(self, 
-                      x: np.array,
-                      norm_stats:dict) -> np.array:
-        """De-normalize an array of values using the given normalization statistics.
+        return (x - norm_stats['mean']) / norm_stats['std']
 
-        Parameters
-        ----------
-        x : np.array
-            The array of values to de-normalize.
-        norm_stats : dict
-            A dictionary containing the normalization statistics, with keys 'mean' and 'std'.
-    
-        Returns
-        -------
-        np.array
-            The de-normalized array of values.
-        """
-        
-        return x * norm_stats['std'] + norm_stats['mean']
-    

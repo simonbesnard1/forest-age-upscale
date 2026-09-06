@@ -101,15 +101,30 @@ def _cr_inverse(B, A, b, k, m):
 
 # ==========================================================
 # 2. STATIC SIGMA_PARAM² (delta method, precomputed)
+#    Full delta-method propagation through the CR parameter
+#    covariance: Var(B) = J Sigma J^T, i.e.
+#      Var(B) = dA^2 Var(A) + db^2 Var(b) + dk^2 Var(k)
+#              + 2 dA db Cov(A,b) + 2 dA dk Cov(A,k) + 2 db dk Cov(b,k)
+#    with Cov(X,Y) = rho_XY * sd_X * sd_Y. A, b, k come from the same
+#    nonlinear curve fit and are generally correlated, so the cross
+#    terms are not optional -- omitting them (rho=0) silently assumes
+#    independence that the fit does not have.
 # ==========================================================
 
 @njit(cache=True, fastmath=True, parallel=True)
-def _precompute_sigma_param2(A, b, k, sd_A, sd_b, sd_k, hat_t, m):
+def _precompute_sigma_param2(A, b, k, sd_A, sd_b, sd_k, rho_Ab, rho_Ak, rho_bk, hat_t, m):
     N = A.size
     out = np.empty(N, dtype=np.float32)
     for i in prange(N):
         dA, db, dk = _cr_sensitivities_at_t0(hat_t[i], A[i], b[i], k[i], m)
-        out[i] = (dA*dA)*(sd_A[i]**2) + (db*db)*(sd_b[i]**2) + (dk*dk)*(sd_k[i]**2)
+        var = (dA*dA)*(sd_A[i]**2) + (db*db)*(sd_b[i]**2) + (dk*dk)*(sd_k[i]**2)
+        cov = (2.0*dA*db*rho_Ab[i]*sd_A[i]*sd_b[i]
+               + 2.0*dA*dk*rho_Ak[i]*sd_A[i]*sd_k[i]
+               + 2.0*db*dk*rho_bk[i]*sd_b[i]*sd_k[i])
+        total = var + cov
+        if total < 0.0:
+            total = 0.0
+        out[i] = total
     return out
 
 
@@ -127,6 +142,7 @@ def _newton_solver_tspace(
     m, max_iter, tol, damping,
     robust_delta_frac, sigma_eff_floor_frac,
     use_adaptive_variance, sd_A, sd_b, sd_k,
+    rho_Ab, rho_Ak, rho_bk,
     bound_fallback_eps
 ):
     N = hat_t.size
@@ -155,7 +171,13 @@ def _newton_solver_tspace(
             # Param uncertainty
             if do_adapt:
                 dA, dbs, dk_ = _cr_sensitivities_at_t0(ti, A[i], b[i], k[i], m)
-                sigma_param2_i = (dA*dA)*(sd_A[i]**2) + (dbs*dbs)*(sd_b[i]**2) + (dk_*dk_)*(sd_k[i]**2)
+                var_i = (dA*dA)*(sd_A[i]**2) + (dbs*dbs)*(sd_b[i]**2) + (dk_*dk_)*(sd_k[i]**2)
+                cov_i = (2.0*dA*dbs*rho_Ab[i]*sd_A[i]*sd_b[i]
+                         + 2.0*dA*dk_*rho_Ak[i]*sd_A[i]*sd_k[i]
+                         + 2.0*dbs*dk_*rho_bk[i]*sd_b[i]*sd_k[i])
+                sigma_param2_i = var_i + cov_i
+                if sigma_param2_i < 0.0:
+                    sigma_param2_i = 0.0
             else:
                 sigma_param2_i = sigma_param2[i]
 
@@ -228,6 +250,7 @@ def _newton_solver_softplus(
     m, max_iter, tol, damping,
     robust_delta_frac, sigma_eff_floor_frac,
     use_adaptive_variance, sd_A, sd_b, sd_k,
+    rho_Ab, rho_Ak, rho_bk,
     bound_fallback_eps
 ):
     """
@@ -271,6 +294,11 @@ def _newton_solver_softplus(
             ti    = TSD[i] + sp
             if ti > tmax[i]:
                 ti = tmax[i]
+                # t is pinned at tmax regardless of s beyond this point,
+                # so dt/ds is actually 0 here -- using the unclipped
+                # softplus derivative would tell the optimizer that
+                # increasing s still moves t, which is false.
+                dt_ds = 0.0
 
             Bi   = _cr_forward(ti, A[i], b[i], k[i], m)
             diff = Bi - B_target
@@ -279,7 +307,13 @@ def _newton_solver_softplus(
             # Param variance
             if do_adapt:
                 dA, dbs, dk_ = _cr_sensitivities_at_t0(ti, A[i], b[i], k[i], m)
-                sigma_param2_i = (dA*dA)*(sd_A[i]**2) + (dbs*dbs)*(sd_b[i]**2) + (dk_*dk_)*(sd_k[i]**2)
+                var_i = (dA*dA)*(sd_A[i]**2) + (dbs*dbs)*(sd_b[i]**2) + (dk_*dk_)*(sd_k[i]**2)
+                cov_i = (2.0*dA*dbs*rho_Ab[i]*sd_A[i]*sd_b[i]
+                         + 2.0*dA*dk_*rho_Ak[i]*sd_A[i]*sd_k[i]
+                         + 2.0*dbs*dk_*rho_bk[i]*sd_b[i]*sd_k[i])
+                sigma_param2_i = var_i + cov_i
+                if sigma_param2_i < 0.0:
+                    sigma_param2_i = 0.0
             else:
                 sigma_param2_i = sigma_param2[i]
 
@@ -349,6 +383,17 @@ class AgeBiasCorrector:
     - TSD and tmax are *hard bounds only* (no shrinkage toward TSD).
     - If the MAP sticks to TSD, we fall back to the bounded ML age
       to avoid artificial spikes at the lower bound.
+
+    Parameter-uncertainty propagation (rho_Ab, rho_Ak, rho_bk):
+    A, b, k are fit jointly by the same nonlinear regression (Robinson
+    et al.) and are generally correlated -- treating them as independent
+    (rho=0) is an approximation, not a neutral default. The source cube
+    (CR_growth_curve_params_1km) only ships marginal standard errors
+    (A_error/b_error/k_error), no covariance/correlation terms, so
+    rho_Ab/rho_Ak/rho_bk default to 0.0 here purely for lack of data.
+    Pass real correlation coefficients (scalar or per-pixel array) if/when
+    a covariance matrix becomes available (e.g. by refitting the curves
+    with a nonlinear least-squares routine that reports one).
     """
 
     def __init__(
@@ -358,6 +403,7 @@ class AgeBiasCorrector:
         robust_delta_frac=0.05,
         sigma_eff_floor_frac=0.15,
         bound_fallback_eps=0.5,   # <= this near TSD → revert to ML
+        rho_Ab=0.0, rho_Ak=0.0, rho_bk=0.0,
     ):
         self.A    = A.astype(np.float32).reshape(-1)
         self.b    = b.astype(np.float32).reshape(-1)
@@ -371,11 +417,17 @@ class AgeBiasCorrector:
         self.sigma_eff_floor_frac = np.float32(sigma_eff_floor_frac)
         self.bound_fallback_eps = np.float32(bound_fallback_eps)
 
+        n = self.A.size
+        self.rho_Ab = np.broadcast_to(np.float32(rho_Ab), (n,)).astype(np.float32).copy()
+        self.rho_Ak = np.broadcast_to(np.float32(rho_Ak), (n,)).astype(np.float32).copy()
+        self.rho_bk = np.broadcast_to(np.float32(rho_bk), (n,)).astype(np.float32).copy()
+
     def precompute_sigma_param2(self, hat_t):
         hat_t = hat_t.astype(np.float32).reshape(-1)
         return _precompute_sigma_param2(
             self.A, self.b, self.k,
             self.sd_A, self.sd_b, self.sd_k,
+            self.rho_Ab, self.rho_Ak, self.rho_bk,
             hat_t, self.m
         )
 
@@ -410,6 +462,7 @@ class AgeBiasCorrector:
                 self.m, max_iter, tol, damping,
                 self.robust_delta_frac, self.sigma_eff_floor_frac,
                 adaptive_variance, self.sd_A, self.sd_b, self.sd_k,
+                self.rho_Ab, self.rho_Ak, self.rho_bk,
                 self.bound_fallback_eps
             )
         else:
@@ -420,23 +473,6 @@ class AgeBiasCorrector:
                 self.m, max_iter, tol, damping,
                 self.robust_delta_frac, self.sigma_eff_floor_frac,
                 adaptive_variance, self.sd_A, self.sd_b, self.sd_k,
+                self.rho_Ab, self.rho_Ak, self.rho_bk,
                 self.bound_fallback_eps
             )
-
-    def diagnostic_summary(self, hat_t, t_corrected, B_obs):
-        hat_t = hat_t.reshape(-1)
-        t_corrected = t_corrected.reshape(-1)
-        B_obs = B_obs.reshape(-1)
-
-        delta = t_corrected - hat_t
-        B_pred = np.empty_like(t_corrected, dtype=np.float32)
-        for i in range(len(t_corrected)):
-            B_pred[i] = _cr_forward(t_corrected[i], self.A[i], self.b[i], self.k[i], self.m)
-        rmse = np.sqrt(np.mean((B_pred - B_obs)**2))
-
-        print("=== Bias Correction Summary ===")
-        print(f"Mean correction:   {np.mean(delta):+.2f} years")
-        print(f"Median correction: {np.median(delta):+.2f} years")
-        print(f"Std correction:    {np.std(delta):.2f} years")
-        print(f"Max |correction|:  {np.max(np.abs(delta)):.2f} years")
-        print(f"Biomass fit RMSE:  {rmse:.3f}")

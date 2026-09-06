@@ -26,32 +26,39 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "xarray==2023.10.1",
-    "zarr==2.10.3",
-    "numcodecs<0.16",
-    "rioxarray",
+    # --- Array / cube stack ---
+    "zarr>=2.18,<3",
+    "numcodecs>=0.10,<0.16,!=0.14.0,!=0.14.1",
+    "xarray>=2023.10.1",
     "netCDF4",
     "dask",
+    "pandas",
+    "fsspec",
+    "aiohttp",
+    "numpy>=1.26,<2",
+    # --- ML ---
     "scikit-learn",
     "Boruta",
-    "numpy==1.26.4",
     "optuna",
-    "PyYAML",
-    "matplotlib",
-    "bottleneck",
-    "rasterio",
-    "xgboost==1.7.2",
-    "torch",
+    "xgboost>=3.4.1",
     "shap",
-    'tqdm',
-    "dask_jobqueue",
+    "numba",
+    "sklearn-genetic-opt",
+    "statsmodels",
+    "pymc",
+    # --- Geospatial ---
+    "rioxarray",
+    "rasterio",
     "cartopy",
     "shapely",
     "geopandas",
     "scipy",
-    "sklearn-genetic-opt",
-    "statsmodels",
-    "pymc"
+    # --- Utilities ---
+    "PyYAML",
+    "matplotlib",
+    "bottleneck",
+    "tqdm",
+    "dask_jobqueue",
 ]
 
 [project.urls]
@@ -61,11 +68,9 @@ tracker = "https://github.com/simonbesnard1/forest-age-upscale/issues"
 
 [project.optional-dependencies]
 accel = [
-    "bottleneck",
     "numbagg",
     "flox",
     "opt_einsum",
-    "numba",
     "cython"
 ]
 dev = [
@@ -78,25 +83,27 @@ dev = [
     "pytest-xdist",
     "pytest-timeout",
     "ruff",
-    "ageUpscaling[complete]",
+    "ageUpscaling[full]",
     "black",
     "isort"
 ]
 io = [
+    # zarr, fsspec, netCDF4, rasterio are core dependencies now; this
+    # extra is for additional/optional I/O backends only.
     "boto3",
-    "netCDF4",
     "h5netcdf",
     'pydap; python_version<"3.10"',
-    "zarr",
-    "fsspec",
     "cftime",
     "pooch",
-    "rasterio",
     "pyproj"
 ]
+plotting = [
+    "pystac",
+    "pystac-client",
+    "planetary-computer",
+    "odc-stac"
+]
 viz = [
-    "cartopy",
-    "matplotlib",
     "seaborn",
     "nc-time-axis",
     "plotly",
@@ -108,7 +115,7 @@ debug = [
 ]
 
 full = [
-    "ageUpscaling[accel,io,viz,debug]"
+    "ageUpscaling[accel,io,plotting,viz,debug]"
 ]
 
 [tool.mypy]

@@ -22,6 +22,7 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 optuna.logging.set_verbosity(optuna.logging.INFO)
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
+from ageUpscaling.utils.oversampling import quantile_bins, stratified_oversample_extra_indices
 
 
 class XGBoost:
@@ -201,32 +202,34 @@ class XGBoost:
         elif self.method == "XGBoostClassifier":
             hyper_params['objective'] = "binary:logistic"
             hyper_params['eval_metric'] = "logloss"
-            hyper_params['scale_pos_weight'] = len(train_data['target'][train_data['target']]==0) / len(train_data['target'][train_data['target']]==1)
+            hyper_params['scale_pos_weight'] = np.sum(train_data['target'] == 0) / np.sum(train_data['target'] == 1)
             pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-logloss")
 
         dtrain = xgb.DMatrix(train_data['features'], label=train_data['target'])
         
         if oversampling and self.method == "XGBoostRegressor":
-            
-            age_classes, current_points = np.unique(np.round(train_data['target'], -1), return_counts=True)
-            desired_points_per_class = np.nanmax(current_points)
-            
-            Y_sample = []
-            X_sample = []
-            for a, b in zip(age_classes, current_points):
-                
-                required_samples = desired_points_per_class - b
-                
-                if required_samples > 0:
-                    idx_ =  np.where(np.round(train_data['target'], -1) == a)[0]   
-                    idx_sample = np.random.choice(idx_, required_samples)
-                    Y_sample.append(train_data['target'][idx_sample]), 
-                    X_sample.append(train_data['features'][idx_sample])
-                    
-            Y_sample = np.concatenate(Y_sample)
-            X_sample = np.concatenate(X_sample)
-            dtrain = xgb.DMatrix(np.concatenate([train_data['features'], X_sample]), 
-                                  label=np.concatenate([train_data['target'], Y_sample]))
+
+            # Joint age x biomass stratified oversampling (see
+            # RandomForest.py hp_search for the rationale).
+            age_bin = np.round(train_data['target'], -1)
+            biomass_bin = quantile_bins(train_data['biomass'], n_bins=DataConfig.get('oversample_biomass_bins', 4))
+            extra_idx = stratified_oversample_extra_indices(age_bin, biomass_bin, max_multiple=DataConfig.get('oversample_max_multiple', 10.0))
+
+            dtrain = xgb.DMatrix(np.concatenate([train_data['features'], train_data['features'][extra_idx]]),
+                                  label=np.concatenate([train_data['target'], train_data['target'][extra_idx]]))
+
+        elif oversampling and self.method == "XGBoostClassifier":
+
+            # Biomass-stratified oversampling of the old-growth class (see
+            # RandomForest.py hp_search for the rationale). Complements
+            # scale_pos_weight, which only equalises overall 0/1 counts and
+            # does nothing about the positive class itself being almost all
+            # high biomass.
+            biomass_bin = quantile_bins(train_data['biomass'], n_bins=DataConfig.get('oversample_biomass_bins', 4))
+            extra_idx = stratified_oversample_extra_indices(train_data['target'], biomass_bin, max_multiple=DataConfig.get('oversample_max_multiple', 10.0))
+
+            dtrain = xgb.DMatrix(np.concatenate([train_data['features'], train_data['features'][extra_idx]]),
+                                  label=np.concatenate([train_data['target'], train_data['target'][extra_idx]]))
 
         deval = xgb.DMatrix(val_data['features'], label = val_data['target'])
         vallist = [(dtrain, 'train'), (deval, 'eval')]
@@ -238,30 +241,32 @@ class XGBoost:
             training_params['num_boost_round'] = first_model.best_ntree_limit
             training_params['early_stopping_rounds'] = None 
             
+            combined_features = np.concatenate([train_data['features'], val_data['features']])
+            combined_target = np.concatenate([train_data['target'], val_data['target']])
+
             if oversampling and self.method == "XGBoostRegressor":
-                
-                age_classes, current_points = np.unique(np.round(np.concatenate([train_data['target'], val_data['target']]), -1), return_counts=True)
-                desired_points_per_class = np.nanmax(current_points)
-                
-                Y_sample = []
-                X_sample = []
-                for a, b in zip(age_classes, current_points):
-                    
-                    required_samples = desired_points_per_class - b
-                    
-                    if required_samples > 0:
-                        idx_ =  np.where(np.round(np.concatenate([train_data['target'], val_data['target']]), -1) == a)[0]   
-                        idx_sample = np.random.choice(idx_, required_samples)
-                        Y_sample.append(np.concatenate([train_data['target'], val_data['target']])[idx_sample]), 
-                        X_sample.append(np.concatenate([train_data['features'], val_data['features']])[idx_sample])
-                        
-                Y_sample = np.concatenate(Y_sample)
-                X_sample = np.concatenate(X_sample)
-                dtrain = xgb.DMatrix(np.concatenate([train_data['features'], val_data['features'], X_sample]), 
-                                     label = np.concatenate([train_data['target'], val_data['target'], Y_sample]))
+
+                age_bin = np.round(combined_target, -1)
+                biomass_bin = quantile_bins(
+                    np.concatenate([train_data['biomass'], val_data['biomass']]),
+                    n_bins=DataConfig.get('oversample_biomass_bins', 4)
+                )
+                extra_idx = stratified_oversample_extra_indices(age_bin, biomass_bin, max_multiple=DataConfig.get('oversample_max_multiple', 10.0))
+                dtrain = xgb.DMatrix(np.concatenate([combined_features, combined_features[extra_idx]]),
+                                     label = np.concatenate([combined_target, combined_target[extra_idx]]))
+
+            elif oversampling and self.method == "XGBoostClassifier":
+
+                biomass_bin = quantile_bins(
+                    np.concatenate([train_data['biomass'], val_data['biomass']]),
+                    n_bins=DataConfig.get('oversample_biomass_bins', 4)
+                )
+                extra_idx = stratified_oversample_extra_indices(combined_target, biomass_bin, max_multiple=DataConfig.get('oversample_max_multiple', 10.0))
+                dtrain = xgb.DMatrix(np.concatenate([combined_features, combined_features[extra_idx]]),
+                                     label = np.concatenate([combined_target, combined_target[extra_idx]]))
+
             else:
-                dtrain = xgb.DMatrix(np.concatenate([train_data['features'], val_data['features']]), 
-                                     label = np.concatenate([train_data['target'], val_data['target']]))
+                dtrain = xgb.DMatrix(combined_features, label = combined_target)
                  
             model_ = xgb.train(hyper_params, dtrain, **training_params) 
         

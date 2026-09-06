@@ -201,7 +201,8 @@ for run_ in range(upscaling_config['num_members']):
         "end_year": int(DataConfig['end_year'].split('-')[0])
     })
 
-    corrected_pred_age_start, corrected_pred_age_end, R_severity = fusion.fuse(
+    (corrected_pred_age_start, corrected_pred_age_end, R_severity,
+     provenance_start, provenance_end, extrapolation_start, extrapolation_end) = fusion.fuse(
         ML_pred_age_start = ML_pred_age_start, ML_pred_age_end = ML_pred_age_end,
         LTSD = subset_LastTimeSinceDist.values.reshape(-1),
         biomass_start = biomass_start, biomass_end = biomass_end,

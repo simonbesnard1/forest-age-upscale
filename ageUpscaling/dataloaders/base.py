@@ -153,23 +153,36 @@ class MLData(ABC):
         """
         Get features and target arrays from the dataset.
 
+        Also fetches the raw biomass ('agb') array alongside features/target,
+        independent of whether biomass was itself selected as a model
+        feature. This is used for joint age x biomass stratified
+        oversampling (see RandomForest/XGBoost/MLP hp_search), which needs a
+        stable biomass signal regardless of what feature selection picked
+        for a given run.
+
         Returns
         -------
         dict
-            A dictionary containing the features and target arrays as well as the normalization statistics.
+            A dictionary containing the features, target and biomass arrays
+            as well as the normalization statistics.
         """
-        
-        Y = self.get_y(target=self.target, 
-                            method = self.method, 
+
+        Y = self.get_y(target=self.target,
+                            method = self.method,
                             max_forest_age =self.DataConfig['max_forest_age'][0]).reshape(-1)
-        
+
         X = self.get_x(method = self.method, features= self.features).reshape(-1, len(self.features))
-                    
-        mask_nan = (np.all(np.isfinite(X), axis=1)) & (np.isfinite(Y))
-        
-        X, Y = X[mask_nan, :], Y[mask_nan] 
-        
-        return {'features' : X.astype('float16'), "target": Y.astype('int16'), 'norm_stats': self.norm_stats}
+
+        biomass_var = self.DataConfig.get('oversample_biomass_var', 'agb')
+        B = xr.open_dataset(self.DataConfig['training_dataset']).sel(cluster=self.subset)[biomass_var]
+        B = B.values.reshape(-1)
+
+        mask_nan = (np.all(np.isfinite(X), axis=1)) & (np.isfinite(Y)) & (np.isfinite(B))
+
+        X, Y, B = X[mask_nan, :], Y[mask_nan], B[mask_nan]
+
+        return {'features' : X.astype('float16'), "target": Y.astype('int16'),
+                'biomass': B.astype('float32'), 'norm_stats': self.norm_stats}
     
     def norm(self, 
              x: xr.Dataset, 

@@ -20,6 +20,7 @@ from sklearn.neural_network import MLPRegressor, MLPClassifier
 import optuna
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
+from ageUpscaling.utils.oversampling import quantile_bins, stratified_oversample_extra_indices
 
 class MLPmethod:
     """A method class for training and evaluating an MLP model.
@@ -213,27 +214,30 @@ class MLPmethod:
                                    random_state=1)
         
         if oversampling and self.method == "MLPRegressor":
-            
-            age_classes, current_points = np.unique(np.round(train_data['target'], -1), return_counts=True)
-            desired_points_per_class = np.nanmax(current_points)
-            
-            Y_sample = []
-            X_sample = []
-            for a, b in zip(age_classes, current_points):
-                
-                required_samples = desired_points_per_class - b
-                
-                if required_samples > 0:
-                    idx_ =  np.where(np.round(train_data['target'], -1) == a)[0]   
-                    idx_sample = np.random.choice(idx_, required_samples)
-                    Y_sample.append(train_data['target'][idx_sample]), 
-                    X_sample.append(train_data['features'][idx_sample])
-                    
-            Y_sample = np.concatenate(Y_sample)
-            X_sample = np.concatenate(X_sample)
-            model_.fit(np.concatenate([train_data['features'], X_sample]) , np.concatenate([train_data['target'], Y_sample]))
-         
-        else: 
+
+            # Joint age x biomass stratified oversampling (see RandomForest.py
+            # hp_search for the rationale): age-only bins still let one
+            # biomass sub-population dominate a given age bin.
+            age_bin = np.round(train_data['target'], -1)
+            biomass_bin = quantile_bins(train_data['biomass'], n_bins=DataConfig.get('oversample_biomass_bins', 4))
+            extra_idx = stratified_oversample_extra_indices(age_bin, biomass_bin, max_multiple=DataConfig.get('oversample_max_multiple', 10.0))
+
+            X_fit = np.concatenate([train_data['features'], train_data['features'][extra_idx]])
+            Y_fit = np.concatenate([train_data['target'], train_data['target'][extra_idx]])
+            model_.fit(X_fit, Y_fit)
+
+        elif oversampling and self.method == "MLPClassifier":
+
+            # Biomass-stratified oversampling of the old-growth class (see
+            # RandomForest.py hp_search for the rationale).
+            biomass_bin = quantile_bins(train_data['biomass'], n_bins=DataConfig.get('oversample_biomass_bins', 4))
+            extra_idx = stratified_oversample_extra_indices(train_data['target'], biomass_bin, max_multiple=DataConfig.get('oversample_max_multiple', 10.0))
+
+            X_fit = np.concatenate([train_data['features'], train_data['features'][extra_idx]])
+            Y_fit = np.concatenate([train_data['target'], train_data['target'][extra_idx]])
+            model_.fit(X_fit, Y_fit)
+
+        else:
             model_.fit(train_data['features'], train_data['target'])
              
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
@@ -274,23 +278,3 @@ class MLPmethod:
                 preds["{out_var}_pred".format(out_var = out_var)] = xr.DataArray([y_hat], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
                 preds["{out_var}_obs".format(out_var = out_var)] = xr.DataArray([Y_cluster[mask_nan]], coords = {'cluster': [self.mldata.test_subset[cluster_]], 'sample': np.arange(len(y_hat))})
                 save_cube.CubeWriter(preds.transpose('sample', 'cluster'))
-   
-    def denorm_target(self, 
-                      x: np.array) -> np.array:
-        """
-        Returns de-normalized target. 
-        
-        The last dimension of `x` must match the length of `self.target_norm_stats`.
-        
-        Parameters:
-            x: np.array
-                The array to de-normalize.
-        
-        Returns:
-            np.array: The de-normalized array.
-        """
-        
-        return x * self.mldata.norm_stats[self.DataConfig['target'][0]]['std'] + self.mldata.norm_stats[self.DataConfig['target'][0]]['mean']
-                
-
-    

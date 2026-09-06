@@ -21,6 +21,7 @@ from sklearn.ensemble import RandomForestClassifier
 import optuna
 
 from ageUpscaling.dataloaders.ml_dataloader import MLDataModule
+from ageUpscaling.utils.oversampling import quantile_bins, stratified_oversample_extra_indices
 
 class RandomForest:
     """A method class for training and evaluating an RandomForest model.
@@ -178,27 +179,35 @@ class RandomForest:
             model_ = RandomForestClassifier(**hyper_params, class_weight = "balanced", n_jobs=10, oob_score=True)
           
         if oversampling and self.method == "RandomForestRegressor":
-            
-           age_classes, current_points = np.unique(np.round(train_data['target'], -1), return_counts=True)
-           desired_points_per_class = np.nanmax(current_points)
-           
-           Y_sample = []
-           X_sample = []
-           for a, b in zip(age_classes, current_points):
-               
-               required_samples = desired_points_per_class - b
-               
-               if required_samples > 0:
-                   idx_ =  np.where(np.round(train_data['target'], -1) == a)[0]   
-                   idx_sample = np.random.choice(idx_, required_samples)
-                   Y_sample.append(train_data['target'][idx_sample]), 
-                   X_sample.append(train_data['features'][idx_sample])
-                   
-           Y_sample = np.concatenate(Y_sample)
-           X_sample = np.concatenate(X_sample)
-           model_.fit(np.concatenate([train_data['features'], X_sample]) , np.concatenate([train_data['target'], Y_sample]))
-        
-        else: 
+
+           # Joint age x biomass stratified oversampling: balancing on age
+           # alone still lets one biomass sub-population dominate a given
+           # age bin, since the reference data is naturally skewed towards
+           # high-biomass examples at most ages. Binning on both keeps rare
+           # low-biomass-at-a-given-age examples from being drowned out.
+           age_bin = np.round(train_data['target'], -1)
+           biomass_bin = quantile_bins(train_data['biomass'], n_bins=DataConfig.get('oversample_biomass_bins', 4))
+           extra_idx = stratified_oversample_extra_indices(age_bin, biomass_bin, max_multiple=DataConfig.get('oversample_max_multiple', 10.0))
+
+           X_fit = np.concatenate([train_data['features'], train_data['features'][extra_idx]])
+           Y_fit = np.concatenate([train_data['target'], train_data['target'][extra_idx]])
+           model_.fit(X_fit, Y_fit)
+
+        elif oversampling and self.method == "RandomForestClassifier":
+
+           # Biomass-stratified oversampling of the (rare) old-growth class:
+           # class_weight="balanced" only equalises 0/1 counts, it does
+           # nothing about the old-growth class itself being almost all
+           # high biomass. Stratifying by (label, biomass bin) oversamples
+           # the sparse low-biomass old-growth examples specifically.
+           biomass_bin = quantile_bins(train_data['biomass'], n_bins=DataConfig.get('oversample_biomass_bins', 4))
+           extra_idx = stratified_oversample_extra_indices(train_data['target'], biomass_bin, max_multiple=DataConfig.get('oversample_max_multiple', 10.0))
+
+           X_fit = np.concatenate([train_data['features'], train_data['features'][extra_idx]])
+           Y_fit = np.concatenate([train_data['target'], train_data['target'][extra_idx]])
+           model_.fit(X_fit, Y_fit)
+
+        else:
            model_.fit(train_data['features'], train_data['target'])
         
         with open(tune_dir + "/trial_model/model_trial_{id_}.pickle".format(id_ = trial.number), "wb") as fout:
