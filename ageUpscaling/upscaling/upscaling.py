@@ -645,8 +645,27 @@ class UpscaleAge(ABC):
         """Train the model and generate high resolution maps of age using the trained model.
         """
         
-        cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
-        train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
+        training_ds = xr.open_dataset(self.DataConfig['training_dataset'])
+        cluster_ = training_ds.cluster.values
+
+        # Weak-labelled clusters (dev/augment_og300_weaklabels.py) are kept
+        # out of the train/valid split: they always go to training, so the
+        # hyperparameter objective is scored on field-reference clusters
+        # only, and the split of the real clusters is identical with or
+        # without augmentation (given split_random_seed). That makes a
+        # with/without weak-label ablation a clean single-factor comparison.
+        if 'weak_label_source' in training_ds:
+            is_weak = (training_ds['weak_label_source'].astype(str) != '').any('sample').values
+        else:
+            is_weak = np.zeros(len(cluster_), dtype=bool)
+
+        train_subset, valid_subset = train_test_split(cluster_[~is_weak],
+                                                      test_size=self.DataConfig['valid_fraction'],
+                                                      shuffle=True,
+                                                      random_state=self.DataConfig.get('split_random_seed'))
+        train_subset = np.concatenate([train_subset, cluster_[is_weak]])
+        print(f"Training clusters: {len(train_subset)} ({is_weak.sum()} weak-labelled), "
+              f"validation clusters: {len(valid_subset)}")
         
         for run_ in tqdm(np.arange(self.upscaling_config['num_members']), desc='Training model members'):
             
