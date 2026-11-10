@@ -132,8 +132,12 @@ class ExtrapolationIndex(ABC):
         dict[str, float]
             Feature name -> normalised importance weight.
         """
-        explainer = shap.TreeExplainer(model)
-        shap_values = explainer.shap_values(X)
+        import xgboost as xgb
+        if isinstance(model, xgb.Booster):
+            shap_values = model.predict(xgb.DMatrix(np.asarray(X)), pred_contribs=True)[:, :-1]
+        else:
+            explainer = shap.TreeExplainer(model)
+            shap_values = explainer.shap_values(X)
         importance = np.mean(np.abs(shap_values), axis=0)
         total = importance.sum()
         weights = importance / total if total > 0 else np.ones_like(importance) / len(importance)

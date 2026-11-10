@@ -18,6 +18,7 @@ import xarray as xr
 import xgboost as xgb
 
 import optuna
+from optuna_integration import XGBoostPruningCallback
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 optuna.logging.set_verbosity(optuna.logging.INFO)
 
@@ -197,13 +198,13 @@ class XGBoost:
         if self.method == "XGBoostRegressor":
             hyper_params['objective'] = "reg:pseudohubererror"
             hyper_params['eval_metric'] = "mphe"      
-            pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-mphe")
+            pruning_callback = XGBoostPruningCallback(trial, "eval-mphe")
 
         elif self.method == "XGBoostClassifier":
             hyper_params['objective'] = "binary:logistic"
             hyper_params['eval_metric'] = "logloss"
             hyper_params['scale_pos_weight'] = np.sum(train_data['target'] == 0) / np.sum(train_data['target'] == 1)
-            pruning_callback = optuna.integration.XGBoostPruningCallback(trial, "eval-logloss")
+            pruning_callback = XGBoostPruningCallback(trial, "eval-logloss")
 
         dtrain = xgb.DMatrix(train_data['features'], label=train_data['target'])
         

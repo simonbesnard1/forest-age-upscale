@@ -29,7 +29,7 @@ dependencies = [
     # --- Array / cube stack ---
     "zarr>=2.18,<3",
     "numcodecs>=0.10,<0.16,!=0.14.0,!=0.14.1",
-    "xarray>=2023.10.1",
+    "xarray>=2023.10.1,<2026.9",   # 2026.9 requires zarr>=3; this code relies on zarr-2 synchronizers
     "netCDF4",
     "dask",
     "pandas",
