@@ -238,7 +238,7 @@ class XGBoost:
                            verbose_eval=False, **training_params)
 
         if retrain_with_valid:
-            training_params['num_boost_round'] = first_model.best_ntree_limit
+            training_params['num_boost_round'] = first_model.best_iteration + 1
             training_params['early_stopping_rounds'] = None 
             
             combined_features = np.concatenate([train_data['features'], val_data['features']])
