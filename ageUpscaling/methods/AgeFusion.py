@@ -80,6 +80,7 @@ class AgeFusion:
     PROVENANCE_OLD_GROWTH = 1      # Landsat-corroborated old-growth sentinel
     PROVENANCE_ML_REGRESSOR = 2    # ML regressor + CR bias correction (no direct Landsat evidence)
     PROVENANCE_BACK_PROJECTED = 3  # start year derived by offsetting the (valid) end-year fused age
+    PROVENANCE_DISTURBANCE_MIXED = 4  # uncertain reset: mixture of LTSD-reset and retained-stand hypotheses
     PROVENANCE_NO_DATA = -1        # pixel invalid/no data (fused age itself is NaN)
 
     def __init__(self, config):
@@ -99,12 +100,25 @@ class AgeFusion:
             does. A 50-year disturbance-free Landsat record is strong
             independent evidence, so less is asked of the classifier for
             those pixels rather than requiring it to independently clear 0.5.
+          - replacement_probability_min/max: lower/upper bounds for the
+            probability that a detected Landsat event reset stand age.
+          - replacement_z_midpoint/slope: logistic mapping from positive
+            LTSD biomass-mismatch z-score to replacement probability.
+          - replacement_direct_threshold: probability above which provenance
+            remains LTSD_DIRECT; lower values are DISTURBANCE_MIXED.
+          - ml_sigma_floor: minimum global-model age uncertainty in years.
         """
         self.config = dict(config) if config is not None else {}
         self.m_fixed = float(self.config.get("m_fixed", 0.67))
         self.units_scale = float(self.config.get("units_scale", 0.47))
         self.old_growth_value = int(self.config.get("old_growth_value", 300))
         self.og_proba_threshold = float(self.config.get("og_proba_threshold", 0.3))
+        self.replacement_probability_min = float(self.config.get("replacement_probability_min", 0.05))
+        self.replacement_probability_max = float(self.config.get("replacement_probability_max", 0.95))
+        self.replacement_z_midpoint = float(self.config.get("replacement_z_midpoint", 1.0))
+        self.replacement_z_slope = float(self.config.get("replacement_z_slope", 3.0))
+        self.replacement_direct_threshold = float(self.config.get("replacement_direct_threshold", 0.8))
+        self.ml_sigma_floor = float(self.config.get("ml_sigma_floor", 5.0))
 
     @staticmethod
     def _as1d(a):
@@ -150,7 +164,8 @@ class AgeFusion:
         ml_age, biomass,
         cr_params, cr_errors,
         ml_std, biomass_std,
-        TSD, tmax
+        TSD, tmax,
+        apply_ml_sigma_floor=True,
     ):
         """
         Bias-correct ML ages using CR likelihood (Numba Newton MAP).
@@ -171,6 +186,13 @@ class AgeFusion:
         sd_A = self._as1d(cr_errors["A"])
         sd_b = self._as1d(cr_errors["b"])
         sd_k = self._as1d(cr_errors["k"])
+
+        # Ensemble agreement is not equivalent to zero predictive error and
+        # a zero value is singular in the MAP objective.
+        if apply_ml_sigma_floor:
+            ml_std = np.maximum(ml_std, self.ml_sigma_floor)
+        else:
+            ml_std = np.maximum(ml_std, 1e-3)
 
         valid = (
             np.isfinite(ml_age) & np.isfinite(ml_std) &
@@ -207,6 +229,35 @@ class AgeFusion:
 
         corrected[valid] = t_map
         return corrected
+
+    def stand_replacement_probability(self, severity_z, disturbance_mask):
+        """Convert LTSD/biomass consistency into P(stand replacement).
+
+        A positive severity z means that more biomass remains than expected
+        for a stand established at the Landsat event date.  It is therefore
+        evidence for a partial event, and replacement probability decreases
+        monotonically with positive z.  Negative z is capped at zero because
+        low biomass alone cannot make the event more certain than the
+        configured maximum.
+        """
+        z = self._as1d(severity_z).astype(float)
+        disturbance_mask = self._as1d(disturbance_mask).astype(bool)
+        out = np.full(z.shape, np.nan, dtype=np.float32)
+
+        finite = disturbance_mask & np.isfinite(z)
+        z_positive = np.maximum(z[finite], 0.0)
+        exponent = np.clip(
+            self.replacement_z_slope * (z_positive - self.replacement_z_midpoint),
+            -60.0, 60.0,
+        )
+        logistic = 1.0 / (1.0 + np.exp(exponent))
+        span = self.replacement_probability_max - self.replacement_probability_min
+        out[finite] = self.replacement_probability_min + span * logistic
+
+        # With no biomass/CR evidence, retain the direct Landsat hypothesis.
+        missing = disturbance_mask & ~np.isfinite(z)
+        out[missing] = self.replacement_probability_max
+        return out
 
     def fuse(
         self,
@@ -472,6 +523,9 @@ class AgeFusion:
             both False).
         extrapolation : np.ndarray (float32)
             0-1 trust signal matching `provenance` (see `fuse`).
+        replacement_probability : np.ndarray (float32)
+            Probability that a detected Landsat event was stand replacing;
+            NaN where there is no directly dated event.
         """
         ML_pred_age = np.maximum(self._as1d(ML_pred_age), self._as1d(TSD))
         LTSD_year = self._as1d(LTSD_year)
@@ -482,7 +536,7 @@ class AgeFusion:
         TSD_eff = np.maximum(TSD, ltsd_floor)
 
         z_suspicious = 2.0
-        LTSD_eff, severity_z, sigma_ltsd = self.adjust_ltsd_with_severity(
+        LTSD_eff, severity_z, _ = self.adjust_ltsd_with_severity(
             LTSD=LTSD_year, biomass_end=biomass, biomass_std_end=biomass_std,
             cr_params=cr_params, cr_errors=cr_errors, tmax=tmax,
             m_fixed=self.m_fixed, z_suspicious=z_suspicious,
@@ -492,20 +546,41 @@ class AgeFusion:
         # year is unresolved" -- excluded here (no direct age value to
         # use), and vetoes back-projection explicitly in fuse_multi_year.
         use_ltsd_mask = np.isfinite(LTSD_year) & (LTSD_year >= 1) & (LTSD_year < 50)
-        fused_init = np.where(use_ltsd_mask, LTSD_eff, ML_pred_age)
+        # Evaluate two distinct event hypotheses rather than representing a
+        # potentially bimodal question with one broad LTSD-centred prior:
+        # stand replacement (age anchored at LTSD), and partial disturbance
+        # (pre-existing stand age retained). Both receive the same local CR
+        # calibration; the retained-biomass mismatch controls their weights.
+        # The raster age is their probability-weighted expectation, while the
+        # probability is returned separately so ambiguity is not lost and a
+        # downstream ensemble may sample the two modes if desired.
+        fused_retained = self.correct_ml_age(
+            ML_pred_age, biomass, cr_params, cr_errors, self._as1d(ml_std),
+            biomass_std, TSD_eff, tmax,
+        )
+        missing_retained = np.isnan(fused_retained) & np.isfinite(ML_pred_age)
+        fused_retained[missing_retained] = ML_pred_age[missing_retained]
 
-        # Prior uncertainty: LTSD-direct pixels get the severity-aware LTSD
-        # sigma (widened when biomass disagrees with the disturbance date,
-        # never point-shifted -- see adjust_ltsd_with_severity); ML-regressor
-        # pixels keep the ensemble spread as before.
-        sigma_prior = np.where(use_ltsd_mask, sigma_ltsd, self._as1d(ml_std))
+        ltsd_sigma_base = float(self.config.get("ltsd_sigma_base", 1.0))
+        reset_sigma = np.full(LTSD_year.shape, ltsd_sigma_base, dtype=float)
+        fused_reset = self.correct_ml_age(
+            LTSD_eff, biomass, cr_params, cr_errors, reset_sigma,
+            biomass_std, TSD_eff, tmax, apply_ml_sigma_floor=False,
+        )
+        missing_reset = np.isnan(fused_reset) & use_ltsd_mask
+        fused_reset[missing_reset] = LTSD_eff[missing_reset]
 
-        fused = self.correct_ml_age(fused_init, biomass, cr_params, cr_errors, sigma_prior, biomass_std, TSD_eff, tmax)
-
-        missing_corr = np.isnan(fused) & np.isfinite(ML_pred_age)
-        fused[missing_corr] = ML_pred_age[missing_corr]
-        missing_ml = use_ltsd_mask & np.isnan(ML_pred_age)
-        fused[missing_ml] = fused_init[missing_ml]
+        replacement_probability = self.stand_replacement_probability(
+            severity_z, use_ltsd_mask
+        )
+        fused = fused_retained.copy()
+        both = use_ltsd_mask & np.isfinite(fused_reset) & np.isfinite(fused_retained)
+        fused[both] = (
+            replacement_probability[both] * fused_reset[both]
+            + (1.0 - replacement_probability[both]) * fused_retained[both]
+        )
+        reset_only = use_ltsd_mask & np.isfinite(fused_reset) & ~np.isfinite(fused_retained)
+        fused[reset_only] = fused_reset[reset_only]
 
         if ml_old_growth_proba is not None:
             proba = self._as1d(ml_old_growth_proba)
@@ -520,11 +595,14 @@ class AgeFusion:
 
         provenance = np.full(LTSD_year.shape, self.PROVENANCE_ML_REGRESSOR, dtype=np.int8)
         provenance[use_ltsd_mask] = self.PROVENANCE_LTSD_DIRECT
+        mixed = use_ltsd_mask & (replacement_probability < self.replacement_direct_threshold)
+        provenance[mixed] = self.PROVENANCE_DISTURBANCE_MIXED
         provenance[og] = self.PROVENANCE_OLD_GROWTH
 
         extrapolation = np.full(LTSD_year.shape, np.nan, dtype=np.float32)
-        severity_ei = np.abs(severity_z) / z_suspicious
-        extrapolation[use_ltsd_mask] = np.clip(severity_ei[use_ltsd_mask], 0.0, 1.0)
+        extrapolation[use_ltsd_mask] = np.clip(
+            1.0 - replacement_probability[use_ltsd_mask], 0.0, 1.0
+        )
 
         ml_branch = provenance == self.PROVENANCE_ML_REGRESSOR
         if ml_extrapolation_index is not None:
@@ -539,7 +617,8 @@ class AgeFusion:
         provenance[base_nan] = self.PROVENANCE_NO_DATA
         extrapolation[base_nan] = np.nan
 
-        return fused, use_ltsd_mask, TSD_eff, og, provenance, extrapolation
+        return (fused, use_ltsd_mask, TSD_eff, og, provenance,
+                extrapolation, replacement_probability)
 
     def fuse_multi_year(
         self,
@@ -550,6 +629,7 @@ class AgeFusion:
         TSD, tmax,
         ml_old_growth_proba_by_year=None,
         ml_extrapolation_index_by_year=None,
+        return_replacement_probability=False,
     ):
         """
         Fuse forest age independently for an arbitrary set of calendar
@@ -606,11 +686,15 @@ class AgeFusion:
             Per-year precomputed [0, 1] feature-space dissimilarity index
             (see ExtrapolationIndex), used for the PROVENANCE_ML_REGRESSOR
             branch's extrapolation score. NaN where not supplied.
+        return_replacement_probability : bool, default False
+            Preserve the original three-dictionary return API unless True.
+            When True, append a fourth per-year dictionary containing the
+            stand-replacement probability diagnostic.
 
         Returns
         -------
-        age, provenance, extrapolation : dict[int, np.ndarray]
-            Three dicts (one per output), each keyed by calendar year.
+        age, provenance, extrapolation[, replacement_probability] : dict[int, np.ndarray]
+            Three or four dicts (one per output), each keyed by calendar year.
             `age` is clipped to [1, tmax]; `provenance` is a PROVENANCE_*
             code; `extrapolation` is the matching 0-1 trust score (see
             `fuse`'s docstring for what each mechanism's score means).
@@ -628,7 +712,8 @@ class AgeFusion:
         ei_anchor = (
             ml_extrapolation_index_by_year.get(anchor_year) if ml_extrapolation_index_by_year is not None else None
         )
-        fused_anchor, _, _, _, provenance_anchor, extrapolation_anchor = self._fuse_year_core(
+        (fused_anchor, _, _, _, provenance_anchor, extrapolation_anchor,
+         replacement_probability_anchor) = self._fuse_year_core(
             ML_pred_age=ML_pred_age_by_year[anchor_year],
             LTSD_year=LTSD_by_year[anchor_year],
             biomass=biomass_by_year[anchor_year],
@@ -642,6 +727,7 @@ class AgeFusion:
         age_results = {anchor_year: fused_anchor}
         provenance_results = {anchor_year: provenance_anchor}
         extrapolation_results = {anchor_year: extrapolation_anchor}
+        replacement_probability_results = {anchor_year: replacement_probability_anchor}
 
         for year in years:
             if year == anchor_year:
@@ -656,7 +742,8 @@ class AgeFusion:
             )
 
             (fused_independent, use_ltsd_mask_year, TSD_eff_year, og_year,
-             provenance_independent, extrapolation_independent) = self._fuse_year_core(
+             provenance_independent, extrapolation_independent,
+             replacement_probability_year) = self._fuse_year_core(
                 ML_pred_age=ML_pred_age_by_year[year],
                 LTSD_year=LTSD_by_year[year],
                 biomass=biomass_by_year[year],
@@ -706,7 +793,11 @@ class AgeFusion:
             age_results[year] = fused_year
             provenance_results[year] = provenance_year
             extrapolation_results[year] = extrapolation_year
+            replacement_probability_results[year] = replacement_probability_year
 
+        if return_replacement_probability:
+            return (age_results, provenance_results, extrapolation_results,
+                    replacement_probability_results)
         return age_results, provenance_results, extrapolation_results
 
     def adjust_ltsd_with_severity(
@@ -858,6 +949,3 @@ class AgeFusion:
         sigma_ltsd[mask] = ltsd_sigma_base + ltsd_sigma_severity_scale * frac[mask]
 
         return LTSD_eff, z, sigma_ltsd
-
-
-

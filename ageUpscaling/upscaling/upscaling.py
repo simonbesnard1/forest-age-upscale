@@ -523,12 +523,15 @@ class UpscaleAge(ABC):
                 ML_pred_class_proba_by_year = {y: ML_pred_class_proba_members[y][run_, :] for y in all_years}
                 ML_extrapolation_index_by_year = {y: ML_extrapolation_index_members[y][run_, :] for y in all_years}
 
-                fusion = AgeFusion(config={
+                fusion_config = dict(self.DataConfig.get("age_fusion", {}))
+                fusion_config.update({
                     "start_year": int(self.DataConfig['start_year'].split('-')[0]),
-                    "end_year": int(self.DataConfig['end_year'].split('-')[0])
+                    "end_year": int(self.DataConfig['end_year'].split('-')[0]),
                 })
+                fusion = AgeFusion(config=fusion_config)
 
-                age_by_year, provenance_by_year, extrapolation_by_year = fusion.fuse_multi_year(
+                (age_by_year, provenance_by_year, extrapolation_by_year,
+                 replacement_probability_by_year) = fusion.fuse_multi_year(
                     anchor_year=anchor_year,
                     ML_pred_age_by_year=ML_pred_age_by_year,
                     LTSD_by_year=LTSD_by_year,
@@ -539,6 +542,7 @@ class UpscaleAge(ABC):
                     TSD=TSD, tmax=tmax,
                     ml_old_growth_proba_by_year=ML_pred_class_proba_by_year,
                     ml_extrapolation_index_by_year=ML_extrapolation_index_by_year,
+                    return_replacement_probability=True,
                 )
 
                 out_shape = (len(subset_features_cube.latitude), len(subset_features_cube.longitude), 1, 1)
@@ -552,14 +556,21 @@ class UpscaleAge(ABC):
                                 'members': [run_]},
                         dims=["latitude", "longitude", "time", "members"])
 
-                ds_by_year = [
-                    xr.Dataset({
+                ds_by_year = []
+                for year in all_years:
+                    data_vars = {
                         "forest_age": _to_da(age_by_year[year], year, "float32"),
                         "forest_age_provenance": _to_da(provenance_by_year[year], year, "int8"),
                         "forest_age_extrapolation": _to_da(extrapolation_by_year[year], year, "float32"),
-                    })
-                    for year in all_years
-                ]
+                    }
+                    # Backward-compatible opt-in: existing cube configs need
+                    # no change, while new products can expose the key
+                    # disturbance diagnostic by declaring this variable.
+                    if "stand_replacement_probability" in self.upscaling_config["cube_variables"]:
+                        data_vars["stand_replacement_probability"] = _to_da(
+                            replacement_probability_by_year[year], year, "float32"
+                        )
+                    ds_by_year.append(xr.Dataset(data_vars))
 
                 # Concatenate across years and append the model member
                 ds = xr.concat(ds_by_year, dim='time').transpose('members', 'latitude', 'longitude', 'time')
@@ -637,7 +648,7 @@ class UpscaleAge(ABC):
         cluster_ = xr.open_dataset(self.DataConfig['training_dataset']).cluster.values
         train_subset, valid_subset = train_test_split(cluster_, test_size=self.DataConfig['valid_fraction'], shuffle=True)
         
-        for run_ in tqdm(np.arange(self.upscaling_config['n_members']), desc='Training model members'):
+        for run_ in tqdm(np.arange(self.upscaling_config['num_members']), desc='Training model members'):
             
             for task_ in ["Regressor", "Classifier"]:
                 if not os.path.exists(self.study_dir + "/save_model/best_{method}_run{id_}.pickle".format(method = task_, id_ = run_)):
@@ -859,4 +870,3 @@ class UpscaleAge(ABC):
         """
         
         return (x - norm_stats['mean']) / norm_stats['std']
-
