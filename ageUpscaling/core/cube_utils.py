@@ -95,11 +95,22 @@ class ComputeCube(ABC):
         name, dims, attrs, dtype = IN
         dims = [dim for dim in self.dims_ if dim in dims]
         compressor = Blosc(cname='lz4', clevel=4, shuffle=Blosc.BITSHUFFLE)
-        encoding = {name: {'compressor': compressor} for var in name}
+        # Store with the dtype declared in the cube config. Integer variables
+        # get the type's minimum as _FillValue (so NaN round-trips: xarray
+        # masks it back to NaN on read, and e.g. provenance's own -1 flag
+        # stays distinct); float variables keep NaN as fill.
+        dtype = np.dtype(dtype)
+        encoding = {name: {'compressor': compressor, 'dtype': dtype}}
+        if np.issubdtype(dtype, np.integer):
+            encoding[name]['_FillValue'] = np.iinfo(dtype).min
+            template_dtype = 'float32'
+        else:
+            template_dtype = dtype
         if name not in self.cube.variables:
             xr.DataArray(
                  dask.array.full(shape  = [self.cube.coords[dim].size for dim in dims],
-                                 chunks = [self.chunksizes[dim] for dim in dims], fill_value=np.nan),
+                                 chunks = [self.chunksizes[dim] for dim in dims], fill_value=np.nan,
+                                 dtype  = template_dtype),
                  coords = {dim:self.cube.coords[dim] for dim in dims},
                  dims   = dims,
                  name   = name,
@@ -214,9 +225,19 @@ class ComputeCube(ABC):
             raise ValueError(
                 f"Inconsistent dimensions. Array `{da.name}` to be saved has dimensions of {da.dims}, but target dataset expected {self.cube[da.name].dims if da.name in self.cube else 'unknown'}."
                             )
+        # Raw zarr writes bypass xarray's CF encoding, so convert here: for
+        # integer targets round, and map NaN to the array's fill value
+        # (casting NaN to int directly gives undefined values).
+        data = np.asarray(da.data)
+        if np.issubdtype(_zarr_group.dtype, np.integer) and not np.issubdtype(data.dtype, np.integer):
+            fill = _zarr_group.fill_value if _zarr_group.fill_value is not None else np.iinfo(_zarr_group.dtype).min
+            data = np.where(np.isfinite(data), np.rint(data), fill).astype(_zarr_group.dtype)
+        else:
+            data = data.astype(_zarr_group.dtype, copy=False)
+
         # Attempt to write the data to the Zarr group
         try:
-            _zarr_group.set_orthogonal_selection(alignment_indices, da.data)
+            _zarr_group.set_orthogonal_selection(alignment_indices, data)
         except Exception as e:  # Consider replacing with a more specific exception if known
             raise RuntimeError(f"Failed to write variable to cube: {str(da)}") from e
         
