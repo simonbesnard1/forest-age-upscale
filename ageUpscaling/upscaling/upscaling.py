@@ -115,28 +115,12 @@ class UpscaleAge(ABC):
         
         self.clim_cube  = xr.open_zarr(self.DataConfig['clim_cube'], synchronizer=self.sync_feature)
         self.LastTimeSinceDist_cube = xr.open_zarr(self.DataConfig['LastTimeSinceDist_cube'], synchronizer=self.sync_feature)
-        self.CRparams_cube = xr.open_zarr(self.DataConfig['CRparams_cube'], synchronizer=self.sync_feature)
-        # agb_cube and canopyHeight_cube are read directly from the remote
-        # GFZ object store (see data_config yaml): plain HTTP fetches, so
-        # the local zarr.ProcessSynchronizer (a file-lock for a shared
-        # local store) doesn't apply and is omitted here.
+        cr_names = {'cr_a': 'A', 'cr_b': 'b', 'cr_k': 'k',
+                    'cr_a_error': 'A_error', 'cr_b_error': 'b_error', 'cr_k_error': 'k_error'}
+        self.CRparams_cube = xr.open_zarr(self.DataConfig['CRparams_cube'])[list(cr_names)].rename(cr_names)
         self.agb_cube = xr.open_zarr(self.DataConfig['agb_cube'])
         self.canopyHeight_cube = xr.open_zarr(self.DataConfig['canopy_height_cube'])
-
-        # AGB ensemble members are no longer read from a separately
-        # precomputed cube: they're drawn on the fly per prediction chunk
-        # from agb_cube's own mean/std (see _predict_func), removing what
-        # used to be two sequential steps (precompute member perturbations,
-        # then predict per member) down to one. The seed is derived
-        # per-chunk (see _member_rng) so results stay reproducible across
-        # reruns of the same chunk.
         self.member_random_seed = int(self.DataConfig.get('member_random_seed', 42))
-
-        # Pixel-based model extrapolation index (see ExtrapolationIndex):
-        # fit lazily on first use in _predict_func, not here, since
-        # __init__ also runs for model_training() where no trained model
-        # exists yet to fit it from. Cached afterwards so it's fit once
-        # per process, not once per chunk.
         self.extrapolation_index = None
         self.extrapolation_index_features = None
 
@@ -281,6 +265,33 @@ class UpscaleAge(ABC):
         self.extrapolation_index = ei
         self.extrapolation_index_features = reference_features
 
+    def _snap_to_agb_grid(self, ds, extent, tol=1e-6):
+        """Subset `ds` to `extent` on the exact coordinates of agb_cube.
+
+        LTSD and the CCI AGB store share the same ~100 m grid, but their
+        coordinate values differ by float rounding (~1e-14 deg on some
+        rows), so xr.merge would treat them as different grids (outer join
+        -> extra rows) and the cube writer, which matches coordinates
+        exactly, would miss rows. Everything else (climate, CR params,
+        canopy height, intact-forest mask) is regridded onto the LTSD
+        subset, so snapping it here aligns all inputs with the output cube.
+
+        `ds` is the full (un-subset) cube so rows at the extent boundary
+        cannot fall on different sides of the cut. `tol` (degrees) is far
+        below one pixel: a real grid offset fails loudly instead of being
+        silently shifted.
+        """
+        ref = self.agb_cube.sel(extent)
+        for dim in ("latitude", "longitude"):
+            src, tgt = ds[dim].values, ref[dim].values
+            s = src if src[0] < src[-1] else src[::-1]
+            k = np.clip(np.searchsorted(s, tgt), 1, len(s) - 1)
+            nearest = np.where(np.abs(tgt - s[k - 1]) <= np.abs(s[k] - tgt), s[k - 1], s[k])
+            if np.max(np.abs(nearest - tgt)) > tol:
+                raise ValueError(f"{dim}: LTSD and agb_cube grids differ by more than {tol} deg "
+                                 f"within {extent}; they are not the same grid.")
+        return ds.reindex(latitude=ref.latitude, longitude=ref.longitude, method="nearest", tolerance=tol)
+
     @dask.delayed
     def _predict_func(self,
                       IN) -> None:
@@ -298,7 +309,8 @@ class UpscaleAge(ABC):
         buffer_IN = {'latitude': slice(buffer_IN.bounds[3], buffer_IN.bounds[1], None),
                     'longitude': slice(buffer_IN.bounds[0], buffer_IN.bounds[2], None)}
     
-        subset_LastTimeSinceDist_cube = self.LastTimeSinceDist_cube.sel(time = self.DataConfig['end_year']).sel(buffer_IN)
+        subset_LastTimeSinceDist_cube = self._snap_to_agb_grid(
+            self.LastTimeSinceDist_cube.sel(time = self.DataConfig['end_year']), buffer_IN)
         subset_LastTimeSinceDist_cube = subset_LastTimeSinceDist_cube.where(subset_LastTimeSinceDist_cube>=1)
         
         if not np.isnan(subset_LastTimeSinceDist_cube.to_array().values).all():
@@ -321,11 +333,6 @@ class UpscaleAge(ABC):
                 LTSD_by_year[year] = reproject_ltsd_to_year(
                     LTSD_anchor_flat, target_year=year, anchor_year=anchor_year
                 )
-
-            # Canopy height comes from the remote 30m Potapov store (see
-            # data_config yaml): block-mean aggregate onto the prediction
-            # grid rather than point-interpolate, since every native pixel
-            # should contribute to the target cell it falls inside.
             canopy_feature_name = [x for x in self.DataConfig['features'] if "canopy_height" in x][0]
             canopy_times = self.upscaling_config['output_writer_params']['dims']['time']
             canopy_regridded = [
@@ -647,13 +654,7 @@ class UpscaleAge(ABC):
         
         training_ds = xr.open_dataset(self.DataConfig['training_dataset'])
         cluster_ = training_ds.cluster.values
-
-        # Weak-labelled clusters (dev/augment_og300_weaklabels.py) are kept
-        # out of the train/valid split: they always go to training, so the
-        # hyperparameter objective is scored on field-reference clusters
-        # only, and the split of the real clusters is identical with or
-        # without augmentation (given split_random_seed). That makes a
-        # with/without weak-label ablation a clean single-factor comparison.
+        
         if 'weak_label_source' in training_ds:
             is_weak = (training_ds['weak_label_source'].astype(str) != '').any('sample').values
         else:
