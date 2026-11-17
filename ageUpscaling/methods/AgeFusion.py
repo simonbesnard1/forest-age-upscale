@@ -284,16 +284,16 @@ class AgeFusion:
           - Old-growth sentinel applied before clipping; final clip to [1, tmax].
 
         Age floor from the disturbance record:
-          LTSD is itself direct, biomass-independent evidence of a minimum
-          age: a detected disturbance LTSD years ago means the stand cannot
-          be younger than that, and the LTSD==50 sentinel (no disturbance
-          seen anywhere in the monitored record) means age >= 50. This is
-          used as a hard lower bound (TSD) in the CR/biomass bias
-          correction below, so that naturally low-biomass but
-          long-undisturbed stands cannot be pulled down towards "young" by
-          the biomass-driven correction. Without it, a low-productivity
-          old stand and a genuinely young stand with the same biomass are
-          indistinguishable to the CR curve.
+          Only a *detected* disturbance (1 <= LTSD < 50) sets a hard lower
+          bound (TSD) in the CR/biomass bias correction: a stand that
+          survived an event LTSD years ago cannot be younger than that.
+          The LTSD==50 sentinel ("no disturbance detected") sets no floor.
+          The underlying records start in ~2001 (Hansen-only areas) or
+          ~1985, never 50 years back, and Landsat products miss harvest
+          rotations and gradual degradation, so "undisturbed" is weak
+          evidence of age. A hard floor there piled large shares of pixels
+          onto exactly the floor value (e.g. ~50% at age 50 in Angolan
+          miombo and Guangxi plantations in the 3.2 test runs).
 
         Provenance and extrapolation:
           Each pixel's age comes from one of three mechanisms (see the
@@ -337,7 +337,10 @@ class AgeFusion:
         tmax = self._as1d(tmax)
 
         # Disturbance-record-based hard floors (biomass-independent).
-        ltsd_floor = np.where(np.isfinite(LTSD), np.clip(LTSD, 1.0, tmax), 1.0)
+        # Floor only from a detected disturbance; the LTSD==50 sentinel
+        # ("none detected") sets no floor (see docstring).
+        detected = np.isfinite(LTSD) & (LTSD >= 1) & (LTSD < 50)
+        ltsd_floor = np.where(detected, np.clip(LTSD, 1.0, tmax), 1.0)
         TSD_end   = np.maximum(TSD, ltsd_floor)
         TSD_start = np.maximum(TSD, ltsd_floor - years_span)
         TSD_start = np.maximum(TSD_start, 1.0)
@@ -532,7 +535,10 @@ class AgeFusion:
         TSD = self._as1d(TSD)
         tmax = self._as1d(tmax)
 
-        ltsd_floor = np.where(np.isfinite(LTSD_year), np.clip(LTSD_year, 1.0, tmax), 1.0)
+        # Floor only from a detected disturbance; the LTSD==50 sentinel
+        # ("none detected") sets no floor (see `fuse` docstring).
+        detected = np.isfinite(LTSD_year) & (LTSD_year >= 1) & (LTSD_year < 50)
+        ltsd_floor = np.where(detected, np.clip(LTSD_year, 1.0, tmax), 1.0)
         TSD_eff = np.maximum(TSD, ltsd_floor)
 
         z_suspicious = 2.0
