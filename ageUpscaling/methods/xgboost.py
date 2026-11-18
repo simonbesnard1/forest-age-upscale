@@ -177,7 +177,9 @@ class XGBoost:
         float
             The loss of the model.
         """
-        
+        task_key = 'oversample_classifier' if 'Classifier' in self.method else 'oversample_regressor'
+        oversampling = oversampling and bool(DataConfig.get(task_key, True))
+
         hyper_params = {
                         'eta': trial.suggest_float('eta ', DataConfig['hyper_params']['eta']['min'], DataConfig['hyper_params']['eta']['max']),
                         'gamma': trial.suggest_float('gamma ', DataConfig['hyper_params']['gamma']['min'], DataConfig['hyper_params']['gamma']['max']),
@@ -210,8 +212,6 @@ class XGBoost:
         
         if oversampling and self.method == "XGBoostRegressor":
 
-            # Joint age x biomass stratified oversampling (see
-            # RandomForest.py hp_search for the rationale).
             age_bin = np.round(train_data['target'], -1)
             biomass_bin = quantile_bins(train_data['biomass'], n_bins=DataConfig.get('oversample_biomass_bins', 4))
             extra_idx = stratified_oversample_extra_indices(age_bin, biomass_bin, max_multiple=DataConfig.get('oversample_max_multiple', 10.0))
@@ -221,11 +221,6 @@ class XGBoost:
 
         elif oversampling and self.method == "XGBoostClassifier":
 
-            # Biomass-stratified oversampling of the old-growth class (see
-            # RandomForest.py hp_search for the rationale). Complements
-            # scale_pos_weight, which only equalises overall 0/1 counts and
-            # does nothing about the positive class itself being almost all
-            # high biomass.
             biomass_bin = quantile_bins(train_data['biomass'], n_bins=DataConfig.get('oversample_biomass_bins', 4))
             extra_idx = stratified_oversample_extra_indices(train_data['target'], biomass_bin, max_multiple=DataConfig.get('oversample_max_multiple', 10.0))
 
@@ -306,7 +301,6 @@ class XGBoost:
                     y_hat =  self.best_model.predict(dpred)
                     
                 elif self.method == "XGBoostClassifier":
-                    #y_hat =  np.rint(self.best_model.predict(dpred))
                     y_hat_proba =  self.best_model.predict(dpred)                    
                     y_hat = (y_hat_proba > 0.5).astype(int)                  
                     
